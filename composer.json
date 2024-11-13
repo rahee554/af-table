@@ -1,0 +1,22 @@
+{
+  "name": "artflow-studio/table",
+  "description": "A custom package to render Livewire components using the @AFtable directive.",
+  "autoload": {
+    "psr-4": {
+      "ArtflowStudio\\Table\\": "src/"
+    }
+  },
+  "require": {
+    "php": "*",
+    "livewire/livewire": "^3.5",
+    "maatwebsite/excel": "^3.1",
+    "illuminate/view": "*"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "ArtflowStudio\\Table\\TableServiceProvider"
+      ]
+    }
+  }
+}
