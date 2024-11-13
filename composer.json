@@ -1,0 +1,20 @@
+{
+    "name": "artflow-studio/table",
+    "description": "Dynamic Laravel Livewire table component for Bootstrap and Tailwind.",
+    "autoload": {
+        "psr-4": {
+            "ArtflowStudio\\AFtable\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ArtflowStudio\\AFtable\\AFtableServiceProvider"
+            ]
+        }
+    },
+    "require": {
+        "php": "^8.0",
+        "livewire/livewire": "^3.0"
+    }
+}
