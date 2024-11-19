@@ -1,20 +1,31 @@
 {
     "name": "artflow-studio/table",
-    "description": "Dynamic Laravel Livewire table component for Bootstrap and Tailwind.",
+    "description": "A dynamic DataTable package for Laravel",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Your Name",
+            "email": "your@email.com"
+        }
+    ],
+    "require": {
+        "php": "^7.4|^8.0",
+        "laravel/framework": "^8.0|^9.0|^10.0",
+        "livewire/livewire": "^2.0",
+        "maatwebsite/excel": "^3.1",
+        "barryvdh/laravel-snappy": "^1.0"
+    },
     "autoload": {
         "psr-4": {
-            "ArtflowStudio\\AFtable\\": "src/"
+            "ArtflowStudio\\Table\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "ArtflowStudio\\AFtable\\AFtableServiceProvider"
+                "ArtflowStudio\\Table\\AFTableServiceProvider"
             ]
         }
-    },
-    "require": {
-        "php": "^8.0",
-        "livewire/livewire": "^3.0"
     }
 }

@@ -1,13 +1,10 @@
-# AFtable
+# AFTable - Dynamic DataTable Package for Laravel
 
-A dynamic Laravel Livewire table component supporting both Bootstrap and Tailwind.
+AFTable is a powerful and flexible DataTable package for Laravel that supports both Livewire and non-Livewire projects.
 
 ## Installation
 
-Run `composer require artflow-studio/table`
+1. Install the package via Composer:
 
-## Usage
-
-Use `@af-table()` for Bootstrap or `@af-table-tw()` for Tailwind.
-
-Add `@stack('af-styles')` and `@stack('af-scripts')` in the `<head>` section.
+```bash
+composer require artflow-studio/table
