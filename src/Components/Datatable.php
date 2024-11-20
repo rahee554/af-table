@@ -5,7 +5,7 @@ namespace ArtflowStudio\Table\Components;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\DataTableExport;
+use ArtflowStudio\Table\Exports\DataTableExport;
 use Illuminate\Database\Eloquent\Builder;
 use Barryvdh\Snappy\Facades\SnappyPdf as PDF;
 use Illuminate\Support\Facades\Blade;
@@ -302,7 +302,7 @@ class Datatable extends Component
     // Render method
     public function render()
     {
-        return view('livewire.tailwind.datatable', [
+        return view('artflow-studio::components.datatable', [
             'data' => $this->query()->paginate($this->recordsPerPage),
             'filters' => $this->filters,
         ]);

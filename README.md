@@ -1,6 +1,6 @@
-# AFTable - Dynamic DataTable Package for Laravel
+# ArtflowStudio Table
 
-AFTable is a powerful and flexible DataTable package for Laravel that supports both Livewire and non-Livewire projects.
+A flexible and customizable Livewire data table component for Laravel.
 
 ## Installation
 
