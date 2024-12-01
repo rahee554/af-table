@@ -1,17 +1,18 @@
 <?php
 
-namespace ArtflowStudio\Table\Components;
+namespace ArtflowStudio\Table;
 
 use Livewire\Component;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Facades\Excel;
-use ArtflowStudio\Table\Exports\DataTableExport;
+use App\Exports\DataTableExport;
 use Illuminate\Database\Eloquent\Builder;
 use Barryvdh\Snappy\Facades\SnappyPdf as PDF;
 use Illuminate\Support\Facades\Blade;
 
 class Datatable extends Component
 {
+
     use WithPagination;
 
     // Public properties grouped for better clarity
@@ -125,16 +126,16 @@ class Datatable extends Component
     public function updatedSelectedColumn($column)
     {
         $filterDetails = $this->filters[$column] ?? null;
-    
+
         if ($filterDetails) {
             $this->selectedColumn = $column;
             $this->columnType = $filterDetails['type'];
-    
+
             if (isset($filterDetails['relation'])) {
                 // Fetch distinct values for related columns
                 $relationName = $filterDetails['relation']['name'];
                 $relatedColumn = $filterDetails['relation']['column'];
-    
+
                 $this->distinctValues = $this->model::with($relationName)
                     ->get()
                     ->pluck("$relationName.$relatedColumn")
@@ -149,8 +150,8 @@ class Datatable extends Component
             }
         }
     }
-    
-    
+
+
 
 
     public function applyDateRange($startDate, $endDate)
@@ -176,103 +177,103 @@ class Datatable extends Component
 
     // Filter application logic
     protected function applyFilters(Builder $query)
-{
-    if ($this->filterColumn && $this->filterValue !== null) {
-        $isRelation = false;
-        $relationDetails = null;
+    {
+        if ($this->filterColumn && $this->filterValue !== null) {
+            $isRelation = false;
+            $relationDetails = null;
 
-        // Check if the filterColumn is a relational column
-        if (isset($this->columns[$this->filterColumn]['relation'])) {
-            $isRelation = true;
-            $relationDetails = explode(':', $this->columns[$this->filterColumn]['relation']);
-        }
+            // Check if the filterColumn is a relational column
+            if (isset($this->columns[$this->filterColumn]['relation'])) {
+                $isRelation = true;
+                $relationDetails = explode(':', $this->columns[$this->filterColumn]['relation']);
+            }
 
-        // Handle filtering based on the column type
-        switch ($this->columnType) {
-            case 'number':
-                if ($isRelation && $relationDetails) {
-                    [$relation, $attribute] = $relationDetails;
-                    $query->whereHas($relation, function ($relQuery) use ($attribute) {
-                        $relQuery->where($attribute, $this->numberOperator, $this->filterValue);
-                    });
-                } else {
-                    $query->where($this->filterColumn, $this->numberOperator, $this->filterValue);
-                }
-                break;
+            // Handle filtering based on the column type
+            switch ($this->columnType) {
+                case 'number':
+                    if ($isRelation && $relationDetails) {
+                        [$relation, $attribute] = $relationDetails;
+                        $query->whereHas($relation, function ($relQuery) use ($attribute) {
+                            $relQuery->where($attribute, $this->numberOperator, $this->filterValue);
+                        });
+                    } else {
+                        $query->where($this->filterColumn, $this->numberOperator, $this->filterValue);
+                    }
+                    break;
 
-            case 'date':
-                if ($isRelation && $relationDetails) {
-                    [$relation, $attribute] = $relationDetails;
-                    $query->whereHas($relation, function ($relQuery) use ($attribute) {
-                        $relQuery->whereDate($attribute, $this->filterValue);
-                    });
-                } else {
-                    $query->whereDate($this->filterColumn, $this->filterValue);
-                }
-                break;
+                case 'date':
+                    if ($isRelation && $relationDetails) {
+                        [$relation, $attribute] = $relationDetails;
+                        $query->whereHas($relation, function ($relQuery) use ($attribute) {
+                            $relQuery->whereDate($attribute, $this->filterValue);
+                        });
+                    } else {
+                        $query->whereDate($this->filterColumn, $this->filterValue);
+                    }
+                    break;
 
-            case 'select':
-                if ($isRelation && $relationDetails) {
-                    [$relation, $attribute] = $relationDetails;
-                    $query->whereHas($relation, function ($relQuery) use ($attribute) {
-                        $relQuery->where($attribute, $this->filterValue);
-                    });
-                } else {
-                    $query->where($this->filterColumn, '=', $this->filterValue);
-                }
-                break;
+                case 'select':
+                    if ($isRelation && $relationDetails) {
+                        [$relation, $attribute] = $relationDetails;
+                        $query->whereHas($relation, function ($relQuery) use ($attribute) {
+                            $relQuery->where($attribute, $this->filterValue);
+                        });
+                    } else {
+                        $query->where($this->filterColumn, '=', $this->filterValue);
+                    }
+                    break;
+            }
         }
     }
-}
 
 
 
     // Query builder with sorting and filtering
     protected function query(): Builder
-{
-    $query = $this->model::query();
+    {
+        $query = $this->model::query();
 
-    // Search functionality
-    if ($this->searchable && $this->search) {
-        $query->where(function ($query) {
-            foreach ($this->columns as $column) {
-                // Skip non-database columns
-                if (empty($column['key']) || $column['key'] === 'actions') {
-                    continue;
-                }
+        // Search functionality
+        if ($this->searchable && $this->search) {
+            $query->where(function ($query) {
+                foreach ($this->columns as $column) {
+                    // Skip non-database columns
+                    if (empty($column['key']) || $column['key'] === 'actions') {
+                        continue;
+                    }
 
-                if ($this->visibleColumns[$column['key']]) {
-                    if (isset($column['relation'])) {
-                        [$relation, $attribute] = explode(':', $column['relation']);
-                        $query->orWhereHas($relation, function ($relQ) use ($attribute) {
-                            $relQ->where($attribute, 'like', '%' . $this->search . '%')
-                                ->orWhere('id', 'like', '%' . $this->search . '%');
-                        });
-                    } else {
-                        $query->orWhere($column['key'], 'like', '%' . $this->search . '%');
+                    if ($this->visibleColumns[$column['key']]) {
+                        if (isset($column['relation'])) {
+                            [$relation, $attribute] = explode(':', $column['relation']);
+                            $query->orWhereHas($relation, function ($relQ) use ($attribute) {
+                                $relQ->where($attribute, 'like', '%' . $this->search . '%')
+                                    ->orWhere('id', 'like', '%' . $this->search . '%');
+                            });
+                        } else {
+                            $query->orWhere($column['key'], 'like', '%' . $this->search . '%');
+                        }
                     }
                 }
-            }
-        });
-    }
+            });
+        }
 
-    // Apply filters for selected column and filter value
-    if ($this->filterColumn && $this->filterValue) {
-        $this->applyFilters($query);
-    }
+        // Apply filters for selected column and filter value
+        if ($this->filterColumn && $this->filterValue) {
+            $this->applyFilters($query);
+        }
 
-    // Date range filter
-    if ($this->dateColumn && $this->startDate && $this->endDate) {
-        $query->whereBetween($this->dateColumn, [$this->startDate, $this->endDate]);
-    }
+        // Date range filter
+        if ($this->dateColumn && $this->startDate && $this->endDate) {
+            $query->whereBetween($this->dateColumn, [$this->startDate, $this->endDate]);
+        }
 
-    // Sorting
-    if ($this->sortColumn) {
-        $query->orderBy($this->sortColumn, $this->sortDirection);
-    }
+        // Sorting
+        if ($this->sortColumn) {
+            $query->orderBy($this->sortColumn, $this->sortDirection);
+        }
 
-    return $query;
-}
+        return $query;
+    }
 
 
     // Additional utility methods
@@ -302,7 +303,7 @@ class Datatable extends Component
     // Render method
     public function render()
     {
-        return view('artflow-studio::components.datatable', [
+        return view('artflow-studio.table.datatable', [
             'data' => $this->query()->paginate($this->recordsPerPage),
             'filters' => $this->filters,
         ]);
