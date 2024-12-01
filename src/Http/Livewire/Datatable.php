@@ -1,6 +1,7 @@
 <?php
 
-namespace ArtflowStudio\Table;
+namespace ArtflowStudio\Table\Http\Livewire;
+
 
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -14,7 +15,7 @@ class Datatable extends Component
 {
 
     use WithPagination;
-    protected $paginationTheme = 'bootstrap';
+
     // Public properties grouped for better clarity
     public $model;
     public $columns = [];
@@ -282,6 +283,7 @@ class Datatable extends Component
         return $this->model::distinct()->pluck($column)->toArray();
     }
 
+ 
     public function renderRawHtml($rawTemplate, $row)
     {
         return Blade::render($rawTemplate, compact('row'));
@@ -303,7 +305,7 @@ class Datatable extends Component
     // Render method
     public function render()
     {
-        return view('artflow-studio.table.datatable', [
+        return view('artflow-studio.table::datatable', [
             'data' => $this->query()->paginate($this->recordsPerPage),
             'filters' => $this->filters,
         ]);

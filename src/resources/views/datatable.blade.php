@@ -1,22 +1,23 @@
 @push('styles')
-    <!-- Check if Livewire styles are already pushed -->
-    @unless(Blade::hasStack('styles'))
+    @once
+        <!-- Livewire Styles -->
         @livewireStyles
-    @endunless
+    @endonce
 
     <!-- Your custom CSS for this component -->
     <link rel="stylesheet" href="{{ asset('vendor/artflow-studio/table/assets/style.css') }}">
 @endpush
 
 @push('scripts')
-    <!-- Check if Livewire scripts are already pushed -->
-    @unless(Blade::hasStack('scripts'))
+    @once
+        <!-- Livewire Scripts -->
         @livewireScripts
-    @endunless
+    @endonce
 
     <!-- Your custom JS for this component -->
     <script src="{{ asset('vendor/artflow-studio/table/assets/scripts.js') }}"></script>
 @endpush
+
 
 <div>
     <div class="row mb-2">
@@ -157,7 +158,7 @@
     </div>
 
     <div>
-        {{ $data->links('pagination::bootstrap') }}
+        {{ $data->links('artflow-studio.table::pagination') }}
     </div>
 </div>
 

@@ -4,28 +4,38 @@ namespace ArtflowStudio\Table;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class TableServiceProvider extends ServiceProvider
 {
     public function boot()
-{
-    // Register the custom Blade directive
-    Blade::directive('AFtable', function ($expression) {
-        return "<?php echo app('view')->make('artflow-studio.table.' . {$expression}); ?>";
-    });
+    {
+        // Explicitly register the Livewire component
+        Livewire::component('aftable', \ArtflowStudio\Table\Http\Livewire\Datatable::class);
 
-    // Publish the views if needed
-    $this->loadViewsFrom(__DIR__ . '/resources/views', 'artflow-studio.table');
+        // Register the custom Blade directive
+        Blade::directive('AFtable', function ($expression) {
+            // Dynamically mount the Datatable Livewire component and pass the array to the component
+            return "<?php echo app('livewire')->mount('aftable', {$expression})->html(); ?>";
+        });
 
-    // Optional: Publish assets if needed
-    $this->publishes([
-        __DIR__ . '/resources/assets' => public_path('vendor/artflow-studio/table'),
-    ], 'assets');
-}
+        // Load views from the resources/views folder in your package
+        $this->loadViewsFrom(__DIR__ . '/resources/views', 'artflow-studio.table');
+        
 
+        // Optionally publish the views to the app's resources/views/vendor directory
+        $this->publishes([
+            __DIR__ . '/resources/views' => resource_path('views/vendor/artflow-studio/table'),
+        ], 'views');
+
+        // Optionally, publish assets (CSS/JS)
+        $this->publishes([
+            __DIR__ . '/resources/assets' => public_path('vendor/artflow-studio/table'),
+        ], 'assets');
+    }
 
     public function register()
     {
-        // You can register services here if needed
+        // Register any services if needed
     }
 }

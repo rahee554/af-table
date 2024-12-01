@@ -14,7 +14,7 @@ class Datatable extends Component
 {
 
     use WithPagination;
-    protected $paginationTheme = 'bootstrap';
+
     // Public properties grouped for better clarity
     public $model;
     public $columns = [];
