@@ -13,33 +13,15 @@ use Illuminate\Support\Facades\Blade;
 class Datatable extends Component
 {
 
-    use WithPagination;
+
     protected $paginationTheme = 'bootstrap';
+
     // Public properties grouped for better clarity
-    public $model;
-    public $columns = [];
-    public $visibleColumns = [];
-    public $searchable = true;
-    public $exportable = true;
-    public $printable = true;
-    public $checkbox = false;
-    public $recordsPerPage = 10;
-    public $search = '';
-    public $sortColumn = null;
-    public $sortDirection = 'asc';
-    public $selectedRows = [];
-    public $selectAll = false;
-    public $filters = [];
-    public $filterColumn = null;
-    public $filterOperator = '=';
-    public $filterValue = null;
-    public $dateColumn = null;
-    public $startDate = null;
-    public $endDate = null;
-    public $selectedColumn = null;
-    public $numberOperator = '=';
-    public $distinctValues = [];
-    public $columnType = null;
+    public
+        $model, $columns = [], $visibleColumns = [], $searchable = true, $exportable = true, $printable = true, $checkbox = false,
+        $recordsPerPage = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [], $selectAll = false,
+        $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null, $startDate = null,
+        $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null, $searchCols = [];
 
     public $queryString = [
         'recordsPerPage' => ['except' => 10], // Default to 10 if not set
@@ -56,7 +38,7 @@ class Datatable extends Component
         $this->visibleColumns = array_fill_keys(array_column($columns, 'key'), true);
 
         // Set filters if passed, otherwise initialize as empty
-        $this->filters = $filters;
+        $this->filters = $filters ?? [];
     }
 
     // Search-related methods
@@ -233,6 +215,14 @@ class Datatable extends Component
     {
         $query = $this->model::query();
 
+        // Eager load relationships for all columns that have a relation
+        foreach ($this->columns as $column) {
+            if (isset($column['relation'])) {
+                [$relation, $attribute] = explode(':', $column['relation']);
+                $query->with($relation); // Eager load the related model
+            }
+        }
+
         // Search functionality
         if ($this->searchable && $this->search) {
             $query->where(function ($query) {
@@ -274,6 +264,7 @@ class Datatable extends Component
 
         return $query;
     }
+
 
 
     // Additional utility methods

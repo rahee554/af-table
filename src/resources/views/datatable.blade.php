@@ -21,13 +21,19 @@
 
 <div>
     <div class="row mb-2">
-        <div class="col-3">
-            @if ($searchable)
-                <input type="text" wire:model.lazy="search" placeholder="Search..." class="form-control form-control-sm">
-            @endif
+        <div class="col">
+            <div class="w-100px">
+                <select wire:model.change="recordsPerPage" id="recordsPerPage" class="form-select form-select-sm">
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="500">500</option>
+                    <option value="1000">1000</option>
+                </select>
+            </div>
         </div>
 
-        <div class="col-6 row">
+        {{-- <div class="col-6 row">
             <div class="col">
                 <select wire:model="filterColumn" class="form-select form-select-sm" data-control="select2" data-hide-search="true">
                     <option value="">Filter by Column</option>
@@ -50,53 +56,26 @@
             <div class="col">
                 <input type="text" wire:model.lazy="filterValue" placeholder="Value" class="form-control form-control-sm">
             </div>
-        </div>
+        </div> --}}
+        <div class="col d-flex justify-content-end">
 
-
-        
-        <div class="col-3">
-            <input class="form-control form-control-sm" placeholder="Pick date range" id="daterangePickr" />
-        </div>
-
-        <div class="mb-2 w-200px">
-            <label for="recordsPerPage" class="form-label">Records per Page:</label>
-            <select wire:model.change="recordsPerPage" id="recordsPerPage" class="form-select form-select-sm" >
-                <option value="10">10</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="500">500</option>
-                <option value="1000">1000</option>
-            </select>
-        </div>
-
-        <div class="col d-flex">
-            @if ($exportable)
-                <div class="dropdown me-2">
-                    <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        Export
-                    </button>
-                    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
-                        <li><a class="dropdown-item" href="#" wire:click.prevent="export('csv')">Export CSV</a></li>
-                        <li><a class="dropdown-item" href="#" wire:click.prevent="export('xlsx')">Export Excel</a></li>
-                        <li><a class="dropdown-item" href="#" wire:click.prevent="exportPdf">Export PDF</a></li>
-                    </ul>
-                </div>
+            @if ($searchable)
+                <input type="text" wire:model.lazy="search" placeholder="Search..."
+                    class="form-control form-control-sm w-md-300px me-2">
             @endif
-            @if ($printable)
-                <button onclick="window.print()" class="btn btn-sm btn-secondary">Print</button>
-            @endif
-        </div>
-
-        <div class="col d-flex">
             <div class="dropdown me-2">
-                <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                   Column Visibility
+                <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                    Column Visibility
                 </button>
                 <ul class="dropdown-menu" aria-labelledby="columnVisibilityDropdown">
                     @foreach ($columns as $column)
-                        <li>
+                        <li class="cursor-pointer">
                             <div class="form-check form-switch form-check-custom form-check-solid me-10">
-                                <input class="form-check-input h-20px w-30px" type="checkbox" id="column-{{ $column['key'] }}" wire:click="toggleColumnVisibility('{{ $column['key'] }}')" {{ $visibleColumns[$column['key']] ? 'checked' : '' }}>
+                                <input class="form-check-input h-20px w-30px m-1" type="checkbox"
+                                    id="column-{{ $column['key'] }}"
+                                    wire:click="toggleColumnVisibility('{{ $column['key'] }}')"
+                                    {{ $visibleColumns[$column['key']] ? 'checked' : '' }}>
                                 <label class="form-check-label" for="column-{{ $column['key'] }}">
                                     {{ $column['label'] }}
                                 </label>
@@ -106,6 +85,28 @@
                 </ul>
             </div>
         </div>
+
+
+        {{-- <div class="col d-flex">
+            @if ($exportable)
+                <div class="dropdown me-2">
+                    <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="exportDropdown"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        Export
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                        <li><a class="dropdown-item" href="#" wire:click.prevent="export('csv')">Export CSV</a>
+                        </li>
+                        <li><a class="dropdown-item" href="#" wire:click.prevent="export('xlsx')">Export Excel</a>
+                        </li>
+                        <li><a class="dropdown-item" href="#" wire:click.prevent="exportPdf">Export PDF</a></li>
+                    </ul>
+                </div>
+            @endif
+            @if ($printable)
+                <button onclick="window.print()" class="btn btn-sm btn-secondary">Print</button>
+            @endif
+        </div> --}}
     </div>
 
     <div class="table-responsive">
@@ -115,7 +116,8 @@
                     @if ($checkbox)
                         <th>
                             <div class="form-check">
-                                <input class="form-check-input" wire:model="selectAll" type="checkbox" data-kt-check-target="#myTable .form-check-input" />
+                                <input class="form-check-input" wire:model="selectAll" type="checkbox"
+                                    data-kt-check-target="#myTable .form-check-input" />
                             </div>
                         </th>
                     @endif
@@ -135,7 +137,8 @@
                 @foreach ($data as $row)
                     <tr>
                         @if ($checkbox)
-                            <td><input type="checkbox" wire:model="selectedRows" value="{{ $row->id }}" class="form-check-input"></td>
+                            <td><input type="checkbox" wire:model="selectedRows" value="{{ $row->id }}"
+                                    class="form-check-input"></td>
                         @endif
                         @foreach ($columns as $column)
                             @if ($visibleColumns[$column['key']])
@@ -187,7 +190,8 @@
                     'Last 7 Days': [moment().subtract(6, 'days'), moment()],
                     'Last 30 Days': [moment().subtract(29, 'days'), moment()],
                     'This Month': [moment().startOf('month'), moment().endOf('month')],
-                    'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                    'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1,
+                        'month').endOf('month')]
                 }
             }, cb);
 
