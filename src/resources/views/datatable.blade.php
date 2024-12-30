@@ -22,6 +22,7 @@
 <div>
     <div class="row mb-2">
         <div class="col">
+            @if ($recordsPerPage == 10 )
             <div class="w-100px">
                 <select wire:model.change="recordsPerPage" id="recordsPerPage" class="form-select form-select-sm">
                     <option value="10">10</option>
@@ -31,6 +32,7 @@
                     <option value="1000">1000</option>
                 </select>
             </div>
+            @endif
         </div>
 
         {{-- <div class="col-6 row">
@@ -64,7 +66,7 @@
                     class="form-control form-control-sm w-md-300px me-2">
             @endif
             <div class="dropdown me-2">
-                <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
+                <button class="btn btn-outline btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
                     data-bs-toggle="dropdown" aria-expanded="false">
                     Column Visibility
                 </button>
@@ -109,8 +111,8 @@
         </div> --}}
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-striped" id="myTable">
+    <div class="table-responsive rounded">
+        <table class="table table-bordered p-2 " id="myTable">
             <thead>
                 <tr>
                     @if ($checkbox)
@@ -123,7 +125,7 @@
                     @endif
                     @foreach ($columns as $column)
                         @if ($visibleColumns[$column['key']])
-                            <th class="{{ $column['class'] ?? '' }}" wire:click="toggleSort('{{ $column['key'] }}')">
+                            <th class="{{ $column['class'] ?? '' }} fw-bold bg-light" wire:click="toggleSort('{{ $column['key'] }}')">
                                 {{ $column['label'] }}
                                 @if ($sortColumn == $column['key'])
                                     <span>{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
@@ -162,6 +164,18 @@
 
     <div>
         {{ $data->links('artflow-studio.table::pagination') }}
+        @if ($recordsPerPage > 10 )
+        <div class="w-100px">
+            <select wire:model.change="recordsPerPage" id="recordsPerPage" class="form-select form-select-sm">
+                <option value="10">10</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+            </select>
+        </div>
+        @endif
+       
     </div>
 </div>
 

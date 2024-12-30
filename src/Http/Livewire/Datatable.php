@@ -47,7 +47,7 @@ class Datatable extends Component
     ];
 
     protected $listeners = [
-        'dateRangeSelected' => 'applyDateRange',
+        'dateRangeSelected' => 'applyDateRange',  'refreshTable' => '$refresh',
     ];
 
     public function mount($model, $columns, $filters = [])
