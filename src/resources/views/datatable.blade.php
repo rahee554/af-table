@@ -22,9 +22,8 @@
 <div>
     <div class="row mb-2">
         <div class="col">
-            @if ($recordsPerPage == 10 )
             <div class="w-100px">
-                <select wire:model.change="recordsPerPage" id="recordsPerPage" class="form-select form-select-sm">
+                <select wire:model.change="records" id="records" class="form-select form-select-sm">
                     <option value="10">10</option>
                     <option value="50">50</option>
                     <option value="100">100</option>
@@ -32,7 +31,6 @@
                     <option value="1000">1000</option>
                 </select>
             </div>
-            @endif
         </div>
 
         {{-- <div class="col-6 row">
@@ -60,11 +58,23 @@
             </div>
         </div> --}}
         <div class="col d-flex justify-content-end">
-
+           
+           
+            
             @if ($searchable)
+            <div class="position-relative w-md-250px me-2">
                 <input type="text" wire:model.lazy="search" placeholder="Search..."
-                    class="form-control form-control-sm w-md-300px me-2">
-            @endif
+                    class="form-control form-control-sm border-0 p-2 pe-4">
+                
+                @if (!empty($search))
+                    <span class="position-absolute top-50 end-0 translate-middle-y me-2 cursor-pointer text-muted"
+                          style="z-index: 1;" wire:click="$set('search', '')">
+                        &times;
+                    </span>
+                @endif
+            </div>
+        @endif
+        
             <div class="dropdown me-2">
                 <button class="btn btn-outline btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
                     data-bs-toggle="dropdown" aria-expanded="false">
@@ -84,8 +94,13 @@
                             </div>
                         </li>
                     @endforeach
+
+
                 </ul>
             </div>
+            <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
+                Refresh Table
+            </button>
         </div>
 
 
@@ -116,7 +131,7 @@
             <thead>
                 <tr>
                     @if ($checkbox)
-                        <th>
+                        <th class="fw-bold bg-light">
                             <div class="form-check">
                                 <input class="form-check-input" wire:model="selectAll" type="checkbox"
                                     data-kt-check-target="#myTable .form-check-input" />
@@ -125,7 +140,8 @@
                     @endif
                     @foreach ($columns as $column)
                         @if ($visibleColumns[$column['key']])
-                            <th class="{{ $column['class'] ?? '' }} fw-bold bg-light" wire:click="toggleSort('{{ $column['key'] }}')">
+                            <th class="{{ $column['class'] ?? '' }} fw-bold bg-light"
+                                wire:click="toggleSort('{{ $column['key'] }}')">
                                 {{ $column['label'] }}
                                 @if ($sortColumn == $column['key'])
                                     <span>{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
@@ -133,6 +149,10 @@
                             </th>
                         @endif
                     @endforeach
+
+                    @if (!empty($actions))
+                        <th class="fw-bold bg-light">Actions</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -156,6 +176,13 @@
                                 </td>
                             @endif
                         @endforeach
+                        @if (!empty($actions))
+                            <td>
+                                @foreach ($actions as $action)
+                                    {!! str_replace('{{ $row->id }}', $row->id, $action) !!}
+                                @endforeach
+                            </td>
+                        @endif
                     </tr>
                 @endforeach
             </tbody>
@@ -164,18 +191,18 @@
 
     <div>
         {{ $data->links('artflow-studio.table::pagination') }}
-        @if ($recordsPerPage > 10 )
-        <div class="w-100px">
-            <select wire:model.change="recordsPerPage" id="recordsPerPage" class="form-select form-select-sm">
-                <option value="10">10</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="500">500</option>
-                <option value="1000">1000</option>
-            </select>
-        </div>
+        @if ($records > 10)
+            <div class="w-100px">
+                <select wire:model.change="records" id="records" class="form-select form-select-sm">
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="500">500</option>
+                    <option value="1000">1000</option>
+                </select>
+            </div>
         @endif
-       
+
     </div>
 </div>
 

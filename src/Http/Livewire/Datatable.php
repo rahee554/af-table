@@ -13,44 +13,24 @@ use Illuminate\Support\Facades\Blade;
 
 class Datatable extends Component
 {
-
     use WithPagination;
 
-    // Public properties grouped for better clarity
-    public $model;
-    public $columns = [];
-    public $visibleColumns = [];
-    public $searchable = true;
-    public $exportable = true;
-    public $printable = true;
-    public $checkbox = false;
-    public $recordsPerPage = 10;
-    public $search = '';
-    public $sortColumn = null;
-    public $sortDirection = 'asc';
-    public $selectedRows = [];
-    public $selectAll = false;
-    public $filters = [];
-    public $filterColumn = null;
-    public $filterOperator = '=';
-    public $filterValue = null;
-    public $dateColumn = null;
-    public $startDate = null;
-    public $endDate = null;
-    public $selectedColumn = null;
-    public $numberOperator = '=';
-    public $distinctValues = [];
-    public $columnType = null;
+    public $model, $columns = [], $visibleColumns = [], $searchable = true, $exportable = true, $printable = true,
+        $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
+        $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
+        $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null,
+        $actions = [];
 
     public $queryString = [
-        'recordsPerPage' => ['except' => 10], // Default to 10 if not set
+        'records' => ['except' => 10], // Default to 10 if not set
     ];
 
     protected $listeners = [
-        'dateRangeSelected' => 'applyDateRange',  'refreshTable' => '$refresh',
+        'dateRangeSelected' => 'applyDateRange',
+        'refreshTable' => '$refresh',
     ];
 
-    public function mount($model, $columns, $filters = [])
+    public function mount($model, $columns, $filters = [], $actions = [])
     {
         $this->model = $model;
         $this->columns = $columns;
@@ -58,6 +38,7 @@ class Datatable extends Component
 
         // Set filters if passed, otherwise initialize as empty
         $this->filters = $filters;
+        $this->actions = $actions;
     }
 
     // Search-related methods
@@ -66,7 +47,15 @@ class Datatable extends Component
         $this->resetPage();
     }
 
-    public function updatedRecordsPerPage()
+    public function refreshTable()
+    {
+        $this->resetPage();
+        $this->search = '';
+    }
+    
+
+
+    public function updatedrecords()
     {
         $this->resetPage();
     }
@@ -283,7 +272,7 @@ class Datatable extends Component
         return $this->model::distinct()->pluck($column)->toArray();
     }
 
- 
+
     public function renderRawHtml($rawTemplate, $row)
     {
         return Blade::render($rawTemplate, compact('row'));
@@ -306,7 +295,7 @@ class Datatable extends Component
     public function render()
     {
         return view('artflow-studio.table::datatable', [
-            'data' => $this->query()->paginate($this->recordsPerPage),
+            'data' => $this->query()->paginate($this->records),
             'filters' => $this->filters,
         ]);
     }
