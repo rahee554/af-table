@@ -34,8 +34,10 @@ class Datatable extends Component
     {
         $this->model = $model;
         $this->columns = $columns;
-        $this->visibleColumns = array_fill_keys(array_column($columns, 'key'), true);
-
+        $this->visibleColumns = collect($columns)->mapWithKeys(function ($column) {
+            return [$column['key'] => empty($column['hide'])]; // 👈 false if hide is true
+        })->toArray();
+        
         // Set filters if passed, otherwise initialize as empty
         $this->filters = $filters;
         $this->actions = $actions;

@@ -126,7 +126,7 @@
         </div> --}}
     </div>
 
-    <div class="table-responsive rounded">
+    <div class="table-responsive rounded {{ count($data) < 5 ? 'h-500px' : '' }}">
         <table class="table table-bordered p-2 " id="myTable">
             <thead>
                 <tr>
