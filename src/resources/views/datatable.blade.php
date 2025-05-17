@@ -58,23 +58,23 @@
             </div>
         </div> --}}
         <div class="col d-flex justify-content-end">
-           
-           
-            
+
+
+
             @if ($searchable)
-            <div class="position-relative w-md-250px me-2">
-                <input type="text" wire:model.lazy="search" placeholder="Search..."
-                    class="form-control form-control-sm border-0 p-2 pe-4">
-                
-                @if (!empty($search))
-                    <span class="position-absolute top-50 end-0 translate-middle-y me-2 cursor-pointer text-muted"
-                          style="z-index: 1;" wire:click="$set('search', '')">
-                        &times;
-                    </span>
-                @endif
-            </div>
-        @endif
-        
+                <div class="position-relative w-md-250px me-2">
+                    <input type="text" wire:model.lazy="search" placeholder="Search..."
+                        class="form-control form-control-sm border-0 p-2 pe-4">
+
+                    @if (!empty($search))
+                        <span class="position-absolute top-50 end-0 translate-middle-y me-2 cursor-pointer text-muted"
+                            style="z-index: 1;" wire:click="$set('search', '')">
+                            &times;
+                        </span>
+                    @endif
+                </div>
+            @endif
+
             <div class="dropdown me-2">
                 <button class="btn btn-outline btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
                     data-bs-toggle="dropdown" aria-expanded="false">
@@ -176,13 +176,9 @@
                                 </td>
                             @endif
                         @endforeach
-                        @if (!empty($actions))
-                            <td>
-                                @foreach ($actions as $action)
-                                    {!! str_replace('{{ $row->id }}', $row->id, $action) !!}
-                                @endforeach
-                            </td>
-                        @endif
+                        @foreach ($actions as $action)
+                            {!! $this->renderRawHtml($action, $row) !!}
+                        @endforeach
                     </tr>
                 @endforeach
             </tbody>
