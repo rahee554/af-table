@@ -177,7 +177,9 @@
                             @endif
                         @endforeach
                         @foreach ($actions as $action)
-                            {!! $this->renderRawHtml($action, $row) !!}
+                            <td>
+                                {!! $this->renderRawHtml($action, $row) !!}
+                            </td>
                         @endforeach
                     </tr>
                 @endforeach
