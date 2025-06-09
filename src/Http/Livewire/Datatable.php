@@ -15,11 +15,18 @@ class Datatable extends Component
 {
     use WithPagination;
 
-    public $model, $columns = [], $visibleColumns = [], $searchable = true, $exportable = true, $printable = true,
-        $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
-        $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
-        $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null,
-        $actions = [];
+    public $model, $columns = [], $visibleColumns = [],
+    $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
+    $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
+    $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null,
+    $actions = [];
+
+    //* Optional Checks
+    public $searchable = true, $exportable = false, $printable = false, $colSort = true,
+    // For Initial sorting
+    $sort = 'desc',
+    //refresh Button
+    $refreshBtn = false;
 
     public $queryString = [
         'records' => ['except' => 10], // Default to 10 if not set
@@ -37,10 +44,17 @@ class Datatable extends Component
         $this->visibleColumns = collect($columns)->mapWithKeys(function ($column) {
             return [$column['key'] => empty($column['hide'])]; // 👈 false if hide is true
         })->toArray();
-        
+
         // Set filters if passed, otherwise initialize as empty
         $this->filters = $filters;
         $this->actions = $actions;
+
+        if (empty($this->sortColumn)) {
+            $first = collect($columns)->first();
+            $this->sortColumn = $first['key'];
+            $this->sortDirection = $this->sort;
+        }
+
     }
 
     // Search-related methods
@@ -54,7 +68,7 @@ class Datatable extends Component
         $this->resetPage();
         $this->search = '';
     }
-    
+
 
 
     public function updatedrecords()
