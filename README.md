@@ -9,10 +9,31 @@ A Laravel Livewire “datatable” component that makes it effortless to display
 - **Column-based sorting** with toggles for ascending/descending.
 - **Per-column filters** (text, select, number, and date-range).
 - **Dynamic column visibility** so users can choose which columns to view.
+- **Column visibility is now stored in the session** so user preferences persist across reloads.
 - **Export options**: CSV, Excel, and PDF.
 - **Print-friendly view** built in.
 - **Row selection** with checkboxes and “select all”.
 - **Fully customizable columns**: raw Blade views, relation lookups, and conditional CSS classes.
+- **Index column**: By default, every table shows an index column as the first column (1, 2, 3, ...), which is always correct across sorting and pagination. Can be disabled.
+- **Performance improvements**: Only visible column relations are eager loaded, and distinct values for filters are fetched efficiently.
+- **Table animation**: Smooth fade animation on pagination, sorting, and refresh for better UX.
+- **Column visibility dropdown persists**: When toggling columns, the dropdown stays open for quick multi-toggle.
+- **Session-based column visibility**: Each user/table/model combination remembers its own column visibility.
+- **Efficient filter value fetching**: Distinct values for filters are cached for performance.
+- **Minimal data transfer**: Only visible columns and paginated data are sent to the frontend.
+- **Parent component event integration**: Inline select/dropdown actions can trigger parent Livewire methods directly.
+- **Debounced search**: Reduces server requests for fast typing.
+- **Query string state**: Pagination, sorting, filtering, and search state are reflected in the URL for shareable/filterable links.
+
+## Recent Enhancements
+
+- **Index Column**: Added automatic index column as the first column in every table. Can be disabled by passing `'index' => false` to the component.
+- **Column Visibility Persistence**: Column visibility toggles are now stored in the session, so user preferences persist across reloads and navigation. Each table/model has its own session key.
+- **Performance**: Only relations for visible columns are eager loaded, reducing unnecessary queries. Distinct values for filters are fetched using efficient queries and cached.
+- **Table Animation**: Table body animates on pagination, sorting, and refresh for a modern user experience.
+- **Dropdown Persistence**: Column visibility dropdown remains open after toggling, making it easy to show/hide multiple columns quickly.
+- **Parent Event Integration**: Inline actions (like select dropdowns) can call parent Livewire methods directly, enabling advanced workflows.
+- **Cleaner API**: No need to specify `'index' => true` (it's the default). Only set `'index' => false` if you want to hide the index column.
 
 ## Installation
 
@@ -83,6 +104,7 @@ You may also use the Blade directive:
     'checkbox'   => true,
     'records'    => 25,
     'dateColumn' => 'created_at',
+    // 'index' => false, // Uncomment to hide index column
 ])
 ```
 
@@ -104,8 +126,8 @@ You may also use the Blade directive:
 | `dateColumn`     | `string|null`  | `null`      | Enables date-range filter on this column.        |
 | `sort`           | `string`       | `'desc'`    | Default sort direction (`'asc'` or `'desc'`).    |
 | `colSort`        | `bool`         | `true`      | Allow sorting by clicking on column headers.     |
-| `refreshBtn` | `bool`   | `false`    | Show a manual refresh button to reload the table data.      |
-
+| `refreshBtn`     | `bool`         | `false`     | Show a manual refresh button to reload the table data. |
+| `index`          | `bool`         | `true`      | Show index column as first column. Set to `false` to hide. |
 
 ### Column Definitions
 
@@ -116,8 +138,14 @@ Each entry in `columns` must include:
 - `sortable` (bool): Enable sorting.
 - `searchable` (bool): Include in global search.
 - `raw` (string): Raw Blade snippet for custom rendering.
-- `relation` (string): e.g. `"category:name"` to display related model field.
+- `relation` (string): Use the format `"relation:column"` (e.g. `"category:name"` or `"member:email"`) to display and enable sorting/filtering on a related model field.
 - `classCondition` (array): `[ 'css-class' => fn($row)=> condition ]`.
+
+> **Important:**  
+> If you want to enable sorting or filtering on a related field, you **must** define the `relation` key using the `"relation:column"` format.  
+> For example, to sort/filter by a member's name, use:  
+> `['key' => 'name', 'label' => 'Name', 'relation' => 'member:name']`  
+> If `relation` is not defined, sorting and filtering will only work for direct columns on the main table.
 
 ### Filters
 
@@ -149,9 +177,10 @@ Raw Blade snippets per row, for example:
 
 ## Core Methods
 
-- `mount($model, $columns, $filters = [], $actions = [])`
+- `mount($model, $columns, $filters = [], $actions = [], $index = true)`
 - `updatedSearch()`
 - `toggleSort($column)`
+- `toggleColumnVisibility($columnKey)` (now persists to session)
 - `export($format)` – `csv`, `xlsx`, `pdf`
 - `applyColumnFilter($columnKey)`
 - `applyDateRange($start, $end)`

@@ -10,54 +10,80 @@ use App\Exports\DataTableExport;
 use Illuminate\Database\Eloquent\Builder;
 use Barryvdh\Snappy\Facades\SnappyPdf as PDF;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Session;
 
 class Datatable extends Component
 {
     use WithPagination;
 
+    //*-------- Properties ---------*//
     public $model, $columns = [], $visibleColumns = [],
-    $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
-    $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
-    $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null,
-    $actions = [];
+        $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
+        $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
+        $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null,
+        $actions = [];
+    public $index = true; // Show index column by default
 
-    //* Optional Checks
+    //*-------- Optional Checks ---------*//
     public $searchable = true, $exportable = false, $printable = false, $colSort = true,
-    // For Initial sorting
-    $sort = 'desc',
-    //refresh Button
-    $refreshBtn = false;
+        $sort = 'desc', // For Initial sorting
+        $refreshBtn = false; //refresh Button
 
+    //*-------- Query String ---------*//
     public $queryString = [
         'records' => ['except' => 10], // Default to 10 if not set
+        'search' => ['except' => ''],
+        'sortColumn' => ['except' => null],
+        'sortDirection' => ['except' => 'asc'],
+        'filterColumn' => ['except' => null],
+        'filterValue' => ['except' => null],
+        'filterOperator' => ['except' => '='],
+        'startDate' => ['except' => null],
+        'endDate' => ['except' => null],
     ];
 
+    //*-------- Listeners ---------*//
     protected $listeners = [
         'dateRangeSelected' => 'applyDateRange',
         'refreshTable' => '$refresh',
     ];
 
-    public function mount($model, $columns, $filters = [], $actions = [])
+    //*-------- Mount Method ---------*//
+    public function mount($model, $columns, $filters = [], $actions = [], $index = true)
     {
         $this->model = $model;
-        $this->columns = $columns;
-        $this->visibleColumns = collect($columns)->mapWithKeys(function ($column) {
-            return [$column['key'] => empty($column['hide'])]; // 👈 false if hide is true
+        // Re-key columns by 'key'
+        $this->columns = collect($columns)->mapWithKeys(function ($column) {
+            return [$column['key'] => $column];
         })->toArray();
 
-        // Set filters if passed, otherwise initialize as empty
+        // Session key for column visibility (unique per model/table)
+        $sessionKey = $this->getColumnVisibilitySessionKey();
+
+        // Try to load column visibility from session, else default
+        $sessionVisibility = Session::get($sessionKey);
+        if (is_array($sessionVisibility)) {
+            $this->visibleColumns = $sessionVisibility;
+        } else {
+            $this->visibleColumns = collect($this->columns)->mapWithKeys(function ($column) {
+                return [$column['key'] => empty($column['hide'])];
+            })->toArray();
+            // Save default to session
+            Session::put($sessionKey, $this->visibleColumns);
+        }
+
         $this->filters = $filters;
         $this->actions = $actions;
+        $this->index = $index;
 
         if (empty($this->sortColumn)) {
             $first = collect($columns)->first();
             $this->sortColumn = $first['key'];
             $this->sortDirection = $this->sort;
         }
-
     }
 
-    // Search-related methods
+    //*-------- Search-related Methods ---------*//
     public function updatedSearch()
     {
         $this->resetPage();
@@ -69,20 +95,27 @@ class Datatable extends Component
         $this->search = '';
     }
 
-
-
     public function updatedrecords()
     {
         $this->resetPage();
     }
 
-    // Column visibility toggling
+    //*-------- Column Visibility Methods ---------*//
     public function toggleColumnVisibility($columnKey)
     {
         $this->visibleColumns[$columnKey] = !$this->visibleColumns[$columnKey];
+        // Store updated visibility in session
+        Session::put($this->getColumnVisibilitySessionKey(), $this->visibleColumns);
     }
 
-    // Sorting-related methods
+    protected function getColumnVisibilitySessionKey()
+    {
+        // Use model class name as part of the key for uniqueness
+        $modelName = is_string($this->model) ? $this->model : (is_object($this->model) ? get_class($this->model) : 'datatable');
+        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class);
+    }
+
+    //*-------- Sorting Methods ---------*//
     public function toggleSort($column)
     {
         if ($this->sortColumn === $column) {
@@ -91,9 +124,10 @@ class Datatable extends Component
             $this->sortColumn = $column;
             $this->sortDirection = 'asc';
         }
+        $this->resetPage();
     }
 
-    // Export-related methods
+    //*-------- Export Methods ---------*//
     public function export($format)
     {
         $data = $this->getDataForExport(); // Prepare data for export
@@ -125,10 +159,21 @@ class Datatable extends Component
 
     public function getDataForExport()
     {
-        return $this->query()->get(); // Get data for export
+        // Only select visible columns for export
+        $query = $this->query();
+        $visibleKeys = array_keys(array_filter($this->visibleColumns));
+        $selects = [];
+        foreach ($visibleKeys as $key) {
+            if (isset($this->columns[$key]['relation'])) continue; // skip relation columns for select
+            $selects[] = $key;
+        }
+        if ($selects) {
+            $query->select($selects);
+        }
+        return $query->get();
     }
 
-    // Filter-related methods
+    //*-------- Filter-related Methods ---------*//
     public function updatedSelectedColumn($column)
     {
         $filterDetails = $this->filters[$column] ?? null;
@@ -138,63 +183,66 @@ class Datatable extends Component
             $this->columnType = $filterDetails['type'];
 
             if (isset($filterDetails['relation'])) {
-                // Fetch distinct values for related columns
-                $relationName = $filterDetails['relation']['name'];
-                $relatedColumn = $filterDetails['relation']['column'];
-
-                $this->distinctValues = $this->model::with($relationName)
-                    ->get()
+                [$relationName, $relatedColumn] = explode(':', $filterDetails['relation']);
+                // Use distinct query for performance
+                $this->distinctValues = $this->model::query()
+                    ->joinRelation($relationName)
+                    ->distinct()
                     ->pluck("$relationName.$relatedColumn")
-                    ->unique()
+                    ->filter()
+                    ->values()
                     ->toArray();
             } else {
-                // Fetch distinct values for direct columns
-                $this->distinctValues = $this->model::select($column)
+                $this->distinctValues = $this->model::query()
+                    ->select($column)
                     ->distinct()
                     ->pluck($column)
+                    ->filter()
+                    ->values()
                     ->toArray();
             }
         }
     }
 
-
-
-
     public function applyDateRange($startDate, $endDate)
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
+        $this->resetPage();
     }
 
     public function applyColumnFilter($columnKey)
     {
         $this->filterColumn = $columnKey;
-        $this->filterValue = $this->filterValue ?? ''; // Default empty value for filter
+        $filterDetails = $this->filters[$columnKey] ?? null;
+        if ($filterDetails) {
+            $this->columnType = $filterDetails['type'] ?? 'select';
+        } else {
+            $this->columnType = 'select';
+        }
+        $this->filterValue = $this->filterValue ?? '';
         $this->resetPage();
     }
 
-    public function applyDateFilter()
-    {
-        $this->filterColumn = $this->dateColumn;
-        $this->startDate = $this->startDate ?? '';
-        $this->endDate = $this->endDate ?? '';
-        $this->resetPage();
-    }
-
-    // Filter application logic
+    //*-------- Filter Application Logic ---------*//
     protected function applyFilters(Builder $query)
     {
-        if ($this->filterColumn && $this->filterValue !== null) {
+        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
             $isRelation = false;
             $relationDetails = null;
 
-            // Check if the filterColumn is a relational column
+            $relationString = null;
             if (isset($this->columns[$this->filterColumn]['relation'])) {
-                $isRelation = true;
-                $relationDetails = explode(':', $this->columns[$this->filterColumn]['relation']);
+                $relationString = $this->columns[$this->filterColumn]['relation'];
+            } elseif (isset($this->filters[$this->filterColumn]['relation'])) {
+                $relationString = $this->filters[$this->filterColumn]['relation'];
             }
 
-            // Handle filtering based on the column type
+            if ($relationString) {
+                $isRelation = true;
+                $relationDetails = explode(':', $relationString);
+            }
+
             switch ($this->columnType) {
                 case 'number':
                     if ($isRelation && $relationDetails) {
@@ -219,44 +267,71 @@ class Datatable extends Component
                     break;
 
                 case 'select':
+                default:
+                    $operator = isset($this->filters[$this->filterColumn]['type']) && $this->filters[$this->filterColumn]['type'] === 'select' ? '=' : 'like';
                     if ($isRelation && $relationDetails) {
                         [$relation, $attribute] = $relationDetails;
-                        $query->whereHas($relation, function ($relQuery) use ($attribute) {
-                            $relQuery->where($attribute, $this->filterValue);
+                        $query->whereHas($relation, function ($relQuery) use ($attribute, $operator) {
+                            if ($operator === '=') {
+                                $relQuery->where($attribute, $this->filterValue);
+                            } else {
+                                $relQuery->where($attribute, 'like', '%' . $this->filterValue . '%');
+                            }
                         });
                     } else {
-                        $query->where($this->filterColumn, '=', $this->filterValue);
+                        if ($operator === '=') {
+                            $query->where($this->filterColumn, $this->filterValue);
+                        } else {
+                            $query->where($this->filterColumn, 'like', '%' . $this->filterValue . '%');
+                        }
                     }
                     break;
             }
         }
     }
 
-
-
-    // Query builder with sorting and filtering
+    //*-------- Query Builder with Sorting and Filtering ---------*//
     protected function query(): Builder
     {
         $query = $this->model::query();
 
-        // Search functionality
-        if ($this->searchable && $this->search) {
-            $query->where(function ($query) {
-                foreach ($this->columns as $column) {
-                    // Skip non-database columns
-                    if (empty($column['key']) || $column['key'] === 'actions') {
-                        continue;
-                    }
+        // Only eager load relations for visible columns
+        $relations = [];
+        foreach ($this->columns as $column) {
+            if (isset($column['relation']) && ($this->visibleColumns[$column['key']] ?? false)) {
+                [$relation, ] = explode(':', $column['relation']);
+                $relations[] = $relation;
+            }
+        }
+        if (!empty($relations)) {
+            $query->with(array_unique($relations));
+        }
 
+        // Only select visible columns for main table (skip relations)
+        $visibleKeys = array_keys(array_filter($this->visibleColumns));
+        $selects = [];
+        foreach ($visibleKeys as $key) {
+            if (isset($this->columns[$key]['relation'])) continue;
+            $selects[] = $key;
+        }
+        if ($selects) {
+            $query->select($selects);
+        }
+
+        // Debounced search for better performance
+        if ($this->searchable && $this->search) {
+            $search = $this->search;
+            $query->where(function ($query) use ($search) {
+                foreach ($this->columns as $column) {
+                    if (empty($column['key']) || $column['key'] === 'actions') continue;
                     if ($this->visibleColumns[$column['key']]) {
                         if (isset($column['relation'])) {
                             [$relation, $attribute] = explode(':', $column['relation']);
-                            $query->orWhereHas($relation, function ($relQ) use ($attribute) {
-                                $relQ->where($attribute, 'like', '%' . $this->search . '%')
-                                    ->orWhere('id', 'like', '%' . $this->search . '%');
+                            $query->orWhereHas($relation, function ($relQ) use ($attribute, $search) {
+                                $relQ->where($attribute, 'like', '%' . $search . '%');
                             });
                         } else {
-                            $query->orWhere($column['key'], 'like', '%' . $this->search . '%');
+                            $query->orWhere($column['key'], 'like', '%' . $search . '%');
                         }
                     }
                 }
@@ -273,21 +348,86 @@ class Datatable extends Component
             $query->whereBetween($this->dateColumn, [$this->startDate, $this->endDate]);
         }
 
-        // Sorting
+        // Dynamic sorting for relation columns
         if ($this->sortColumn) {
-            $query->orderBy($this->sortColumn, $this->sortDirection);
+            $sortColumnConfig = $this->columns[$this->sortColumn] ?? null;
+            if ($sortColumnConfig && isset($sortColumnConfig['relation'])) {
+                [$relation, $attribute] = explode(':', $sortColumnConfig['relation']);
+                $modelInstance = new ($this->model);
+                $relationObj = $modelInstance->$relation();
+                $relationTable = $relationObj->getRelated()->getTable();
+
+                if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                    $parentTable = $modelInstance->getTable();
+                    $foreignKey = $relationObj->getForeignKeyName();
+                    $ownerKey = $relationObj->getOwnerKeyName();
+                    $query->leftJoin(
+                        $relationTable,
+                        $parentTable . '.' . $foreignKey,
+                        '=',
+                        $relationTable . '.' . $ownerKey
+                    );
+                } elseif ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne ||
+                          $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
+                    $parentTable = $modelInstance->getTable();
+                    $foreignKey = $relationObj->getForeignKeyName();
+                    $localKey = $relationObj->getLocalKeyName();
+                    $query->leftJoin(
+                        $relationTable,
+                        $relationTable . '.' . $foreignKey,
+                        '=',
+                        $parentTable . '.' . $localKey
+                    );
+                }
+                $query->orderBy($relationTable . '.' . $attribute, $this->sortDirection)
+                    ->select($modelInstance->getTable() . '.*');
+            } else {
+                $query->orderBy($this->sortColumn, $this->sortDirection);
+            }
         }
 
         return $query;
     }
 
-
-    // Additional utility methods
+    //*-------- Utility Methods ---------*//
     public function getDistinctValues($column)
     {
-        return $this->model::distinct()->pluck($column)->toArray();
+        // Cache distinct values for performance
+        $cacheKey = 'datatable_distinct_' . md5($this->model . '_' . $column);
+        return cache()->remember($cacheKey, 60, function () use ($column) {
+            foreach ($this->columns as $col) {
+                if (isset($col['relation'])) {
+                    [$relation, $attribute] = explode(':', $col['relation']);
+                    if ($attribute === $column) {
+                        $modelInstance = new ($this->model);
+                        return $modelInstance->$relation()
+                            ->select($attribute)
+                            ->distinct()
+                            ->pluck($attribute)
+                            ->filter()
+                            ->values()
+                            ->toArray();
+                    }
+                }
+            }
+            foreach ($this->filters as $filter) {
+                if (isset($filter['relation'])) {
+                    [$relation, $attribute] = explode(':', $filter['relation']);
+                    if ($attribute === $column) {
+                        $modelInstance = new ($this->model);
+                        return $modelInstance->$relation()
+                            ->select($attribute)
+                            ->distinct()
+                            ->pluck($attribute)
+                            ->filter()
+                            ->values()
+                            ->toArray();
+                    }
+                }
+            }
+            return $this->model::query()->select($column)->distinct()->pluck($column)->filter()->values()->toArray();
+        });
     }
-
 
     public function renderRawHtml($rawTemplate, $row)
     {
@@ -307,12 +447,21 @@ class Datatable extends Component
         return implode(' ', $classes);
     }
 
-    // Render method
+    //*-------- Render Method ---------*//
     public function render()
     {
         return view('artflow-studio.table::datatable', [
             'data' => $this->query()->paginate($this->records),
             'filters' => $this->filters,
+            'columns' => $this->columns,
+            'visibleColumns' => $this->visibleColumns,
+            'checkbox' => $this->checkbox,
+            'actions' => $this->actions,
+            'searchable' => $this->searchable,
+            'sortColumn' => $this->sortColumn,
+            'sortDirection' => $this->sortDirection,
+            'records' => $this->records,
+            'index' => $this->index,
         ]);
     }
 }
