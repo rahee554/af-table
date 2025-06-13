@@ -1,4 +1,4 @@
-# AF Table Package
+# AF Table
 
 A Laravel Livewire “datatable” component that makes it effortless to display, search, filter, sort, paginate, and export your Eloquent model data.
 
@@ -10,7 +10,7 @@ A Laravel Livewire “datatable” component that makes it effortless to display
 - **Per-column filters** (text, select, number, and date-range).
 - **Dynamic column visibility** so users can choose which columns to view.
 - **Column visibility is now stored in the session** so user preferences persist across reloads.
-- **Export options**: CSV, Excel, and PDF.
+- **Export options**: CSV, Excel, and PDF (Excel with Filtered/All Data selection, see below).
 - **Print-friendly view** built in.
 - **Row selection** with checkboxes and “select all”.
 - **Fully customizable columns**: raw Blade views, relation lookups, and conditional CSS classes.
@@ -23,10 +23,18 @@ A Laravel Livewire “datatable” component that makes it effortless to display
 - **Minimal data transfer**: Only visible columns and paginated data are sent to the frontend.
 - **Parent component event integration**: Inline select/dropdown actions can trigger parent Livewire methods directly.
 - **Debounced search**: Reduces server requests for fast typing.
+- **Auto-debounced filters**: Filter inputs automatically apply with 500ms debounce for smooth UX.
 - **Query string state**: Pagination, sorting, filtering, and search state are reflected in the URL for shareable/filterable links.
 
 ## Recent Enhancements
 
+- **Excel Export Modal**: When clicking the Export Excel button, users can now choose to export either "Filtered Data" (current filters/search applied) or "All Data" (entire dataset). This is handled via a modal dialog.
+- **Dynamic Filtering System**: Complete overhaul of the filtering system with auto-debouncing, smart operators, and conditional display.
+- **Enhanced Filter Types**: Support for text (LIKE), select (exact match), number/integer (with operators), and date (with operators) filters.
+- **Session-aware Filtering**: Filters work seamlessly with session-stored column visibility, handling edge cases gracefully.
+- **Auto-debouncing**: All filter inputs automatically apply with 500ms debounce for smooth user experience.
+- **Smart Operator Selection**: Automatic operator assignment based on filter type - no manual operator selection needed for most cases.
+- **Conditional Filter UI**: Filter interface only appears when filters are defined, keeping the UI clean.
 - **Index Column**: Added automatic index column as the first column in every table. Can be disabled by passing `'index' => false` to the component.
 - **Column Visibility Persistence**: Column visibility toggles are now stored in the session, so user preferences persist across reloads and navigation. Each table/model has its own session key.
 - **Performance**: Only relations for visible columns are eager loaded, reducing unnecessary queries. Distinct values for filters are fetched using efficient queries and cached.
@@ -61,52 +69,58 @@ You may also use the Blade directive:
 
 ## Usage
 
-### In Blade
+### In Blade (Example Usage)
 
 ```blade
-@livewire('aftable', [
-    'model'      => \App\Models\Service::class,
-    'columns'    => [
-        ['key'=>'id',          'label'=>'ID',           'sortable'=>true],
-        ['key'=>'name',        'label'=>'Name',         'searchable'=>true],
-        ['key'=>'description', 'label'=>'Description'],
-        [
-            'key'   => 'active',
-            'label' => 'Status',
-            'raw'   => '<span class="badge badge-{{ $row->active ? "success":"danger" }}">
-                          {{ $row->active ? "Active" : "Inactive" }}
-                        </span>',
-            'classCondition' => [
-                'text-muted' => fn($r)=> !$r->active
-            ]
+<div>
+    @livewire('aftable',[
+        'model' => 'App\\Models\\ExampleModel',
+        'columns' => [
+            ['key' => 'column1', 'label' => 'Column 1'],
+            ['key' => 'column2', 'label' => 'Column 2'],
+            ['key' => 'column3', 'label' => 'Column 3', 'raw' => '<span>{{$row->column3}}</span>'],
+            ['key' => 'relation_id', 'relation' => 'relation:attribute', 'label' => 'Related Attribute'],
+            ['key' => 'hidden_column', 'label' => 'Hidden Column', 'hide' => true],
+            // ...add more columns as needed
         ],
-        [
-            'key'   => 'cost',
-            'label' => 'Actual Cost',
-            'raw'   => '{{ number_format($row->cost, 2) }}'
+        'filters' => [
+            'relation_id' => [
+                'type' => 'select',
+                'relation' => 'relation:attribute'
+            ],
+            'column2' => [
+                'type' => 'text'
+            ],
+            'date_column' => [
+                'type' => 'date'
+            ],
+            // ...add more filters as needed
         ],
-        [
-            'key'   => 'price',
-            'label' => 'Customer Price',
-            'raw'   => '{{ number_format($row->price, 2) }}'
+        'actions' => [
+            '<div class="dropdown">
+                <button class="btn btn-sm btn-light dropdown-toggle" type="button" id="actionMenu{{$row->id}}" data-bs-toggle="dropdown" aria-expanded="false">
+                Actions
+                </button>
+                <ul class="dropdown-menu" aria-labelled by="actionMenu{{$row->id}}">
+                <li><a class="dropdown-item" href="#">View</a></li>
+                <li><a class="dropdown-item" href="#">Edit</a></li>
+                <li><a class="dropdown-item text-danger" href="#" onclick="return confirm(\'Are you sure?\')">Delete</a></li>
+                </ul>
+            </div>'
         ],
-    ],
-    'filters'    => [
-        'active'     => ['type'=>'select','options'=>[true,false]],
-        'created_at' => ['type'=>'date'],  // enables date-range on created_at
-    ],
-    'actions'    => [
-        '<a href="/service/{{\$row->id}}/edit" class="btn btn-sm btn-light">Edit</a>'
-    ],
-    'searchable' => true,
-    'exportable' => true,
-    'printable'  => true,
-    'checkbox'   => true,
-    'records'    => 25,
-    'dateColumn' => 'created_at',
-    // 'index' => false, // Uncomment to hide index column
-])
+        'exportable' => true,
+    ])
+</div>
 ```
+
+### Exporting Excel (Filtered/All Data)
+
+When you click the **Export Excel** button, a modal will appear asking if you want to export "Filtered Data" (current filters/search applied) or "All Data" (entire dataset). Select your option and the Excel file will be generated accordingly.
+
+- **Filtered Data**: Exports only the rows currently visible with filters/search applied.
+- **All Data**: Exports the entire dataset for the model, ignoring filters/search.
+
+> **Note:** Only Excel export is enabled by default. PDF and CSV can be enabled/extended as needed.
 
 ## Configuration Options
 
@@ -119,7 +133,7 @@ You may also use the Blade directive:
 | `filters`        | `array`        | `[]`        | Column filter configurations.                    |
 | `actions`        | `array`        | `[]`        | Row-action Blade snippets.                       |
 | `searchable`     | `bool`         | `true`      | Show global search box.                          |
-| `exportable`     | `bool`         | `true`      | Show export menu (CSV, XLSX, PDF).               |
+| `exportable`     | `bool`         | `true`      | Show export menu (Excel, PDF).                   |
 | `printable`      | `bool`         | `true`      | Show print button.                               |
 | `checkbox`       | `bool`         | `false`     | Enable row-selection checkboxes.                 |
 | `records`        | `int`          | `10`        | Rows per page.                                   |
@@ -149,18 +163,62 @@ Each entry in `columns` must include:
 
 ### Filters
 
-Supported filter types:
+The new dynamic filtering system supports multiple filter types with auto-debouncing and smart operator selection:
 
-- **`select`**: Dropdown of values; load `distinctValues` automatically.
-- **`number`**: Numeric comparisons (`=, >, <, >=, <=`).
-- **`date`**: Date-picker with start/end range.
+#### Supported Filter Types:
+
+- **`text`**: Text input with LIKE operator for partial matching.
+- **`select`**: Dropdown with distinct values from the column, uses exact matching (=).
+- **`integer`/`number`**: Number input with operator selection (=, !=, <, >, <=, >=).
+- **`date`**: Date picker with operator selection (=, !=, <, >, <=, >=).
+
+#### Filter Configuration:
+
+```php
+'filters' => [
+    // Text filter - auto LIKE operator
+    'name' => [
+        'type' => 'text'
+    ],
+    
+    // Select filter - shows dropdown with distinct values
+    'status' => [
+        'type' => 'select'
+    ],
+    
+    // Select filter with relation
+    'district_id' => [
+        'type' => 'select',
+        'relation' => 'district:district'  // relation:column format
+    ],
+    
+    // Number filter - shows operator dropdown
+    'price' => [
+        'type' => 'number'
+    ],
+    
+    // Date filter - shows operator dropdown
+    'created_at' => [
+        'type' => 'date'
+    ],
+]
+```
+
+#### Key Features:
+
+- **Auto-debouncing**: All filter inputs automatically apply with 500ms debounce.
+- **Conditional Display**: Filter UI only appears when `filters` array is provided.
+- **Smart Operators**: Operators are automatically chosen based on filter type.
+- **Relation Support**: Use `"relation:column"` format for filtering related model fields.
+- **Session Compatibility**: Works seamlessly with session-stored column visibility.
 
 Example:
 
 ```php
 'filters' => [
-    'status' => [ 'type'=>'select', 'options'=>['Active','Inactive'] ],
-    'price'  => [ 'type'=>'number', 'operators'=>['=','>','<'], 'default'=>'=' ],
+    'status' => [ 'type'=>'select' ],
+    'price'  => [ 'type'=>'number' ],
+    'created_at' => [ 'type'=>'date' ],
 ]
 ```
 
@@ -170,7 +228,7 @@ Raw Blade snippets per row, for example:
 
 ```php
 'actions' => [
-    '<a href="/items/{{$row->id}}/edit" class="btn">Edit</a>',
+    '<a href="/service/{{$row->id}}/edit" class="btn btn-sm btn-light">Edit</a>',
     '<button wire:click="delete({{$row->id}})">Delete</button>',
 ]
 ```
@@ -181,7 +239,7 @@ Raw Blade snippets per row, for example:
 - `updatedSearch()`
 - `toggleSort($column)`
 - `toggleColumnVisibility($columnKey)` (now persists to session)
-- `export($format)` – `csv`, `xlsx`, `pdf`
+- `export($format, $scope = 'filtered')` – Excel export with modal for Filtered/All Data
 - `applyColumnFilter($columnKey)`
 - `applyDateRange($start, $end)`
 - `renderRawHtml($template, $row)`
