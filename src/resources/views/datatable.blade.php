@@ -119,6 +119,10 @@
                     @endif
                 </div>
             @endif
+
+            @if ($colvisBtn == true)
+                
+            
             <div class="dropdown me-2" id="columnVisibilityDropdownWrapper">
                 <button class="btn btn-outline btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
                     data-bs-toggle="dropdown" aria-expanded="false">
@@ -142,6 +146,7 @@
 
                 </ul>
             </div>
+            @endif
             @if ($refreshBtn == true)
                 <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
                     Refresh

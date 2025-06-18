@@ -1,10 +1,10 @@
 # AF Table
 
-A Laravel Livewire “datatable” component that makes it effortless to display, search, filter, sort, paginate, and export your Eloquent model data.
+A Laravel Livewire "datatable" component that makes it effortless to display, search, filter, sort, paginate, and export your Eloquent model data.
 
 ## Why Use AF Table?
 
-- **Zero-boilerplate setup**: Just register the `aftable` component and you’re ready.
+- **Zero-boilerplate setup**: Just register the `aftable` component and you're ready.
 - **Instant server-powered search** across all visible columns.
 - **Column-based sorting** with toggles for ascending/descending.
 - **Per-column filters** (text, select, number, and date-range).
@@ -12,7 +12,7 @@ A Laravel Livewire “datatable” component that makes it effortless to display
 - **Column visibility is now stored in the session** so user preferences persist across reloads.
 - **Export options**: CSV, Excel, and PDF (Excel with Filtered/All Data selection, see below).
 - **Print-friendly view** built in.
-- **Row selection** with checkboxes and “select all”.
+- **Row selection** with checkboxes and "select all".
 - **Fully customizable columns**: raw Blade views, relation lookups, and conditional CSS classes.
 - **Index column**: By default, every table shows an index column as the first column (1, 2, 3, ...), which is always correct across sorting and pagination. Can be disabled.
 - **Performance improvements**: Only visible column relations are eager loaded, and distinct values for filters are fetched efficiently.
@@ -25,23 +25,155 @@ A Laravel Livewire “datatable” component that makes it effortless to display
 - **Debounced search**: Reduces server requests for fast typing.
 - **Auto-debounced filters**: Filter inputs automatically apply with 500ms debounce for smooth UX.
 - **Query string state**: Pagination, sorting, filtering, and search state are reflected in the URL for shareable/filterable links.
+- **Smart relation handling**: Automatically detects and loads relations used in raw templates and column definitions.
+- **Automatic column detection**: Intelligently includes database columns referenced in raw templates without manual specification.
+- **Custom Query Constraints**: Apply additional where clauses and complex filtering before table processing.
 
 ## Recent Enhancements
 
-- **Excel Export Modal**: When clicking the Export Excel button, users can now choose to export either "Filtered Data" (current filters/search applied) or "All Data" (entire dataset). This is handled via a modal dialog.
-- **Dynamic Filtering System**: Complete overhaul of the filtering system with auto-debouncing, smart operators, and conditional display.
-- **Enhanced Filter Types**: Support for text (LIKE), select (exact match), number/integer (with operators), and date (with operators) filters.
-- **Session-aware Filtering**: Filters work seamlessly with session-stored column visibility, handling edge cases gracefully.
-- **Auto-debouncing**: All filter inputs automatically apply with 500ms debounce for smooth user experience.
-- **Smart Operator Selection**: Automatic operator assignment based on filter type - no manual operator selection needed for most cases.
-- **Conditional Filter UI**: Filter interface only appears when filters are defined, keeping the UI clean.
-- **Index Column**: Added automatic index column as the first column in every table. Can be disabled by passing `'index' => false` to the component.
-- **Column Visibility Persistence**: Column visibility toggles are now stored in the session, so user preferences persist across reloads and navigation. Each table/model has its own session key.
-- **Performance**: Only relations for visible columns are eager loaded, reducing unnecessary queries. Distinct values for filters are fetched using efficient queries and cached.
-- **Table Animation**: Table body animates on pagination, sorting, and refresh for a modern user experience.
-- **Dropdown Persistence**: Column visibility dropdown remains open after toggling, making it easy to show/hide multiple columns quickly.
-- **Parent Event Integration**: Inline actions (like select dropdowns) can call parent Livewire methods directly, enabling advanced workflows.
-- **Cleaner API**: No need to specify `'index' => true` (it's the default). Only set `'index' => false` if you want to hide the index column.
+- **Smart Relation & Raw Template Handling**: The component now automatically detects relations used in raw templates and ensures proper eager loading. No need to manually specify all columns - the system intelligently detects what's needed from your raw templates.
+- **Flexible Column Configuration**: You can use either simple relation syntax (`'relation' => 'category:name'`) for automatic display, or combine it with raw templates for custom formatting while maintaining relation functionality.
+- **Auto-detection of Template Dependencies**: Raw templates that reference `$row->relation->attribute` automatically trigger relation loading and include necessary foreign keys in queries.
+
+## Relation Handling and Raw Templates
+
+### Simple Relation Display
+
+For basic relation display, just use the `relation` key:
+
+```php
+[
+    'key' => 'category_id',
+    'relation' => 'category:name',  // Automatically displays category.name
+    'label' => 'Category'
+]
+```
+
+### Raw Templates with Relations
+
+When you need custom formatting but still want to use relations, combine `relation` and `raw`:
+
+```php
+[
+    'key' => 'category_id',
+    'relation' => 'category:name',
+    'label' => 'Category',
+    'raw' => '<span class="badge bg-primary">{{ $row->category->name }}</span>'
+]
+```
+
+### Advanced Raw Templates with Multiple Relation Attributes
+
+For complex displays using multiple attributes from the same relation:
+
+```php
+[
+    'key' => 'category_id',
+    'relation' => 'category:name',  // Still needed for sorting/filtering
+    'label' => 'Category',
+    'raw' => '<span>
+                <img src="{{ asset("icons/" . $row->category->icon) }}" class="me-2">
+                {{ $row->category->name }}
+              </span>'
+]
+```
+
+### Concatenated Fields
+
+For concatenating multiple columns from the same table:
+
+```php
+[
+    'key' => 'first_name',  // Primary column
+    'label' => 'Full Name',
+    'raw' => '{{ $row->first_name . " " . $row->last_name }}'
+    // last_name is automatically detected and included in query
+]
+```
+
+### Key Features:
+
+- **Automatic Detection**: Columns referenced in raw templates are automatically detected and included in the database query
+- **Relation Auto-loading**: Relations used in raw templates are automatically eager loaded
+- **Foreign Key Management**: Foreign keys for relations are automatically included in SELECT statements
+- **Smart Parsing**: The system distinguishes between direct column references and relation references
+- **No Manual Column Lists**: You don't need to manually specify every column used in raw templates
+
+### Important Notes:
+
+1. **Relation Format**: Always use `"relation:attribute"` format for the `relation` key
+2. **Raw Template Relations**: When using `$row->relation->attribute` in raw templates, the relation is automatically loaded
+3. **Column Detection**: Columns like `$row->first_name` in raw templates are automatically included in queries
+4. **Performance**: Only visible columns and their dependencies are loaded, keeping queries efficient
+
+## Custom Query Constraints
+
+The `query` parameter allows you to apply additional constraints to the base query before any table operations (search, filters, sorting) are applied. This is useful for:
+
+- Filtering data by user permissions
+- Showing only active/published records
+- Applying tenant-specific filters
+- Complex business logic filtering
+
+### Usage Examples
+
+#### Using Array of Constraints (Recommended for Livewire)
+
+```php
+@livewire('aftable', [
+    'model' => App\Models\Service::class,
+    'columns' => [...],
+    'query' => [
+        ['active', '=', true],        // WHERE active = true
+        ['cost', '>', 0],             // AND cost > 0
+        ['name', 'like', '%premium%'], // AND name LIKE '%premium%'
+    ],
+])
+```
+
+#### Simple Single Condition
+
+```php
+@livewire('aftable', [
+    'model' => App\Models\Service::class,
+    'columns' => [...],
+    'query' => [['active', true]], // WHERE active = true
+])
+```
+
+### Common Use Cases
+
+#### Status-Based Filtering
+```php
+'query' => [
+    ['active', '=', true]
+]
+```
+
+#### Multiple Conditions
+```php
+'query' => [
+    ['status', 'in', ['active', 'pending']],
+    ['created_at', '>=', '2024-01-01']
+]
+```
+
+#### User-Specific Data
+```php
+'query' => [
+    ['user_id', '=', auth()->id()]
+]
+```
+
+### Important Notes
+
+1. **Applied First**: Custom query constraints are applied before all other table operations (search, filters, sorting).
+
+2. **Livewire Compatible**: Use array format for Livewire compatibility. Closures cannot be serialized.
+
+3. **Array Format**: Each constraint should be an array with `[column, operator, value]` or `[column, value]` format.
+
+4. **Export Compatibility**: Custom query constraints are automatically applied to exported data.
 
 ## Installation
 
@@ -132,6 +264,7 @@ When you click the **Export Excel** button, a modal will appear asking if you wa
 | `columns`        | `array`        | `[]`        | Column definitions (see below).                  |
 | `filters`        | `array`        | `[]`        | Column filter configurations.                    |
 | `actions`        | `array`        | `[]`        | Row-action Blade snippets.                       |
+| `query`          | `array`        | `[]`        | Custom query constraints applied before table operations. |
 | `searchable`     | `bool`         | `true`      | Show global search box.                          |
 | `exportable`     | `bool`         | `true`      | Show export menu (Excel, PDF).                   |
 | `printable`      | `bool`         | `true`      | Show print button.                               |
@@ -143,6 +276,42 @@ When you click the **Export Excel** button, a modal will appear asking if you wa
 | `refreshBtn`     | `bool`         | `false`     | Show a manual refresh button to reload the table data. |
 | `index`          | `bool`         | `true`      | Show index column as first column. Set to `false` to hide. |
 
+#### Query Parameter Examples
+
+The `query` parameter accepts an array of conditions in the following formats:
+
+```php
+// Single condition with operator
+'query' => [
+    ['active', '=', true]
+]
+
+// Multiple conditions
+'query' => [
+    ['active', '=', true],
+    ['cost', '>', 100],
+    ['status', 'in', ['published', 'active']]
+]
+
+// Shorthand for equality
+'query' => [
+    ['active', true],  // Equivalent to ['active', '=', true]
+    ['published', 1]
+]
+
+// Complex conditions with LIKE
+'query' => [
+    ['name', 'like', '%premium%'],
+    ['category', '!=', 'draft']
+]
+
+// Date-based filtering
+'query' => [
+    ['created_at', '>=', '2024-01-01'],
+    ['updated_at', '<', now()->toDateString()]
+]
+```
+
 ### Column Definitions
 
 Each entry in `columns` must include:
@@ -151,15 +320,20 @@ Each entry in `columns` must include:
 - `label` (string, **required**): Header text.
 - `sortable` (bool): Enable sorting.
 - `searchable` (bool): Include in global search.
-- `raw` (string): Raw Blade snippet for custom rendering.
+- `raw` (string): Raw Blade snippet for custom rendering. **Automatically detects and includes referenced columns/relations**.
 - `relation` (string): Use the format `"relation:column"` (e.g. `"category:name"` or `"member:email"`) to display and enable sorting/filtering on a related model field.
 - `classCondition` (array): `[ 'css-class' => fn($row)=> condition ]`.
 
-> **Important:**  
-> If you want to enable sorting or filtering on a related field, you **must** define the `relation` key using the `"relation:column"` format.  
-> For example, to sort/filter by a member's name, use:  
-> `['key' => 'name', 'label' => 'Name', 'relation' => 'member:name']`  
-> If `relation` is not defined, sorting and filtering will only work for direct columns on the main table.
+> **Smart Column Detection:**  
+> When using raw templates, you don't need to manually specify every column. The system automatically:
+> - Detects `$row->column_name` references and includes them in the query
+> - Identifies `$row->relation->attribute` patterns and eager loads the relations
+> - Includes necessary foreign keys for relation columns
+> - Excludes relation names from being treated as database columns
+
+> **Relation Sorting/Filtering:**  
+> To enable sorting or filtering on a related field, you **must** define the `relation` key using the `"relation:column"` format.  
+> For example: `['key' => 'category_id', 'relation' => 'category:name', 'label' => 'Category']`
 
 ### Filters
 

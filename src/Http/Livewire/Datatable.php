@@ -2,7 +2,6 @@
 
 namespace ArtflowStudio\Table\Http\Livewire;
 
-
 use Livewire\Component;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Facades\Excel;
@@ -16,23 +15,22 @@ class Datatable extends Component
 {
     use WithPagination;
 
-    //*-------- Properties ---------*//
+    //*----------- Properties -----------*//
     public $model, $columns, $visibleColumns = [],
         $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
         $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
         $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null,
         $actions = [];
     public $index = true; // Show index column by default
-
-    // Add unique table identifier
-    public $tableId = null;
-
-    //*-------- Optional Checks ---------*//
+    public $tableId = null; // Add unique table identifier
+    public $query = null; // Custom query constraints
+    public $colvisBtn = true;
+    //*----------- Optional Configuration -----------*//
     public $searchable = true, $exportable = false, $printable = false, $colSort = true,
         $sort = 'desc', // For Initial sorting
         $refreshBtn = false; //refresh Button - false by default, can be enabled by passing true
 
-    //*-------- Query String ---------*//
+    //*----------- Query String Parameters -----------*//
     public $queryString = [
         'records' => ['except' => 10], // Default to 10 if not set
         'search' => ['except' => ''],
@@ -45,17 +43,19 @@ class Datatable extends Component
         'endDate' => ['except' => null],
     ];
 
-    //*-------- Listeners ---------*//
+    //*----------- Event Listeners -----------*//
     protected $listeners = [
         'dateRangeSelected' => 'applyDateRange',
         'refreshTable' => '$refresh',
     ];
 
-    //*-------- Mount Method ---------*//
-    public function mount($model, $columns, $filters = [], $actions = [], $index = true, $tableId = null)
+    //*----------- Component Initialization -----------*//
+    public function mount($model, $columns, $filters = [], $actions = [], $index = true, $tableId = null, $query = null)
     {
         $this->model = $model;
         $this->tableId = $tableId ?? (is_string($model) ? $model : (is_object($model) ? get_class($model) : uniqid('datatable_')));
+        $this->query = $query; // Store custom query constraints
+
         // Re-key columns by 'key'
         $this->columns = collect($columns)->mapWithKeys(function ($column) {
             return [$column['key'] => $column];
@@ -85,7 +85,7 @@ class Datatable extends Component
         }
     }
 
-    // Reusable: get default visible columns
+    //*----------- Column Visibility Management -----------*//
     protected function getDefaultVisibleColumns()
     {
         return collect($this->columns)->mapWithKeys(function ($column) {
@@ -93,7 +93,6 @@ class Datatable extends Component
         })->toArray();
     }
 
-    // Reusable: validate session visible columns
     protected function getValidatedVisibleColumns($sessionVisibility)
     {
         $validSessionVisibility = [];
@@ -107,7 +106,30 @@ class Datatable extends Component
         return $validSessionVisibility;
     }
 
-    //*-------- Search-related Methods ---------*//
+    public function toggleColumnVisibility($columnKey)
+    {
+        $this->visibleColumns[$columnKey] = !$this->visibleColumns[$columnKey];
+        Session::put($this->getColumnVisibilitySessionKey(), $this->visibleColumns);
+    }
+
+    protected function getColumnVisibilitySessionKey()
+    {
+        // Use model class name and tableId for uniqueness
+        $modelName = is_string($this->model) ? $this->model : (is_object($this->model) ? get_class($this->model) : 'datatable');
+        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId);
+    }
+
+    public function clearColumnVisibilitySession()
+    {
+        $sessionKey = $this->getColumnVisibilitySessionKey();
+        Session::forget($sessionKey);
+
+        // Reset to defaults
+        $this->visibleColumns = $this->getDefaultVisibleColumns();
+        Session::put($sessionKey, $this->visibleColumns);
+    }
+
+    //*----------- Search Functionality -----------*//
     public function updatedSearch()
     {
         $this->resetPage();
@@ -124,21 +146,7 @@ class Datatable extends Component
         $this->resetPage();
     }
 
-    //*-------- Column Visibility Methods ---------*//
-    public function toggleColumnVisibility($columnKey)
-    {
-        $this->visibleColumns[$columnKey] = !$this->visibleColumns[$columnKey];
-        Session::put($this->getColumnVisibilitySessionKey(), $this->visibleColumns);
-    }
-
-    protected function getColumnVisibilitySessionKey()
-    {
-        // Use model class name and tableId for uniqueness
-        $modelName = is_string($this->model) ? $this->model : (is_object($this->model) ? get_class($this->model) : 'datatable');
-        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId);
-    }
-
-    //*-------- Sorting Methods ---------*//
+    //*----------- Sorting Functionality -----------*//
     public function toggleSort($column)
     {
         if ($this->sortColumn === $column) {
@@ -150,60 +158,7 @@ class Datatable extends Component
         $this->resetPage();
     }
 
-    //*-------- Export Methods ---------*//
-    public function export($format)
-    {
-        $data = $this->getDataForExport(); // Prepare data for export
-        if ($format === 'pdf') {
-            return $this->exportPdf($data);
-        }
-
-        return Excel::download(new DataTableExport(
-            $this->model,
-            $this->columns,
-            $this->getFilters(),
-            $this->sortColumn,
-            $this->sortDirection
-        ), "export.{$format}");
-    }
-
-    public function exportPdf($data)
-    {
-        $pdf = PDF::loadView('exports.pdf.datatable', [
-            'data' => $data,
-            'columns' => $this->columns,
-            'visibleColumns' => $this->visibleColumns,
-        ]);
-
-        return response()->streamDownload(function () use ($pdf) {
-            echo $pdf->output();
-        }, 'export.pdf');
-    }
-
-    public function getDataForExport()
-    {
-        // Select visible columns for export (but build query properly first)
-        $query = $this->query();
-        $visibleKeys = array_keys(array_filter($this->visibleColumns));
-        $selects = [];
-        foreach ($visibleKeys as $key) {
-            if (isset($this->columns[$key]) && !isset($this->columns[$key]['relation'])) {
-                $selects[] = $key;
-            }
-        }
-        
-        // Always include id for export
-        if (!in_array('id', $selects)) {
-            $selects[] = 'id';
-        }
-        
-        if ($selects) {
-            $query->select($selects);
-        }
-        return $query->get();
-    }
-
-    //*-------- Filter-related Methods ---------*//
+    //*----------- Filter Management -----------*//
     public function updatedFilterValue()
     {
         $this->resetPage();
@@ -214,6 +169,7 @@ class Datatable extends Component
         $this->filterValue = null;
         $this->resetPage();
     }
+
     public function updatedSelectedColumn($column)
     {
         $filterDetails = $this->filters[$column] ?? null;
@@ -254,7 +210,6 @@ class Datatable extends Component
         $this->resetPage();
     }
 
-    //*-------- Filter Application Logic ---------*//
     protected function applyFilters(Builder $query)
     {
         if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
@@ -297,9 +252,6 @@ class Datatable extends Component
         }
     }
 
-    /**
-     * Get default operator for filter type
-     */
     protected function getDefaultOperator($filterType)
     {
         switch ($filterType) {
@@ -316,9 +268,6 @@ class Datatable extends Component
         }
     }
 
-    /**
-     * Prepare filter value based on type and operator
-     */
     protected function prepareFilterValue($filterType, $operator, $value)
     {
         if ($filterType === 'text' && strtoupper($operator) === 'LIKE') {
@@ -327,10 +276,6 @@ class Datatable extends Component
         return $value;
     }
 
-    /**
-     * Get distinct values for a column (for select filters)
-     * Optimized: Use Eloquent's distinct()->pluck() for both normal and relation columns.
-     */
     public function getDistinctValues($columnKey)
     {
         if (isset($this->columns[$columnKey]['relation'])) {
@@ -358,10 +303,34 @@ class Datatable extends Component
         }
     }
 
-    //*-------- Query Builder with Sorting and Filtering ---------*//
+    //*----------- Query Builder -----------*//
     protected function query(): Builder
     {
         $query = $this->model::query();
+
+        // Apply custom query constraints first with error handling
+        if ($this->query) {
+            try {
+                if (is_array($this->query)) {
+                    // If query is an array of constraints
+                    foreach ($this->query as $constraint) {
+                        if (is_array($constraint)) {
+                            // Handle array format: ['column', 'operator', 'value'] or ['column', 'value']
+                            if (count($constraint) === 3) {
+                                [$column, $operator, $value] = $constraint;
+                                $query->where($column, $operator, $value);
+                            } elseif (count($constraint) === 2) {
+                                [$column, $value] = $constraint;
+                                $query->where($column, $value);
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Log the error but don't break the table
+                logger()->error('AFTable custom query error: ' . $e->getMessage());
+            }
+        }
 
         // Eager load relations for visible columns and filter columns
         $relations = [];
@@ -369,6 +338,19 @@ class Datatable extends Component
             if (isset($column['relation']) && ($this->visibleColumns[$column['key']] ?? false)) {
                 [$relation, ] = explode(':', $column['relation']);
                 $relations[] = $relation;
+            }
+        }
+        
+        // Also load relations needed for raw templates that reference relations
+        foreach ($this->columns as $column) {
+            if (isset($column['raw']) && ($this->visibleColumns[$column['key']] ?? false)) {
+                // Check if raw template references any relations
+                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)->/', $column['raw'], $matches);
+                if (!empty($matches[1])) {
+                    foreach ($matches[1] as $relationName) {
+                        $relations[] = $relationName;
+                    }
+                }
             }
         }
         
@@ -392,14 +374,23 @@ class Datatable extends Component
 
         $selects = [];
         foreach ($allNeededKeys as $key) {
-            if (isset($this->columns[$key]) && !isset($this->columns[$key]['relation'])) {
-                try {
-                    $modelInstance = new ($this->model);
-                    if (!in_array($key, $modelInstance->getHidden())) {
+            if (isset($this->columns[$key])) {
+                // Include the foreign key column for relation columns
+                if (isset($this->columns[$key]['relation'])) {
+                    // Add the foreign key (e.g., category_id for category relation)
+                    if (!in_array($key, $selects)) {
                         $selects[] = $key;
                     }
-                } catch (\Exception $e) {
-                    $selects[] = $key;
+                } else {
+                    // Regular column
+                    try {
+                        $modelInstance = new ($this->model);
+                        if (!in_array($key, $modelInstance->getHidden())) {
+                            $selects[] = $key;
+                        }
+                    } catch (\Exception $e) {
+                        $selects[] = $key;
+                    }
                 }
             }
         }
@@ -431,6 +422,14 @@ class Datatable extends Component
             }
         }
         foreach (array_unique($actionColumns) as $col) {
+            if (!in_array($col, $selects)) {
+                $selects[] = $col;
+            }
+        }
+
+        // Dynamically detect columns needed for raw templates
+        $rawTemplateColumns = $this->getColumnsNeededForRawTemplates();
+        foreach ($rawTemplateColumns as $col) {
             if (!in_array($col, $selects)) {
                 $selects[] = $col;
             }
@@ -511,9 +510,7 @@ class Datatable extends Component
         return $query;
     }
 
-    /**
-     * Dynamically detect which columns are needed for actions by scanning action templates
-     */
+    //*----------- Template Detection Helpers -----------*//
     protected function getColumnsNeededForActions()
     {
         $neededColumns = [];
@@ -535,7 +532,105 @@ class Datatable extends Component
         return array_unique($neededColumns);
     }
 
-    //*-------- Utility Methods ---------*//
+    protected function getColumnsNeededForRawTemplates()
+    {
+        $neededColumns = [];
+        
+        foreach ($this->columns as $column) {
+            if (isset($column['raw'])) {
+                // Use a more comprehensive pattern to catch all $row->column references
+                $patterns = [
+                    '/\{\{\s*.*?\$row->([a-zA-Z_][a-zA-Z0-9_]*)\s*.*?\}\}/',  // {{ anything with $row->column }}
+                    '/\$row->([a-zA-Z_][a-zA-Z0-9_]*)(?![a-zA-Z0-9_]|->)/',    // $row->column not followed by more chars or ->
+                ];
+                
+                foreach ($patterns as $pattern) {
+                    preg_match_all($pattern, $column['raw'], $matches);
+                    if (!empty($matches[1])) {
+                        foreach ($matches[1] as $columnName) {
+                            // Skip if this is a relation reference (check if $row->columnName-> exists)
+                            if (strpos($column['raw'], '$row->' . $columnName . '->') !== false) {
+                                continue;
+                            }
+                            
+                            // Don't add relation names as columns
+                            $isRelationName = false;
+                            foreach ($this->columns as $col) {
+                                if (isset($col['relation'])) {
+                                    [$relationName, ] = explode(':', $col['relation']);
+                                    if ($columnName === $relationName) {
+                                        $isRelationName = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (!$isRelationName) {
+                                $neededColumns[] = $columnName;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return array_unique($neededColumns);
+    }
+
+    //*----------- Export Functionality -----------*//
+    public function export($format)
+    {
+        $data = $this->getDataForExport(); // Prepare data for export
+        if ($format === 'pdf') {
+            return $this->exportPdf($data);
+        }
+
+        return Excel::download(new DataTableExport(
+            $this->model,
+            $this->columns,
+            $this->getFilters(),
+            $this->sortColumn,
+            $this->sortDirection
+        ), "export.{$format}");
+    }
+
+    public function exportPdf($data)
+    {
+        $pdf = PDF::loadView('exports.pdf.datatable', [
+            'data' => $data,
+            'columns' => $this->columns,
+            'visibleColumns' => $this->visibleColumns,
+        ]);
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, 'export.pdf');
+    }
+
+    public function getDataForExport()
+    {
+        // Select visible columns for export (but build query properly first)
+        $query = $this->query();
+        $visibleKeys = array_keys(array_filter($this->visibleColumns));
+        $selects = [];
+        foreach ($visibleKeys as $key) {
+            if (isset($this->columns[$key]) && !isset($this->columns[$key]['relation'])) {
+                $selects[] = $key;
+            }
+        }
+        
+        // Always include id for export
+        if (!in_array('id', $selects)) {
+            $selects[] = 'id';
+        }
+        
+        if ($selects) {
+            $query->select($selects);
+        }
+        return $query->get();
+    }
+
+    //*----------- Utility Methods -----------*//
     public function renderRawHtml($rawTemplate, $row)
     {
         return Blade::render($rawTemplate, compact('row'));
@@ -554,18 +649,7 @@ class Datatable extends Component
         return implode(' ', $classes);
     }
 
-    //*-------- Session Management Methods ---------*//
-    public function clearColumnVisibilitySession()
-    {
-        $sessionKey = $this->getColumnVisibilitySessionKey();
-        Session::forget($sessionKey);
-
-        // Reset to defaults
-        $this->visibleColumns = $this->getDefaultVisibleColumns();
-        Session::put($sessionKey, $this->visibleColumns);
-    }
-
-    //*-------- Render Method ---------*//
+    //*----------- Component Render -----------*//
     public function render()
     {
         return view('artflow-studio.table::datatable', [
