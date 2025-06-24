@@ -54,11 +54,19 @@ class Datatable extends Component
     {
         $this->model = $model;
         $this->tableId = $tableId ?? (is_string($model) ? $model : (is_object($model) ? get_class($model) : uniqid('datatable_')));
-        $this->query = $query; // Store custom query constraints
+        $this->query = $query;
 
-        // Re-key columns by 'key'
-        $this->columns = collect($columns)->mapWithKeys(function ($column) {
-            return [$column['key'] => $column];
+        // Re-key columns by 'key' or 'function' with fallback
+        $this->columns = collect($columns)->mapWithKeys(function ($column, $index) {
+            // Priority: function > key > auto-generated
+            if (isset($column['function'])) {
+                $identifier = $column['function'];
+            } elseif (isset($column['key'])) {
+                $identifier = $column['key'];
+            } else {
+                $identifier = 'col_' . $index; // Fallback for columns without key or function
+            }
+            return [$identifier => $column];
         })->toArray();
 
         // Session key for column visibility (unique per model/table and tableId)
@@ -80,7 +88,16 @@ class Datatable extends Component
 
         if (empty($this->sortColumn)) {
             $first = collect($columns)->first();
-            $this->sortColumn = $first['key'];
+            // Only set sort column if it's a database column (has key and no function)
+            if (isset($first['key']) && !isset($first['function'])) {
+                $this->sortColumn = $first['key'];
+            } else {
+                // Find first sortable column
+                $sortableColumn = collect($columns)->first(function($col) {
+                    return isset($col['key']) && !isset($col['function']);
+                });
+                $this->sortColumn = $sortableColumn ? $sortableColumn['key'] : null;
+            }
             $this->sortDirection = $this->sort;
         }
     }
@@ -88,8 +105,8 @@ class Datatable extends Component
     //*----------- Column Visibility Management -----------*//
     protected function getDefaultVisibleColumns()
     {
-        return collect($this->columns)->mapWithKeys(function ($column) {
-            return [$column['key'] => empty($column['hide'])];
+        return collect($this->columns)->mapWithKeys(function ($column, $identifier) {
+            return [$identifier => empty($column['hide'])];
         })->toArray();
     }
 
@@ -334,16 +351,20 @@ class Datatable extends Component
 
         // Eager load relations for visible columns and filter columns
         $relations = [];
-        foreach ($this->columns as $column) {
-            if (isset($column['relation']) && ($this->visibleColumns[$column['key']] ?? false)) {
+        foreach ($this->columns as $columnKey => $column) {
+            $isVisible = $this->visibleColumns[$columnKey] ?? false;
+            
+            if (isset($column['relation']) && $isVisible) {
                 [$relation, ] = explode(':', $column['relation']);
                 $relations[] = $relation;
             }
         }
         
         // Also load relations needed for raw templates that reference relations
-        foreach ($this->columns as $column) {
-            if (isset($column['raw']) && ($this->visibleColumns[$column['key']] ?? false)) {
+        foreach ($this->columns as $columnKey => $column) {
+            $isVisible = $this->visibleColumns[$columnKey] ?? false;
+            
+            if (isset($column['raw']) && $isVisible) {
                 // Check if raw template references any relations
                 preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)->/', $column['raw'], $matches);
                 if (!empty($matches[1])) {
@@ -366,7 +387,7 @@ class Datatable extends Component
             $query->with(array_unique($relations));
         }
 
-        // Select visible columns and filter columns for main table (skip relations)
+        // Select visible columns and filter columns for main table (skip relations and functions)
         $visibleKeys = array_keys(array_filter($this->visibleColumns));
         $filterKeys = array_keys($this->filters ?? []);
         $columnKeys = array_keys($this->columns ?? []);
@@ -375,21 +396,32 @@ class Datatable extends Component
         $selects = [];
         foreach ($allNeededKeys as $key) {
             if (isset($this->columns[$key])) {
+                // Skip function-based columns that don't exist in database
+                if (isset($this->columns[$key]['function'])) {
+                    continue; // Skip function columns from SELECT
+                }
+                
+                // Skip virtual/computed columns that don't exist in database
+                $virtualColumns = ['flight_status', 'ticket_status']; 
+                if (in_array($key, $virtualColumns)) {
+                    continue;
+                }
+                
                 // Include the foreign key column for relation columns
                 if (isset($this->columns[$key]['relation'])) {
-                    // Add the foreign key (e.g., category_id for category relation)
                     if (!in_array($key, $selects)) {
                         $selects[] = $key;
                     }
-                } else {
-                    // Regular column
+                } elseif (isset($this->columns[$key]['key'])) {
+                    // Regular column - only add if it has a 'key' (database column)
                     try {
                         $modelInstance = new ($this->model);
-                        if (!in_array($key, $modelInstance->getHidden())) {
-                            $selects[] = $key;
+                        $columnKey = $this->columns[$key]['key'];
+                        if (!in_array($columnKey, $modelInstance->getHidden())) {
+                            $selects[] = $columnKey;
                         }
                     } catch (\Exception $e) {
-                        $selects[] = $key;
+                        $selects[] = $this->columns[$key]['key'];
                     }
                 }
             }
@@ -443,17 +475,23 @@ class Datatable extends Component
         if ($this->searchable && $this->search) {
             $search = $this->search;
             $query->where(function ($query) use ($search) {
-                foreach ($this->columns as $column) {
-                    if (empty($column['key']) || $column['key'] === 'actions') continue;
-                    if ($this->visibleColumns[$column['key']]) {
-                        if (isset($column['relation'])) {
-                            [$relation, $attribute] = explode(':', $column['relation']);
-                            $query->orWhereHas($relation, function ($relQ) use ($attribute, $search) {
-                                $relQ->where($attribute, 'like', '%' . $search . '%');
-                            });
-                        } else {
-                            $query->orWhere($column['key'], 'like', '%' . $search . '%');
-                        }
+                foreach ($this->columns as $columnKey => $column) {
+                    $isVisible = $this->visibleColumns[$columnKey] ?? false;
+                    
+                    // Only search in database columns (not functions)
+                    if (!$isVisible || isset($column['function']) || !isset($column['key'])) {
+                        continue;
+                    }
+                    
+                    if ($column['key'] === 'actions') continue;
+                    
+                    if (isset($column['relation'])) {
+                        [$relation, $attribute] = explode(':', $column['relation']);
+                        $query->orWhereHas($relation, function ($relQ) use ($attribute, $search) {
+                            $relQ->where($attribute, 'like', '%' . $search . '%');
+                        });
+                    } else {
+                        $query->orWhere($column['key'], 'like', '%' . $search . '%');
                     }
                 }
             });
@@ -469,9 +507,12 @@ class Datatable extends Component
             $query->whereBetween($this->dateColumn, [$this->startDate, $this->endDate]);
         }
 
-        // Dynamic sorting for relation columns
+        // Dynamic sorting for relation columns - only for database columns
         if ($this->sortColumn) {
-            $sortColumnConfig = $this->columns[$this->sortColumn] ?? null;
+            $sortColumnConfig = collect($this->columns)->first(function($col) {
+                return isset($col['key']) && $col['key'] === $this->sortColumn;
+            });
+            
             if ($sortColumnConfig && isset($sortColumnConfig['relation'])) {
                 [$relation, $attribute] = explode(':', $sortColumnConfig['relation']);
                 $modelInstance = new ($this->model);
@@ -502,7 +543,7 @@ class Datatable extends Component
                 }
                 $query->orderBy($relationTable . '.' . $attribute, $this->sortDirection)
                     ->select($modelInstance->getTable() . '.*');
-            } else {
+            } elseif($sortColumnConfig) {
                 $query->orderBy($this->sortColumn, $this->sortDirection);
             }
         }
@@ -519,11 +560,15 @@ class Datatable extends Component
             // Get the action template string (handle both 'raw' key and direct string)
             $template = is_array($action) && isset($action['raw']) ? $action['raw'] : $action;
             
-            // Match Blade variables like {{$row->column_name}}
+            // Match Blade variables like {{$row->column_name}} but exclude method calls
             preg_match_all('/\{\{\s*\$row->([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/', $template, $matches);
             
             if (!empty($matches[1])) {
                 foreach ($matches[1] as $columnName) {
+                    // Skip method calls
+                    if (strpos($template, '$row->' . $columnName . '()') !== false) {
+                        continue;
+                    }
                     $neededColumns[] = $columnName;
                 }
             }
@@ -537,19 +582,29 @@ class Datatable extends Component
         $neededColumns = [];
         
         foreach ($this->columns as $column) {
+            // Skip function-based columns
+            if (isset($column['function'])) {
+                continue;
+            }
+            
             if (isset($column['raw'])) {
-                // Use a more comprehensive pattern to catch all $row->column references
+                // Use a more comprehensive pattern to catch all $row->column references and method calls
                 $patterns = [
-                    '/\{\{\s*.*?\$row->([a-zA-Z_][a-zA-Z0-9_]*)\s*.*?\}\}/',  // {{ anything with $row->column }}
-                    '/\$row->([a-zA-Z_][a-zA-Z0-9_]*)(?![a-zA-Z0-9_]|->)/',    // $row->column not followed by more chars or ->
+                    '/\{\{\s*.*?\$row->([a-zA-Z_][a-zA-Z0-9_]*)\s*.*?\}\}/',
+                    '/\$row->([a-zA-Z_][a-zA-Z0-9_]*)(?![a-zA-Z0-9_]|->|\(\))/',
                 ];
                 
                 foreach ($patterns as $pattern) {
                     preg_match_all($pattern, $column['raw'], $matches);
                     if (!empty($matches[1])) {
                         foreach ($matches[1] as $columnName) {
-                            // Skip if this is a relation reference (check if $row->columnName-> exists)
+                            // Skip if this is a relation reference
                             if (strpos($column['raw'], '$row->' . $columnName . '->') !== false) {
+                                continue;
+                            }
+                            
+                            // Skip if this is a method call
+                            if (strpos($column['raw'], '$row->' . $columnName . '()') !== false) {
                                 continue;
                             }
                             
@@ -563,6 +618,12 @@ class Datatable extends Component
                                         break;
                                     }
                                 }
+                            }
+                            
+                            // Skip virtual columns
+                            $virtualColumns = ['flight_status', 'ticket_status'];
+                            if (in_array($columnName, $virtualColumns)) {
+                                continue;
                             }
                             
                             if (!$isRelationName) {

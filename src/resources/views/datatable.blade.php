@@ -16,7 +16,6 @@
     <script src="{{ asset('vendor/artflow-studio/table/assets/scripts.js') }}"></script>
 @endpush
 
-
 <div>
     @if (!empty($filters))
 
@@ -94,19 +93,7 @@
     <div class="row mb-2">
         <div class="col">
             <div class="w-100px">
-                <select wire:model.change="records" id="records" class="form-select form-select-sm">
-                    <option value="10">10</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    <option value="500">500</option>
-                    <option value="1000">1000</option>
-                </select>
-            </div>
-        </div>
-
-
-        <div class="col d-flex justify-content-end">
-            @if ($searchable)
+              @if ($searchable)
                 <div class="position-relative w-md-250px me-2">
                     <input type="text" wire:model.lazy="search" placeholder="Search..."
                         class="form-control form-control-sm border-0 p-2 pe-4">
@@ -119,33 +106,35 @@
                     @endif
                 </div>
             @endif
+            </div>
+        </div>
+
+
+        <div class="col d-flex justify-content-end">
+          
 
             @if ($colvisBtn == true)
-                
-            
-            <div class="dropdown me-2" id="columnVisibilityDropdownWrapper">
-                <button class="btn btn-outline btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
-                    data-bs-toggle="dropdown" aria-expanded="false">
-                    Column Visibility
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="columnVisibilityDropdown">
-                    @foreach ($columns as $column)
-                        <li class="cursor-pointer">
-                            <div class="form-check form-switch form-check-custom form-check-solid me-10">
-                                <input class="form-check-input h-20px w-30px m-1" type="checkbox"
-                                    id="column-{{ $column['key'] }}"
-                                    wire:click.prevent="toggleColumnVisibility('{{ $column['key'] }}')"
-                                    {{ $visibleColumns[$column['key']] ? 'checked' : '' }}>
-                                <label class="form-check-label" for="column-{{ $column['key'] }}">
-                                    {{ $column['label'] }}
-                                </label>
-                            </div>
-                        </li>
-                    @endforeach
-
-
-                </ul>
-            </div>
+                <div class="dropdown me-2" id="columnVisibilityDropdownWrapper">
+                    <button class="btn btn-outline btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        Column Visibility
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="columnVisibilityDropdown">
+                        @foreach ($columns as $columnKey => $column)
+                            <li class="cursor-pointer">
+                                <div class="form-check form-switch form-check-custom form-check-solid me-10">
+                                    <input class="form-check-input h-20px w-30px m-1" type="checkbox"
+                                        id="column-{{ $columnKey }}"
+                                        wire:click.prevent="toggleColumnVisibility('{{ $columnKey }}')"
+                                        {{ ($visibleColumns[$columnKey] ?? false) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="column-{{ $columnKey }}">
+                                        {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
+                                    </label>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
             @endif
             @if ($refreshBtn == true)
                 <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
@@ -188,17 +177,21 @@
                             </div>
                         </th>
                     @endif
-                    {{-- Ensure index column is rendered if $index is true --}}
+
                     @if (!isset($index) || $index)
                         <th class="fw-bold bg-light">#</th>
                     @endif
-                    @foreach ($columns as $column)
-                        @if ($visibleColumns[$column['key']])
+
+                    @foreach ($columns as $columnKey => $column)
+                        @if ($visibleColumns[$columnKey] ?? false)
                             <th class="{{ $column['class'] ?? '' }} fw-bold bg-light position-relative"
-                                wire:click="toggleSort('{{ $column['key'] }}')" style="cursor:pointer;">
+                                @if(!isset($column['function']) && isset($column['key']))
+                                    wire:click="toggleSort('{{ $column['key'] }}')" style="cursor:pointer;"
+                                @endif
+                            >
                                 <span class="d-inline-flex align-items-center">
-                                    {{ $column['label'] }}
-                                    @if ($sortColumn == $column['key'])
+                                    {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
+                                    @if (!isset($column['function']) && isset($column['key']) && $sortColumn == $column['key'])
                                         <span class="ms-1"
                                             style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
                                     @endif
@@ -213,42 +206,137 @@
                 </tr>
             </thead>
             <tbody id="datatable-tbody">
-                @foreach ($data as $row)
+                @if (count($data) === 0)
                     <tr>
-                        @if ($checkbox)
-                            <td><input type="checkbox" wire:model="selectedRows" value="{{ $row->id }}"
-                                    class="form-check-input"></td>
-                        @endif
-                        {{-- Ensure index column is rendered if $index is true --}}
-                        @if (!isset($index) || $index)
-                            <td>
-                                {{ ($data->currentPage() - 1) * $data->perPage() + $loop->iteration }}
-                            </td>
-                        @endif
-                        @foreach ($columns as $column)
-                            @if ($visibleColumns[$column['key']])
-                                <td class="{{ $column['class'] ?? '' }}">
-                                    @if (isset($column['raw']))
-                                        {!! $this->renderRawHtml($column['raw'], $row) !!}
-                                    @elseif (isset($column['relation']))
-                                        @php [$relation, $attribute] = explode(':', $column['relation']); @endphp
-                                        {{ $row->$relation->$attribute ?? '' }}
-                                    @else
-                                        {{ $row->{$column['key']} ?? '' }}
-                                    @endif
+                        <td colspan="{{ 
+                            ($checkbox ? 1 : 0) +
+                            ((!isset($index) || $index) ? 1 : 0) +
+                            collect($columns)->filter(fn($col, $key) => $visibleColumns[$key] ?? false)->count() +
+                            (!empty($actions) ? 1 : 0)
+                        }}" class="text-center align-middle py-5">
+                            <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 200px;">
+                                <svg width="64" height="64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="64" height="64" rx="12" fill="#F3F6F9"/>
+                                    <path d="M20 28h24v16H20z" fill="#7E8299"/>
+                                    <path d="M20 20h8l4 4h12a2 2 0 0 1 2 2v18a2 2 0 0 1-2 2H20a2 2 0 0 1-2-2V22a2 2 0 0 1 2-2z" fill="#FFA800"/>
+                                </svg>
+                                <div class="mt-3 fs-5 text-muted">No data found</div>
+                            </div>
+                        </td>
+                    </tr>
+                @else
+                    @foreach ($data as $row)
+                        <tr>
+                            @if ($checkbox)
+                                <td><input type="checkbox" wire:model="selectedRows" value="{{ $row->id }}" class="form-check-input"></td>
+                            @endif
+
+                            @if (!isset($index) || $index)
+                                <td>
+                                    {{ ($data->currentPage() - 1) * $data->perPage() + $loop->iteration }}
                                 </td>
                             @endif
-                        @endforeach
-                        @if (!empty($actions))
-                            <td>
-                                {{-- Render raw HTML for actions, supporting both array and string syntax --}}
-                                @foreach ($actions as $action)
-                                    {!! $this->renderRawHtml($action, $row) !!}
-                                @endforeach
-                            </td>
-                        @endif
-                    </tr>
-                @endforeach
+
+                            @foreach ($columns as $columnKey => $column)
+                                @if ($visibleColumns[$columnKey] ?? false)
+                                    <td class="{{ $column['class'] ?? '' }}">
+                                        @if (isset($column['function']))
+                                            {{-- Handle function-based columns --}}
+                                            @if (isset($column['raw']))
+                                                {{-- Function with custom raw template --}}
+                                                @php
+                                                    $rawTemplate = $column['raw'];
+                                                    $functionName = $column['function'];
+
+                                                    // Replace function calls in template
+                                                    if (method_exists($row, $functionName)) {
+                                                        $functionResult = $row->$functionName();
+                                                        $rawTemplate = str_replace(
+                                                            '$row->' . $functionName . '()', 
+                                                            is_bool($functionResult) ? ($functionResult ? 'true' : 'false') : $functionResult, 
+                                                            $rawTemplate
+                                                        );
+                                                    }
+                                                @endphp
+                                                {!! $this->renderRawHtml($rawTemplate, $row) !!}
+                                            @else
+                                                {{-- Function without raw template - display result directly --}}
+                                                @php
+                                                    $functionName = $column['function'];
+                                                    if (method_exists($row, $functionName)) {
+                                                        $result = $row->$functionName();
+                                                        echo is_bool($result) ? ($result ? 'Yes' : 'No') : $result;
+                                                    } else {
+                                                        echo 'N/A';
+                                                    }
+                                                @endphp
+                                            @endif
+                                        @elseif (isset($column['raw']))
+                                            {{-- Handle regular raw templates --}}
+                                            @php
+                                                $rawTemplate = $column['raw'];
+
+                                                // Handle method calls in raw templates
+                                                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $rawTemplate, $methodMatches);
+
+                                                if (!empty($methodMatches[0])) {
+                                                    foreach ($methodMatches[0] as $index => $fullMatch) {
+                                                        $methodName = $methodMatches[1][$index];
+                                                        if (method_exists($row, $methodName)) {
+                                                            $methodResult = $row->$methodName();
+                                                            if (is_bool($methodResult)) {
+                                                                $methodResult = $methodResult ? 'true' : 'false';
+                                                            }
+                                                            $rawTemplate = str_replace($fullMatch, $methodResult, $rawTemplate);
+                                                        }
+                                                    }
+                                                }
+                                            @endphp
+                                            {!! $this->renderRawHtml($rawTemplate, $row) !!}
+                                        @elseif (isset($column['relation']))
+                                            {{-- Handle relationship columns --}}
+                                            @php [$relation, $attribute] = explode(':', $column['relation']); @endphp
+                                            {{ $row->$relation->$attribute ?? '' }}
+                                        @elseif (isset($column['key']))
+                                            {{-- Handle regular database columns --}}
+                                            {{ $row->{$column['key']} ?? '' }}
+                                        @else
+                                            {{-- Fallback for columns without key, function, or relation --}}
+                                            N/A
+                                        @endif
+                                    </td>
+                                @endif
+                            @endforeach
+
+                            @if (!empty($actions))
+                                <td>
+                                    @foreach ($actions as $action)
+                                        @php
+                                            $actionTemplate = $action;
+
+                                            // Handle method calls in actions
+                                            preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $actionTemplate, $methodMatches);
+
+                                            if (!empty($methodMatches[0])) {
+                                                foreach ($methodMatches[0] as $index => $fullMatch) {
+                                                    $methodName = $methodMatches[1][$index];
+                                                    if (method_exists($row, $methodName)) {
+                                                        $methodResult = $row->$methodName();
+                                                        if (is_bool($methodResult)) {
+                                                            $methodResult = $methodResult ? 'true' : 'false';
+                                                        }
+                                                        $actionTemplate = str_replace($fullMatch, $methodResult, $actionTemplate);
+                                                    }
+                                                }
+                                            }
+                                        @endphp
+                                        {!! $this->renderRawHtml($actionTemplate, $row) !!}
+                                    @endforeach
+                                </td>
+                            @endif
+                        </tr>
+                    @endforeach
+                @endif
             </tbody>
         </table>
     </div>

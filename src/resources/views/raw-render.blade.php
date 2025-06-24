@@ -1,0 +1,2 @@
+<!-- filepath: d:\Repositories\Al-Emaan_Travels\vendor\artflow-studio\table\src\resources\views\raw-render.blade.php -->
+{!! \Illuminate\Support\Facades\Blade::render($column['raw'], compact('row')) !!}

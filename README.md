@@ -14,6 +14,7 @@ A Laravel Livewire "datatable" component that makes it effortless to display, se
 - **Print-friendly view** built in.
 - **Row selection** with checkboxes and "select all".
 - **Fully customizable columns**: raw Blade views, relation lookups, and conditional CSS classes.
+- **Function-based columns**: Display model method results directly without database queries.
 - **Index column**: By default, every table shows an index column as the first column (1, 2, 3, ...), which is always correct across sorting and pagination. Can be disabled.
 - **Performance improvements**: Only visible column relations are eager loaded, and distinct values for filters are fetched efficiently.
 - **Table animation**: Smooth fade animation on pagination, sorting, and refresh for better UX.
@@ -31,9 +32,148 @@ A Laravel Livewire "datatable" component that makes it effortless to display, se
 
 ## Recent Enhancements
 
+- **Function-Based Columns**: New column type that calls model methods directly for computed values, status checks, and dynamic content without requiring database columns.
 - **Smart Relation & Raw Template Handling**: The component now automatically detects relations used in raw templates and ensures proper eager loading. No need to manually specify all columns - the system intelligently detects what's needed from your raw templates.
 - **Flexible Column Configuration**: You can use either simple relation syntax (`'relation' => 'category:name'`) for automatic display, or combine it with raw templates for custom formatting while maintaining relation functionality.
 - **Auto-detection of Template Dependencies**: Raw templates that reference `$row->relation->attribute` automatically trigger relation loading and include necessary foreign keys in queries.
+
+## Column Types
+
+### 1. Database Columns (key-based)
+
+For displaying database column values:
+
+```php
+[
+    'key' => 'name',
+    'label' => 'Product Name'
+]
+```
+
+### 2. Relation Columns
+
+For displaying related model attributes:
+
+```php
+[
+    'key' => 'category_id',
+    'relation' => 'category:name',
+    'label' => 'Category'
+]
+```
+
+### 3. Function-Based Columns (NEW)
+
+For displaying model method results without database queries:
+
+```php
+[
+    'function' => 'isActive',
+    'label' => 'Status'
+]
+```
+
+#### Function-Based Column Features:
+
+- **No Database Query**: Function columns are excluded from SELECT statements
+- **No Sorting**: Function-based columns are not sortable (since they're computed)
+- **Auto Boolean Conversion**: Boolean results are automatically converted to "Yes/No" for display
+- **Raw Template Support**: Can be combined with raw templates for custom formatting
+- **Method Validation**: Checks if the method exists before calling it
+- **Performance Optimized**: Only visible function columns are processed
+
+#### Function Column Examples:
+
+##### Simple Function Display
+```php
+[
+    'function' => 'isActive',
+    'label' => 'Active Status'
+]
+// Displays: "Yes" or "No" based on the isActive() method result
+```
+
+##### Function with Custom Raw Template
+```php
+[
+    'function' => 'getStatusBadge',
+    'label' => 'Status',
+    'raw' => '<span class="badge bg-{{ $row->getStatusBadge() === "active" ? "success" : "warning" }}">
+                {{ ucfirst($row->getStatusBadge()) }}
+              </span>'
+]
+// Displays: Custom badge with conditional styling
+```
+
+##### Multiple Function Calls in Raw Template
+```php
+[
+    'function' => 'getOrderStatus',
+    'label' => 'Order Details',
+    'raw' => '<div>
+                <span>Status: {{ $row->getOrderStatus() }}</span><br>
+                <small>Shipped: {{ $row->isShipped() ? "Yes" : "No" }}</small>
+              </div>'
+]
+```
+
+##### Complex Business Logic Example
+```php
+[
+    'function' => 'calculateDiscount',
+    'label' => 'Discount Available',
+    'raw' => '<span class="text-{{ $row->calculateDiscount() > 0 ? "success" : "muted" }}">
+                {{ $row->calculateDiscount() > 0 ? $row->calculateDiscount() . "%" : "No Discount" }}
+              </span>'
+]
+```
+
+### Model Method Requirements
+
+Your Eloquent model should have the corresponding methods:
+
+```php
+// Example methods in your Eloquent model (e.g., Product, Order, User model)
+public function isActive(): bool
+{
+    return $this->status === 'active';
+}
+
+public function getStatusBadge(): string
+{
+    return $this->status ?? 'pending';
+}
+
+public function isShipped(): bool
+{
+    return !is_null($this->shipped_at);
+}
+
+public function calculateDiscount(): float
+{
+    // Your business logic here
+    return $this->total > 100 ? 10.0 : 0.0;
+}
+
+public function getOrderStatus(): string
+{
+    return match($this->status) {
+        'pending' => 'Pending Processing',
+        'processing' => 'Being Processed',
+        'shipped' => 'Shipped',
+        'delivered' => 'Delivered',
+        default => 'Unknown Status'
+    };
+}
+```
+
+### Column Identification
+
+The component now supports flexible column identification:
+
+- **Database columns**: Use `'key' => 'column_name'`
+- **Function columns**: Use `'function' => 'methodName'`
+- **Auto-generated**: If neither key nor function is provided, an auto-generated identifier is used
 
 ## Relation Handling and Raw Templates
 
@@ -96,84 +236,103 @@ For concatenating multiple columns from the same table:
 - **Automatic Detection**: Columns referenced in raw templates are automatically detected and included in the database query
 - **Relation Auto-loading**: Relations used in raw templates are automatically eager loaded
 - **Foreign Key Management**: Foreign keys for relations are automatically included in SELECT statements
-- **Smart Parsing**: The system distinguishes between direct column references and relation references
+- **Smart Parsing**: The system distinguishes between direct column references, relation references, and method calls
 - **No Manual Column Lists**: You don't need to manually specify every column used in raw templates
+- **Function Method Calls**: Model methods in raw templates are automatically detected and called
 
 ### Important Notes:
 
 1. **Relation Format**: Always use `"relation:attribute"` format for the `relation` key
 2. **Raw Template Relations**: When using `$row->relation->attribute` in raw templates, the relation is automatically loaded
 3. **Column Detection**: Columns like `$row->first_name` in raw templates are automatically included in queries
-4. **Performance**: Only visible columns and their dependencies are loaded, keeping queries efficient
+4. **Method Detection**: Method calls like `$row->methodName()` in raw templates are automatically processed
+5. **Performance**: Only visible columns and their dependencies are loaded, keeping queries efficient
 
-## Custom Query Constraints
+## Mixed Column Example
 
-The `query` parameter allows you to apply additional constraints to the base query before any table operations (search, filters, sorting) are applied. This is useful for:
-
-- Filtering data by user permissions
-- Showing only active/published records
-- Applying tenant-specific filters
-- Complex business logic filtering
-
-### Usage Examples
-
-#### Using Array of Constraints (Recommended for Livewire)
+Here's an example showing all column types together using a generic e-commerce scenario:
 
 ```php
-@livewire('aftable', [
-    'model' => App\Models\Service::class,
-    'columns' => [...],
-    'query' => [
-        ['active', '=', true],        // WHERE active = true
-        ['cost', '>', 0],             // AND cost > 0
-        ['name', 'like', '%premium%'], // AND name LIKE '%premium%'
+'columns' => [
+    // Database column
+    ['key' => 'id', 'label' => 'Order ID'],
+    
+    // Relation column with raw template
+    [
+        'key' => 'customer_id',
+        'relation' => 'customer:first_name',
+        'label' => 'Customer',
+        'raw' => '{{ $row->customer->first_name . " " . $row->customer->last_name }}'
     ],
-])
-```
-
-#### Simple Single Condition
-
-```php
-@livewire('aftable', [
-    'model' => App\Models\Service::class,
-    'columns' => [...],
-    'query' => [['active', true]], // WHERE active = true
-])
-```
-
-### Common Use Cases
-
-#### Status-Based Filtering
-```php
-'query' => [
-    ['active', '=', true]
+    
+    // Regular database column with formatting
+    [
+        'key' => 'total_amount',
+        'label' => 'Total',
+        'raw' => '<span class="text-success fw-bold">${{ number_format($row->total_amount, 2) }}</span>'
+    ],
+    
+    // Function-based column with simple display
+    [
+        'function' => 'isShipped',
+        'label' => 'Shipped'
+    ],
+    
+    // Function-based column with custom template
+    [
+        'function' => 'getOrderStatus',
+        'label' => 'Status',
+        'raw' => '<span class="badge bg-{{ $row->getOrderStatus() === "completed" ? "success" : "warning" }}">
+                    {{ ucfirst($row->getOrderStatus()) }}
+                  </span>'
+    ],
+    
+    // Function for calculated values
+    [
+        'function' => 'getDaysToDelivery',
+        'label' => 'Delivery ETA',
+        'raw' => '<small class="text-muted">{{ $row->getDaysToDelivery() }} days</small>'
+    ]
 ]
 ```
 
-#### Multiple Conditions
+## Common Function Column Use Cases
+
+### Status Checks
 ```php
-'query' => [
-    ['status', 'in', ['active', 'pending']],
-    ['created_at', '>=', '2024-01-01']
-]
+// Check if user has specific permissions
+['function' => 'hasAdminAccess', 'label' => 'Admin Access']
+
+// Check payment status
+['function' => 'isPaid', 'label' => 'Payment Status']
+
+// Check if item is in stock
+['function' => 'isInStock', 'label' => 'Available']
 ```
 
-#### User-Specific Data
+### Calculated Values
 ```php
-'query' => [
-    ['user_id', '=', auth()->id()]
-]
+// Calculate age from birthdate
+['function' => 'getAge', 'label' => 'Age']
+
+// Calculate total with taxes
+['function' => 'getTotalWithTax', 'label' => 'Total (incl. tax)']
+
+// Get formatted price
+['function' => 'getFormattedPrice', 'label' => 'Price']
 ```
 
-### Important Notes
+### Dynamic Content
+```php
+// Get user's full display name
+['function' => 'getDisplayName', 'label' => 'Name']
 
-1. **Applied First**: Custom query constraints are applied before all other table operations (search, filters, sorting).
+// Get formatted address
+['function' => 'getFullAddress', 'label' => 'Address']
 
-2. **Livewire Compatible**: Use array format for Livewire compatibility. Closures cannot be serialized.
-
-3. **Array Format**: Each constraint should be an array with `[column, operator, value]` or `[column, value]` format.
-
-4. **Export Compatibility**: Custom query constraints are automatically applied to exported data.
+// Get relative date (e.g., "2 days ago")
+['function' => 'getTimeAgo', 'label' => 'Last Activity']
+```
 
 ## Installation
 
@@ -314,22 +473,42 @@ The `query` parameter accepts an array of conditions in the following formats:
 
 ### Column Definitions
 
-Each entry in `columns` must include:
+Each entry in `columns` can include:
 
-- `key` (string, **required**): Model attribute or relation key.
+#### Required (one of these):
+- `key` (string): Model attribute or database column name.
+- `function` (string): Model method name to call for computed values.
+
+#### Optional:
 - `label` (string, **required**): Header text.
-- `sortable` (bool): Enable sorting.
-- `searchable` (bool): Include in global search.
-- `raw` (string): Raw Blade snippet for custom rendering. **Automatically detects and includes referenced columns/relations**.
+- `sortable` (bool): Enable sorting (ignored for function columns).
+- `searchable` (bool): Include in global search (ignored for function columns).
+- `raw` (string): Raw Blade snippet for custom rendering. **Automatically detects and includes referenced columns/relations/methods**.
 - `relation` (string): Use the format `"relation:column"` (e.g. `"category:name"` or `"member:email"`) to display and enable sorting/filtering on a related model field.
 - `classCondition` (array): `[ 'css-class' => fn($row)=> condition ]`.
+- `hide` (bool): Hide column by default (can be toggled via column visibility).
+
+#### Column Types Summary:
+
+1. **Database Column**: `['key' => 'column_name', 'label' => 'Label']`
+2. **Relation Column**: `['key' => 'foreign_key', 'relation' => 'relation:attribute', 'label' => 'Label']`
+3. **Function Column**: `['function' => 'methodName', 'label' => 'Label']`
+4. **Function with Raw**: `['function' => 'methodName', 'label' => 'Label', 'raw' => 'custom template']`
 
 > **Smart Column Detection:**  
 > When using raw templates, you don't need to manually specify every column. The system automatically:
 > - Detects `$row->column_name` references and includes them in the query
 > - Identifies `$row->relation->attribute` patterns and eager loads the relations
+> - Recognizes `$row->methodName()` calls and processes them as model methods
 > - Includes necessary foreign keys for relation columns
-> - Excludes relation names from being treated as database columns
+> - Excludes function names and relation names from being treated as database columns
+
+> **Function Column Features:**  
+> - Function-based columns are automatically excluded from database SELECT statements
+> - Method existence is validated before calling
+> - Boolean results are automatically converted to "Yes/No" display
+> - Function columns are not sortable or searchable (since they're computed)
+> - Can be combined with raw templates for custom formatting
 
 > **Relation Sorting/Filtering:**  
 > To enable sorting or filtering on a related field, you **must** define the `relation` key using the `"relation:column"` format.  
