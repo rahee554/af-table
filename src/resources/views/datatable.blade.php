@@ -184,7 +184,7 @@
 
                     @foreach ($columns as $columnKey => $column)
                         @if ($visibleColumns[$columnKey] ?? false)
-                            <th class="{{ $column['class'] ?? '' }} fw-bold bg-light position-relative"
+                            <th class="fw-bold bg-light position-relative {{ $column['th_class'] ?? $column['class'] ?? '' }}"
                                 @if(!isset($column['function']) && isset($column['key']))
                                     wire:click="toggleSort('{{ $column['key'] }}')" style="cursor:pointer;"
                                 @endif
@@ -239,7 +239,7 @@
 
                             @foreach ($columns as $columnKey => $column)
                                 @if ($visibleColumns[$columnKey] ?? false)
-                                    <td class="{{ $column['class'] ?? '' }}">
+                                    <td class="{{ $column['td_class'] ?? $column['class'] ?? '' }}">
                                         @if (isset($column['function']))
                                             {{-- Handle function-based columns --}}
                                             @if (isset($column['raw']))
@@ -354,7 +354,6 @@
                 </select>
             </div>
         @endif
-
     </div>
 </div>
 

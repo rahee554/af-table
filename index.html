@@ -116,7 +116,7 @@
                         <label class="form-check-label" for="checkbox">Row Selection (checkbox)</label>
                     </div>
                     <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="index" checked>
+                        <input class="form-check-input" type="checkbox" id="index">
                         <label class="form-check-label" for="index">Index Column</label>
                     </div>
                     <div class="form-check form-check-inline">
@@ -177,303 +177,501 @@
     let filterCount = 0, queryCount = 0, actionCount = 0, dbColumnCount = 0, functionColumnCount = 0;
 
     function addDatabaseColumn() {
-        const id = ++dbColumnCount;
-        const html = `
-        <div class="row g-2 mb-2 align-items-end" id="db-column-row-${id}">
-            <div class="col-sm-3">
-                <label class="form-label small">Column Key</label>
-                <input type="text" class="form-control form-control-sm" placeholder="e.g. name, id" id="db-column-key-${id}" required>
-            </div>
-            <div class="col-sm-3">
-                <label class="form-label small">Label</label>
-                <input type="text" class="form-control form-control-sm" placeholder="Display Label" id="db-column-label-${id}" required>
-            </div>
-            <div class="col-sm-3">
-                <label class="form-label small">Relation (optional)</label>
-                <input type="text" class="form-control form-control-sm" placeholder="e.g. category:name" id="db-column-relation-${id}">
-            </div>
-            <div class="col-sm-2">
-                <label class="form-label small">Raw Template</label>
-                <input type="text" class="form-control form-control-sm" placeholder="Blade template" id="db-column-raw-${id}">
-            </div>
-            <div class="col-sm-1">
-                <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('db-column-row-${id}')">Remove</button>
-            </div>
-        </div>`;
-        document.getElementById('database-columns').insertAdjacentHTML('beforeend', html);
+        try {
+            const id = ++dbColumnCount;
+            console.log('Adding database column:', id);
+            
+            const html = `
+            <div class="row g-2 mb-2 align-items-end border p-3 rounded" id="db-column-row-${id}" style="background: #f8f9fa;">
+                <div class="col-sm-2">
+                    <label class="form-label small">Column Key</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="e.g. name, booking_id" id="db-column-key-${id}" required>
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small">Label</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="Display Label" id="db-column-label-${id}" required>
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small">Header Classes (th)</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="e.g. bg-primary text-white" id="db-column-th-class-${id}">
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small">Cell Classes (td)</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="e.g. text-center fw-bold" id="db-column-td-class-${id}">
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small">Relation (optional)</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="e.g. booking:unique_id" id="db-column-relation-${id}">
+                    <small class="text-muted">Format: relationName:attribute</small>
+                </div>
+                <div class="col-sm-1">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="db-column-hide-${id}">
+                        <label class="form-check-label small" for="db-column-hide-${id}">Hide</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small">Raw Template</label>
+                    <textarea class="form-control form-control-sm" placeholder="Enter Blade template here, e.g. {{ \\$row->booking->unique_id }}" id="db-column-raw-${id}" rows="3" style="font-family: monospace;"></textarea>
+                    <small class="text-muted">For relations, use: {{ \\$row->relationName->attribute }}</small>
+                </div>
+                <div class="col-sm-1">
+                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('db-column-row-${id}')">Remove</button>
+                </div>
+            </div>`;
+            
+            const container = document.getElementById('database-columns');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', html);
+                console.log('Database column added successfully');
+            } else {
+                console.error('Database columns container not found');
+            }
+        } catch (error) {
+            console.error('Error adding database column:', error);
+        }
     }
 
     function addFunctionColumn() {
-        const id = ++functionColumnCount;
-        const html = `
-        <div class="row g-2 mb-2 align-items-end border p-2 rounded" id="function-column-row-${id}" style="background: #f1f8e9;">
-            <div class="col-sm-3">
-                <label class="form-label small text-success">Function Name</label>
-                <input type="text" class="form-control form-control-sm" placeholder="e.g. isActive, hasFlight" id="function-column-name-${id}" required>
-            </div>
-            <div class="col-sm-3">
-                <label class="form-label small">Label</label>
-                <input type="text" class="form-control form-control-sm" placeholder="Display Label" id="function-column-label-${id}" required>
-            </div>
-            <div class="col-sm-4">
-                <label class="form-label small">Raw Template (optional)</label>
-                <input type="text" class="form-control form-control-sm" placeholder="Custom Blade template with \$row->functionName()" id="function-column-raw-${id}">
-            </div>
-            <div class="col-sm-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="function-column-hide-${id}">
-                    <label class="form-check-label small" for="function-column-hide-${id}">Hide</label>
+        try {
+            const id = ++functionColumnCount;
+            console.log('Adding function column:', id);
+            
+            const html = `
+            <div class="row g-2 mb-2 align-items-end border p-2 rounded" id="function-column-row-${id}" style="background: #f1f8e9;">
+                <div class="col-sm-2">
+                    <label class="form-label small text-success">Function Name</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="e.g. isActive, hasFlight" id="function-column-name-${id}" required>
                 </div>
-            </div>
-            <div class="col-sm-1">
-                <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('function-column-row-${id}')">Remove</button>
-            </div>
-        </div>`;
-        document.getElementById('function-columns').insertAdjacentHTML('beforeend', html);
+                <div class="col-sm-2">
+                    <label class="form-label small">Label</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="Display Label" id="function-column-label-${id}" required>
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small">Header Classes (th)</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="e.g. bg-success text-white" id="function-column-th-class-${id}">
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small">Cell Classes (td)</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="e.g. text-center fw-bold" id="function-column-td-class-${id}">
+                </div>
+                <div class="col-sm-1">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="function-column-hide-${id}">
+                        <label class="form-check-label small" for="function-column-hide-${id}">Hide</label>
+                    </div>
+                </div>
+                <div class="col-sm-1">
+                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('function-column-row-${id}')">Remove</button>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small">Raw Template (optional)</label>
+                    <textarea class="form-control form-control-sm" placeholder="Enter custom Blade template here" id="function-column-raw-${id}" rows="3" style="font-family: monospace;"></textarea>
+                </div>
+            </div>`;
+            
+            const container = document.getElementById('function-columns');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', html);
+                console.log('Function column added successfully');
+            } else {
+                console.error('Function columns container not found');
+            }
+        } catch (error) {
+            console.error('Error adding function column:', error);
+        }
     }
 
     function addFilter() {
-        const id = ++filterCount;
-        const html = `
-        <div class="row g-2 mb-2 align-items-end" id="filter-row-${id}">
-            <div class="col-sm-4">
-                <input type="text" class="form-control form-control-sm" placeholder="Column Key" id="filter-key-${id}" required>
-            </div>
-            <div class="col-sm-4">
-                <select class="form-select form-select-sm" id="filter-type-${id}">
-                    <option value="text">Text</option>
-                    <option value="select">Select</option>
-                    <option value="number">Number</option>
-                    <option value="date">Date</option>
-                </select>
-            </div>
-            <div class="col-sm-3">
-                <input type="text" class="form-control form-control-sm" placeholder="Relation (optional)" id="filter-relation-${id}">
-            </div>
-            <div class="col-sm-1">
-                <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('filter-row-${id}')">Remove</button>
-            </div>
-        </div>`;
-        document.getElementById('filters').insertAdjacentHTML('beforeend', html);
+        try {
+            const id = ++filterCount;
+            console.log('Adding filter:', id);
+            
+            const html = `
+            <div class="row g-2 mb-2 align-items-end" id="filter-row-${id}">
+                <div class="col-sm-4">
+                    <input type="text" class="form-control form-control-sm" placeholder="Column Key" id="filter-key-${id}" required>
+                </div>
+                <div class="col-sm-4">
+                    <select class="form-select form-select-sm" id="filter-type-${id}">
+                        <option value="text">Text</option>
+                        <option value="select">Select</option>
+                        <option value="number">Number</option>
+                        <option value="date">Date</option>
+                    </select>
+                </div>
+                <div class="col-sm-3">
+                    <input type="text" class="form-control form-control-sm" placeholder="Relation (optional)" id="filter-relation-${id}">
+                </div>
+                <div class="col-sm-1">
+                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('filter-row-${id}')">Remove</button>
+                </div>
+            </div>`;
+            
+            const container = document.getElementById('filters');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', html);
+                console.log('Filter added successfully');
+            } else {
+                console.error('Filters container not found');
+            }
+        } catch (error) {
+            console.error('Error adding filter:', error);
+        }
     }
 
     function addQuery() {
-        const id = ++queryCount;
-        const html = `
-        <div class="row g-2 mb-2 align-items-end" id="query-row-${id}">
-            <div class="col-sm-3">
-                <input type="text" class="form-control form-control-sm" placeholder="Column" id="query-col-${id}">
-            </div>
-            <div class="col-sm-2">
-                <select class="form-select form-select-sm" id="query-op-${id}">
-                    <option value="">= (default)</option>
-                    <option value="=">=</option>
-                    <option value="!=">!=</option>
-                    <option value=">">&gt;</option>
-                    <option value=">=">&gt;=</option>
-                    <option value="<">&lt;</option>
-                    <option value="<=">&lt;=</option>
-                    <option value="like">like</option>
-                    <option value="in">in</option>
-                </select>
-            </div>
-            <div class="col-sm-5">
-                <input type="text" class="form-control form-control-sm" placeholder="Value (use comma for 'in')" id="query-val-${id}">
-            </div>
-            <div class="col-sm-2">
-                <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('query-row-${id}')">Remove</button>
-            </div>
-        </div>`;
-        document.getElementById('queries').insertAdjacentHTML('beforeend', html);
+        try {
+            const id = ++queryCount;
+            console.log('Adding query:', id);
+            
+            const html = `
+            <div class="row g-2 mb-2 align-items-end" id="query-row-${id}">
+                <div class="col-sm-3">
+                    <input type="text" class="form-control form-control-sm" placeholder="Column" id="query-col-${id}">
+                </div>
+                <div class="col-sm-2">
+                    <select class="form-select form-select-sm" id="query-op-${id}">
+                        <option value="">= (default)</option>
+                        <option value="=">=</option>
+                        <option value="!=">!=</option>
+                        <option value=">">&gt;</option>
+                        <option value=">=">&gt;=</option>
+                        <option value="<">&lt;</option>
+                        <option value="<=">&lt;=</option>
+                        <option value="like">like</option>
+                        <option value="in">in</option>
+                    </select>
+                </div>
+                <div class="col-sm-5">
+                    <input type="text" class="form-control form-control-sm" placeholder="Value (use comma for 'in')" id="query-val-${id}">
+                </div>
+                <div class="col-sm-2">
+                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('query-row-${id}')">Remove</button>
+                </div>
+            </div>`;
+            
+            const container = document.getElementById('queries');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', html);
+                console.log('Query added successfully');
+            } else {
+                console.error('Queries container not found');
+            }
+        } catch (error) {
+            console.error('Error adding query:', error);
+        }
     }
 
     function addAction() {
-        const id = ++actionCount;
-        const html = `
-        <div class="row g-2 mb-2 align-items-end" id="action-row-${id}">
-            <div class="col-sm-10">
-                <input type="text" class="form-control form-control-sm" placeholder='Blade snippet, e.g. &lt;a href="/edit/{{\$row->id}}"&gt;Edit&lt;/a&gt;' id="action-blade-${id}">
-            </div>
-            <div class="col-sm-2">
-                <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('action-row-${id}')">Remove</button>
-            </div>
-        </div>`;
-        document.getElementById('actions').insertAdjacentHTML('beforeend', html);
+        try {
+            const id = ++actionCount;
+            console.log('Adding action:', id);
+            
+            const html = `
+            <div class="row g-2 mb-2 align-items-end" id="action-row-${id}">
+                <div class="col-sm-10">
+                    <input type="text" class="form-control form-control-sm" placeholder='Blade snippet, e.g. &lt;a href="/edit/{{\$row->id}}"&gt;Edit&lt;/a&gt;' id="action-blade-${id}">
+                </div>
+                <div class="col-sm-2">
+                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('action-row-${id}')">Remove</button>
+                </div>
+            </div>`;
+            
+            const container = document.getElementById('actions');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', html);
+                console.log('Action added successfully');
+            } else {
+                console.error('Actions container not found');
+            }
+        } catch (error) {
+            console.error('Error adding action:', error);
+        }
     }
 
     function removeElement(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
+        try {
+            console.log('Removing element:', id);
+            const el = document.getElementById(id);
+            if (el) {
+                el.remove();
+                console.log('Element removed successfully');
+            } else {
+                console.error('Element not found:', id);
+            }
+        } catch (error) {
+            console.error('Error removing element:', error);
+        }
     }
 
     function phpString(value) {
+        if (!value) return '';
         return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
 
     function generateCode() {
-        const model = document.getElementById('model').value.trim();
-        
-        // Database Columns
-        const dbColumns = [];
-        for (let i = 1; i <= dbColumnCount; i++) {
-            if (!document.getElementById(`db-column-row-${i}`)) continue;
-            const key = phpString(document.getElementById(`db-column-key-${i}`).value.trim());
-            const label = phpString(document.getElementById(`db-column-label-${i}`).value.trim());
-            const relation = phpString(document.getElementById(`db-column-relation-${i}`).value.trim());
-            const raw = document.getElementById(`db-column-raw-${i}`).value.trim();
-            if (!key || !label) continue;
+        try {
+            console.log('Generating code...');
             
-            let col = `['key' => '${key}', 'label' => '${label}'`;
-            if (relation) col += `, 'relation' => '${relation}'`;
-            if (raw) col += `, 'raw' => '${raw.replace(/'/g, "\\'")}'`;
-            col += ']';
-            dbColumns.push(col);
-        }
-
-        // Function Columns
-        const functionColumns = [];
-        for (let i = 1; i <= functionColumnCount; i++) {
-            if (!document.getElementById(`function-column-row-${i}`)) continue;
-            const functionName = phpString(document.getElementById(`function-column-name-${i}`).value.trim());
-            const label = phpString(document.getElementById(`function-column-label-${i}`).value.trim());
-            const raw = document.getElementById(`function-column-raw-${i}`).value.trim();
-            const hide = document.getElementById(`function-column-hide-${i}`).checked;
-            if (!functionName || !label) continue;
+            const model = document.getElementById('model')?.value?.trim() || '';
             
-            let col = `['function' => '${functionName}', 'label' => '${label}'`;
-            if (raw) col += `, 'raw' => '${raw.replace(/'/g, "\\'")}'`;
-            if (hide) col += `, 'hide' => true`;
-            col += ']';
-            functionColumns.push(col);
-        }
-
-        // Combine all columns
-        const allColumns = [...dbColumns, ...functionColumns];
-
-        // Filters
-        const filters = [];
-        for (let i = 1; i <= filterCount; i++) {
-            if (!document.getElementById(`filter-row-${i}`)) continue;
-            const key = phpString(document.getElementById(`filter-key-${i}`).value.trim());
-            const type = document.getElementById(`filter-type-${i}`).value;
-            const relation = phpString(document.getElementById(`filter-relation-${i}`).value.trim());
-            if (!key) continue;
-            let f = `'${key}' => [ 'type' => '${type}'`;
-            if (relation) f += `, 'relation' => '${relation}'`;
-            f += ' ]';
-            filters.push(f);
-        }
-
-        // Queries
-        const queries = [];
-        for (let i = 1; i <= queryCount; i++) {
-            if (!document.getElementById(`query-row-${i}`)) continue;
-            const col = phpString(document.getElementById(`query-col-${i}`).value.trim());
-            let op = document.getElementById(`query-op-${i}`).value;
-            let val = phpString(document.getElementById(`query-val-${i}`).value.trim());
-            if (!col || !val) continue;
-            if(op === "in") {
-                val = `[${val.split(',').map(v=>`'${phpString(v.trim())}'`).join(', ')}]`;
-                queries.push(`[ '${col}', 'in', ${val} ]`);
-            } else if(op && op !== "=") {
-                queries.push(`[ '${col}', '${op}', '${val}' ]`);
-            } else {
-                queries.push(`[ '${col}', '${val}' ]`);
+            if (!model) {
+                alert('Please enter a model class name');
+                return;
             }
+            
+            // Database Columns
+            const dbColumns = [];
+            for (let i = 1; i <= dbColumnCount; i++) {
+                if (!document.getElementById(`db-column-row-${i}`)) continue;
+                
+                const keyEl = document.getElementById(`db-column-key-${i}`);
+                const labelEl = document.getElementById(`db-column-label-${i}`);
+                const thClassEl = document.getElementById(`db-column-th-class-${i}`);
+                const tdClassEl = document.getElementById(`db-column-td-class-${i}`);
+                const relationEl = document.getElementById(`db-column-relation-${i}`);
+                const rawEl = document.getElementById(`db-column-raw-${i}`);
+                const hideEl = document.getElementById(`db-column-hide-${i}`);
+                
+                if (!keyEl || !labelEl) continue;
+                
+                const key = phpString(keyEl.value.trim());
+                const label = phpString(labelEl.value.trim());
+                const thClass = phpString(thClassEl?.value?.trim() || '');
+                const tdClass = phpString(tdClassEl?.value?.trim() || '');
+                const relation = phpString(relationEl?.value?.trim() || '');
+                const raw = rawEl?.value?.trim() || '';
+                const hide = hideEl?.checked || false;
+                
+                if (!key || !label) continue;
+                
+                let col = `['key' => '${key}', 'label' => '${label}'`;
+                if (thClass) col += `, 'th_class' => '${thClass}'`;
+                if (tdClass) col += `, 'td_class' => '${tdClass}'`;
+                if (relation) col += `, 'relation' => '${relation}'`;
+                if (raw) col += `, 'raw' => '${raw.replace(/'/g, "\\'")}'`;
+                if (hide) col += `, 'hide' => true`;
+                col += ']';
+                dbColumns.push(col);
+            }
+
+            // Function Columns
+            const functionColumns = [];
+            for (let i = 1; i <= functionColumnCount; i++) {
+                if (!document.getElementById(`function-column-row-${i}`)) continue;
+                
+                const nameEl = document.getElementById(`function-column-name-${i}`);
+                const labelEl = document.getElementById(`function-column-label-${i}`);
+                const thClassEl = document.getElementById(`function-column-th-class-${i}`);
+                const tdClassEl = document.getElementById(`function-column-td-class-${i}`);
+                const rawEl = document.getElementById(`function-column-raw-${i}`);
+                const hideEl = document.getElementById(`function-column-hide-${i}`);
+                
+                if (!nameEl || !labelEl) continue;
+                
+                const functionName = phpString(nameEl.value.trim());
+                const label = phpString(labelEl.value.trim());
+                const thClass = phpString(thClassEl?.value?.trim() || '');
+                const tdClass = phpString(tdClassEl?.value?.trim() || '');
+                const raw = rawEl?.value?.trim() || '';
+                const hide = hideEl?.checked || false;
+                
+                if (!functionName || !label) continue;
+                
+                let col = `['function' => '${functionName}', 'label' => '${label}'`;
+                if (thClass) col += `, 'th_class' => '${thClass}'`;
+                if (tdClass) col += `, 'td_class' => '${tdClass}'`;
+                if (raw) col += `, 'raw' => '${raw.replace(/'/g, "\\'")}'`;
+                if (hide) col += `, 'hide' => true`;
+                col += ']';
+                functionColumns.push(col);
+            }
+
+            // Combine all columns
+            const allColumns = [...dbColumns, ...functionColumns];
+
+            // Filters
+            const filters = [];
+            for (let i = 1; i <= filterCount; i++) {
+                if (!document.getElementById(`filter-row-${i}`)) continue;
+                const key = phpString(document.getElementById(`filter-key-${i}`).value.trim());
+                const type = document.getElementById(`filter-type-${i}`).value;
+                const relation = phpString(document.getElementById(`filter-relation-${i}`).value.trim());
+                if (!key) continue;
+                let f = `'${key}' => [ 'type' => '${type}'`;
+                if (relation) f += `, 'relation' => '${relation}'`;
+                f += ' ]';
+                filters.push(f);
+            }
+
+            // Queries
+            const queries = [];
+            for (let i = 1; i <= queryCount; i++) {
+                if (!document.getElementById(`query-row-${i}`)) continue;
+                const col = phpString(document.getElementById(`query-col-${i}`).value.trim());
+                let op = document.getElementById(`query-op-${i}`).value;
+                let val = phpString(document.getElementById(`query-val-${i}`).value.trim());
+                if (!col || !val) continue;
+                if(op === "in") {
+                    val = `[${val.split(',').map(v=>`'${phpString(v.trim())}'`).join(', ')}]`;
+                    queries.push(`[ '${col}', 'in', ${val} ]`);
+                } else if(op && op !== "=") {
+                    queries.push(`[ '${col}', '${op}', '${val}' ]`);
+                } else {
+                    queries.push(`[ '${col}', '${val}' ]`);
+                }
+            }
+
+            // Actions
+            const actions = [];
+            for (let i = 1; i <= actionCount; i++) {
+                if (!document.getElementById(`action-row-${i}`)) continue;
+                const blade = document.getElementById(`action-blade-${i}`).value.trim();
+                if(blade) actions.push('`' + blade.replace(/`/g, '\\`') + '`');
+            }
+
+            // Table options (optional)
+            const records = document.getElementById('records').value;
+            const tableId = document.getElementById('tableId').value.trim();
+            const dateColumn = document.getElementById('dateColumn').value.trim();
+
+            // Feature flags
+            const checkbox = document.getElementById('checkbox').checked;
+            const exportable = document.getElementById('exportable').checked;
+            const printable = document.getElementById('printable').checked;
+            const index = document.getElementById('index').checked;
+            const searchable = document.getElementById('searchable').checked;
+            const colSort = document.getElementById('colSort').checked;
+            const refreshBtn = document.getElementById('refreshBtn').checked;
+            const colvisBtn = document.getElementById('colvisBtn').checked;
+            const sortdir = document.getElementById('sortdir').value;
+
+            let code = `@livewire('aftable', [\n`;
+            code += `    'model' => \\${model}::class`;
+
+            if (allColumns.length)
+                code += `,\n    'columns' => [\n        ${allColumns.join(",\n        ")}\n    ]`;
+            if (filters.length)
+                code += `,\n    'filters' => [\n        ${filters.join(",\n        ")}\n    ]`;
+            if (queries.length)
+                code += `,\n    'query' => [\n        ${queries.join(",\n        ")}\n    ]`;
+            if (actions.length)
+                code += `,\n    'actions' => [\n        ${actions.join(",\n        ")}\n    ]`;
+            if (records)
+                code += `,\n    'records' => ${parseInt(records, 10)}`;
+            if (tableId)
+                code += `,\n    'tableId' => '${phpString(tableId)}'`;
+            if (dateColumn)
+                code += `,\n    'dateColumn' => '${phpString(dateColumn)}'`;
+            if (checkbox)
+                code += `,\n    'checkbox' => true`;
+            if (exportable)
+                code += `,\n    'exportable' => true`;
+            if (printable)
+                code += `,\n    'printable' => true`;
+            if (index)
+                code += `,\n    'index' => true`;
+          
+            if (!searchable)
+                code += `,\n    'searchable' => false`;
+            if (!colSort)
+                code += `,\n    'colSort' => false`;
+            if (refreshBtn)
+                code += `,\n    'refreshBtn' => true`;
+            if (!colvisBtn)
+                code += `,\n    'colvisBtn' => false`;
+            if (sortdir === 'asc' || sortdir === 'desc')
+                code += `,\n    'sort' => '${sortdir}'`;
+
+            code += `\n])`;
+
+            const outputEl = document.getElementById('output');
+            if (outputEl) {
+                outputEl.value = code;
+                console.log('Code generated successfully');
+            } else {
+                console.error('Output element not found');
+            }
+        } catch (error) {
+            console.error('Error generating code:', error);
+            alert('Error generating code. Check console for details.');
         }
-
-        // Actions
-        const actions = [];
-        for (let i = 1; i <= actionCount; i++) {
-            if (!document.getElementById(`action-row-${i}`)) continue;
-            const blade = document.getElementById(`action-blade-${i}`).value.trim();
-            if(blade) actions.push('`' + blade.replace(/`/g, '\\`') + '`');
-        }
-
-        // Table options (optional)
-        const records = document.getElementById('records').value;
-        const tableId = document.getElementById('tableId').value.trim();
-        const dateColumn = document.getElementById('dateColumn').value.trim();
-
-        // Feature flags
-        const checkbox = document.getElementById('checkbox').checked;
-        const exportable = document.getElementById('exportable').checked;
-        const printable = document.getElementById('printable').checked;
-        const index = document.getElementById('index').checked;
-        const searchable = document.getElementById('searchable').checked;
-        const colSort = document.getElementById('colSort').checked;
-        const refreshBtn = document.getElementById('refreshBtn').checked;
-        const colvisBtn = document.getElementById('colvisBtn').checked;
-        const sortdir = document.getElementById('sortdir').value;
-
-        let code = `@livewire('aftable', [\n`;
-        code += `    'model' => \\${model}::class`;
-
-        if (allColumns.length)
-            code += `,\n    'columns' => [\n        ${allColumns.join(",\n        ")}\n    ]`;
-        if (filters.length)
-            code += `,\n    'filters' => [\n        ${filters.join(",\n        ")}\n    ]`;
-        if (queries.length)
-            code += `,\n    'query' => [\n        ${queries.join(",\n        ")}\n    ]`;
-        if (actions.length)
-            code += `,\n    'actions' => [\n        ${actions.join(",\n        ")}\n    ]`;
-        if (records)
-            code += `,\n    'records' => ${parseInt(records, 10)}`;
-        if (tableId)
-            code += `,\n    'tableId' => '${phpString(tableId)}'`;
-        if (dateColumn)
-            code += `,\n    'dateColumn' => '${phpString(dateColumn)}'`;
-        if (checkbox)
-            code += `,\n    'checkbox' => true`;
-        if (exportable)
-            code += `,\n    'exportable' => true`;
-        if (printable)
-            code += `,\n    'printable' => true`;
-        if (!index)
-            code += `,\n    'index' => false`;
-        if (!searchable)
-            code += `,\n    'searchable' => false`;
-        if (!colSort)
-            code += `,\n    'colSort' => false`;
-        if (refreshBtn)
-            code += `,\n    'refreshBtn' => true`;
-        if (!colvisBtn)
-            code += `,\n    'colvisBtn' => false`;
-        if (sortdir === 'asc' || sortdir === 'desc')
-            code += `,\n    'sort' => '${sortdir}'`;
-
-        code += `\n])`;
-
-        document.getElementById('output').value = code;
     }
 
     function copyCode() {
-        const codeArea = document.getElementById('output');
-        codeArea.select();
-        codeArea.setSelectionRange(0, 99999);
-        document.execCommand('copy');
+        try {
+            const codeArea = document.getElementById('output');
+            if (!codeArea) {
+                console.error('Output textarea not found');
+                return;
+            }
+            
+            codeArea.select();
+            codeArea.setSelectionRange(0, 99999);
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(codeArea.value).then(() => {
+                    console.log('Code copied to clipboard');
+                    showCopySuccess();
+                });
+            } else {
+                // Fallback
+                document.execCommand('copy');
+                showCopySuccess();
+            }
+        } catch (error) {
+            console.error('Error copying code:', error);
+        }
+    }
+
+    function showCopySuccess() {
         const btn = document.querySelector('.copy-btn');
-        btn.innerHTML = `<span style="font-size:1.2em;color:green;">&#10003;</span>`;
-        setTimeout(() => {
-            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M10 1.5A1.5 1.5 0 0 1 11.5 3v1H12A2.5 2.5 0 0 1 14.5 6.5v6A2.5 2.5 0 0 1 12 15H6.5A2.5 2.5 0 0 1 4 12.5V12h-.5A1.5 1.5 0 0 1 2 10.5v-8A1.5 1.5 0 0 1 3.5 1h6ZM3.5 2A.5.5 0 0 0 3 2.5v8a.5.5 0 0 0 .5.5H4V6.5A2.5 2.5 0 0 1 6.5 4H11V3.5a.5.5 0 0 0-.5-.5h-6ZM6.5 5A1.5 1.5 0 0 0 5 6.5v6A1.5 1.5 0 0 0 6.5 14h5A1.5 1.5 0 0 0 13 12.5v-6A1.5 1.5 0 0 0 11.5 5h-5Z"/>
-            </svg>`;
-        }, 1200);
+        if (btn) {
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<span style="font-size:1.2em;color:green;">&#10003;</span>`;
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+            }, 1200);
+        }
     }
 
     // Initialize with some example data
     window.onload = function() {
-        // Add a default database column example
-        addDatabaseColumn();
-        document.getElementById('db-column-key-1').value = 'name';
-        document.getElementById('db-column-label-1').value = 'Name';
+        console.log('Page loaded, initializing...');
         
-        // Add a default function column example
-        addFunctionColumn();
-        document.getElementById('function-column-name-1').value = 'isActive';
-        document.getElementById('function-column-label-1').value = 'Status';
-        document.getElementById('function-column-raw-1').value = '<span class="badge bg-{{ $row->isActive() ? "success" : "danger" }}">{{ $row->isActive() ? "Active" : "Inactive" }}</span>';
+        try {
+            // Removed automatic creation of default columns
+            // Users will add columns manually using the buttons
+        } catch (error) {
+            console.error('Error during initialization:', error);
+        }
     };
+
+    // Add event listeners when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, setting up event listeners...');
+        
+        // Ensure all button event listeners are properly attached
+        const addDbBtn = document.querySelector('button[onclick*="addDatabaseColumn"]');
+        const addFuncBtn = document.querySelector('button[onclick*="addFunctionColumn"]');
+        const addFilterBtn = document.querySelector('button[onclick*="addFilter"]');
+        const addQueryBtn = document.querySelector('button[onclick*="addQuery"]');
+        const addActionBtn = document.querySelector('button[onclick*="addAction"]');
+        const generateBtn = document.querySelector('button[onclick*="generateCode"]');
+        const copyBtn = document.querySelector('.copy-btn');
+
+        // Debug: Check if buttons exist
+        console.log('Button check:', {
+            addDbBtn: !!addDbBtn,
+            addFuncBtn: !!addFuncBtn,
+            addFilterBtn: !!addFilterBtn,
+            addQueryBtn: !!addQueryBtn,
+            addActionBtn: !!addActionBtn,
+            generateBtn: !!generateBtn,
+            copyBtn: !!copyBtn
+        });
+    });
 </script>
 </body>
 </html>
