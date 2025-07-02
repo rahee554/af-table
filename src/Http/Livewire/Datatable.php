@@ -333,21 +333,56 @@ class Datatable extends Component
     {
         [$relationName, $relatedColumn] = explode(':', $this->columns[$columnKey]['relation']);
 
-        // Use efficient query with limits
-        return $this->model::query()
-            ->select($relationName . '.' . $relatedColumn)
-            ->join(
-                (new ($this->model))->$relationName()->getRelated()->getTable(),
-                (new ($this->model))->getTable() . '.' . (new ($this->model))->$relationName()->getForeignKeyName(),
-                '=',
-                (new ($this->model))->$relationName()->getRelated()->getTable() . '.' . (new ($this->model))->$relationName()->getOwnerKeyName()
-            )
-            ->distinct()
-            ->whereNotNull($relationName . '.' . $relatedColumn)
-            ->limit($this->maxDistinctValues)
-            ->pluck($relationName . '.' . $relatedColumn)
-            ->values()
-            ->toArray();
+        $modelInstance = new ($this->model);
+        $relationObj = $modelInstance->$relationName();
+        $relatedModel = $relationObj->getRelated();
+        $relatedTable = $relatedModel->getTable();
+        $relatedColumnFull = $relatedTable . '.' . $relatedColumn;
+
+        // Determine join keys
+        if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+            $parentTable = $modelInstance->getTable();
+            $foreignKey = $relationObj->getForeignKeyName();
+            $ownerKey = $relationObj->getOwnerKeyName();
+
+            return $this->model::query()
+                ->select($relatedColumnFull)
+                ->join(
+                    $relatedTable,
+                    $parentTable . '.' . $foreignKey,
+                    '=',
+                    $relatedTable . '.' . $ownerKey
+                )
+                ->distinct()
+                ->whereNotNull($relatedColumnFull)
+                ->limit($this->maxDistinctValues)
+                ->pluck($relatedColumnFull)
+                ->values()
+                ->toArray();
+        } elseif ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne ||
+                  $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
+            $parentTable = $modelInstance->getTable();
+            $foreignKey = $relationObj->getForeignKeyName();
+            $localKey = $relationObj->getLocalKeyName();
+
+            return $this->model::query()
+                ->select($relatedColumnFull)
+                ->join(
+                    $relatedTable,
+                    $relatedTable . '.' . $foreignKey,
+                    '=',
+                    $parentTable . '.' . $localKey
+                )
+                ->distinct()
+                ->whereNotNull($relatedColumnFull)
+                ->limit($this->maxDistinctValues)
+                ->pluck($relatedColumnFull)
+                ->values()
+                ->toArray();
+        } else {
+            // Fallback: try to join on guessed keys
+            return [];
+        }
     }
 
     protected function getColumnDistinctValues($columnKey): array
@@ -390,7 +425,7 @@ class Datatable extends Component
                 $relationDetails = explode(':', $relationString);
             }
 
-            // Determine operator and value based on filter type
+            // Determine filter type and operator
             $filterType = isset($this->filters[$this->filterColumn]['type']) ? $this->filters[$this->filterColumn]['type'] : 'text';
             $operator = $this->filterOperator ?? $this->getDefaultOperator($filterType);
             $value = $this->sanitizeFilterValue($this->prepareFilterValue($filterType, $operator, $this->filterValue));
@@ -400,6 +435,12 @@ class Datatable extends Component
                 $query->whereHas($relation, function ($relQuery) use ($attribute, $operator, $value, $filterType) {
                     if ($filterType === 'date') {
                         $relQuery->whereDate($attribute, $operator, $value);
+                    } elseif (in_array($filterType, ['integer', 'number'])) {
+                        $relQuery->where($attribute, $operator, $value);
+                    } elseif ($filterType === 'text') {
+                        $relQuery->where($attribute, 'LIKE', '%' . $value . '%');
+                    } elseif ($filterType === 'distinct') {
+                        $relQuery->where($attribute, $operator, $value);
                     } else {
                         $relQuery->where($attribute, $operator, $value);
                     }
@@ -407,6 +448,12 @@ class Datatable extends Component
             } else {
                 if ($filterType === 'date') {
                     $query->whereDate($this->filterColumn, $operator, $value);
+                } elseif (in_array($filterType, ['integer', 'number'])) {
+                    $query->where($this->filterColumn, $operator, $value);
+                } elseif ($filterType === 'text') {
+                    $query->where($this->filterColumn, 'LIKE', '%' . $value . '%');
+                } elseif ($filterType === 'distinct') {
+                    $query->where($this->filterColumn, $operator, $value);
                 } else {
                     $query->where($this->filterColumn, $operator, $value);
                 }
@@ -418,6 +465,7 @@ class Datatable extends Component
     {
         switch ($filterType) {
             case 'select':
+            case 'distinct':
                 return '=';
             case 'integer':
             case 'number':
@@ -432,15 +480,23 @@ class Datatable extends Component
 
     protected function prepareFilterValue($filterType, $operator, $value)
     {
-        if ($filterType === 'text' && strtoupper($operator) === 'LIKE') {
-            return "%{$value}%";
-        }
+        // For text, we now always use the raw value (LIKE %value%)
         return $value;
     }
 
     public function getDistinctValues($columnKey)
     {
-        return $this->getCachedDistinctValues($columnKey);
+        // For relation, get distinct from related table, else from main table
+        $values = isset($this->columns[$columnKey]['relation'])
+            ? $this->getRelationDistinctValues($columnKey)
+            : $this->getColumnDistinctValues($columnKey);
+
+        // Sort values alphabetically (case-insensitive)
+        if (is_array($values)) {
+            natcasesort($values);
+            $values = array_values($values);
+        }
+        return $values;
     }
 
     //*----------- Optimized Query Builder -----------*//
@@ -470,7 +526,12 @@ class Datatable extends Component
 
         // Optimized search with indexed queries
         if ($this->searchable && $this->search) {
-            $this->applyOptimizedSearch($query);
+            // If a filter column is set, search only that column
+            if ($this->filterColumn && $this->isAllowedColumn($this->filterColumn)) {
+                $this->applyColumnSearch($query, $this->filterColumn, $this->search);
+            } else {
+                $this->applyOptimizedSearch($query);
+            }
         }
 
         // Apply filters
@@ -489,6 +550,31 @@ class Datatable extends Component
         }
 
         return $query;
+    }
+
+    // Add this method
+    protected function applyColumnSearch(Builder $query, $columnKey, $search)
+    {
+        $column = $this->columns[$columnKey] ?? null;
+        if (!$column) return;
+
+        $search = $this->sanitizeSearch($search);
+
+        // Remove 3-character limit, always search with LIKE %search%
+        if ($search === '') {
+            return;
+        }
+
+        $query->where(function ($q) use ($column, $search) {
+            if (isset($column['relation'])) {
+                [$relation, $attribute] = explode(':', $column['relation']);
+                $q->whereHas($relation, function ($relQ) use ($attribute, $search) {
+                    $relQ->where($attribute, 'like', '%' . $search . '%');
+                });
+            } elseif (isset($column['key'])) {
+                $q->where($column['key'], 'like', '%' . $search . '%');
+            }
+        });
     }
 
     protected function getValidSelectColumns(): array
@@ -755,8 +841,18 @@ class Datatable extends Component
 
     public function updatedFilterColumn()
     {
+        // Only clear the value, keep the column selected
         $this->filterValue = null;
-        $this->clearDistinctValuesCache(); // Clear cache when filter column changes
+        $this->clearDistinctValuesCache();
+        $this->resetPage();
+    }
+
+    public function clearFilter()
+    {
+        // Keep filterColumn, just clear value and operator
+        $this->filterValue = null;
+        $this->filterOperator = '=';
+        $this->clearDistinctValuesCache();
         $this->resetPage();
     }
 

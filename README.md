@@ -611,6 +611,27 @@ The component supports three class properties with the following priority:
 
 ---
 
+## Filter Types
+
+- `text`: Free text input, uses `LIKE %value%` for partial matches.
+- `select`: Dropdown with values you provide or from a relation.
+- `distinct`: Dropdown with all distinct values from the column, auto-populated and sorted A-Z.
+- `number`/`integer`: Numeric input.
+- `date`: Date picker input.
+
+### Example: Distinct Filter
+
+```php
+'filters' => [
+    'city' => [
+        'type' => 'distinct'
+    ],
+    // ...
+]
+```
+
+This will show a dropdown of all unique city values in ascending order.
+
 ## Security Notes
 
 - **Input Sanitization**: All search and filter inputs are sanitized to prevent SQL injection and XSS attacks.
