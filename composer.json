@@ -17,5 +17,34 @@
         "ArtflowStudio\\Table\\TableServiceProvider"
       ]
     }
-  }
+  },
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Artflow Studio",
+      "email": "support@artflowstudio.com",
+      "homepage": "https://artflowstudio.com",
+      "role": "Developer"
+    }
+  ],
+  "keywords": [
+    "laravel",
+    "livewire",
+    "datatable",
+    "table",
+    "component",
+    "artflow"
+  ],
+  "homepage": "https://github.com/artflow-studio/table",
+  "support": {
+    "issues": "https://github.com/artflow-studio/table/issues",
+    "source": "https://github.com/artflow-studio/table"
+  },
+  "suggest": {
+    "maatwebsite/excel": "For Excel export support",
+    "barryvdh/laravel-snappy": "For PDF export support"
+  },
+  "version": "1.0.1",
+  "minimum-stability": "stable",
+  "prefer-stable": true
 }

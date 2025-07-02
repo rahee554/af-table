@@ -59,7 +59,7 @@
                             : null;
                 @endphp
                 @if ($selectedColumn)
-                    @if ($filterType === 'select')
+                    @if ($filterType === 'select' || $filterType === 'distinct')
                         <select wire:model.live="filterValue" class="form-control form-control-sm">
                             <option value="">Select Value</option>
                             @foreach ($this->getDistinctValues($selectedColumn) as $val)
