@@ -606,6 +606,7 @@ The component supports three class properties with the following priority:
 
 - **Column selection logic**: The backend now ensures that for relation columns, only the foreign key from the main table is included in the SQL SELECT, not the related attribute.
 - **Auto-detection**: If you specify a relation but the `key` is not a valid column, the system tries to guess the foreign key (e.g., `booking_id` for `booking`).
+- **Action columns always available**: Any column referenced in the `actions` array (such as `{{$row->uuid}}`) is now automatically detected and included in the SQL SELECT, even if not present in the `columns` array. This ensures that `$row->uuid` and similar fields are always available in your action templates.
 - **Documentation**: This README now clarifies that for relation columns, you must use the foreign key as `key`, and the related attribute in `relation`.
 - **Error prevention**: This prevents SQL errors and ensures relation columns display data correctly.
 

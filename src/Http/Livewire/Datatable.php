@@ -200,7 +200,35 @@ class Datatable extends Component
             return $this->isValidColumn($col);
         });
 
-        return array_unique(array_merge($selects, $validActionColumns, $validRawTemplateColumns));
+        // --- Ensure action columns are always included, even if not in $this->columns ---
+        foreach ($validActionColumns as $col) {
+            if (!in_array($col, $selects)) {
+                $selects[] = $col;
+            }
+        }
+        // --- Same for raw template columns ---
+        foreach ($validRawTemplateColumns as $col) {
+            if (!in_array($col, $selects)) {
+                $selects[] = $col;
+            }
+        }
+
+        // --- Also, check for action columns that are NOT in $this->columns and add them to the query builder ---
+        // This ensures $row->uuid and similar are always available
+        foreach ($this->actions as $action) {
+            $template = is_array($action) && isset($action['raw']) ? $action['raw'] : $action;
+            preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $template, $matches);
+            if (!empty($matches[1])) {
+                foreach ($matches[1] as $columnName) {
+                    // Only add if it's a valid column and not already in selects
+                    if ($this->isValidColumn($columnName) && !in_array($columnName, $selects)) {
+                        $selects[] = $columnName;
+                    }
+                }
+            }
+        }
+
+        return array_unique($selects);
     }
 
     protected function getOptimalSortColumn(): ?string
@@ -626,7 +654,35 @@ class Datatable extends Component
             return $this->isValidColumn($col);
         });
 
-        return array_unique(array_merge($selects, $validActionColumns, $validRawTemplateColumns));
+        // --- Ensure action columns are always included, even if not in $this->columns ---
+        foreach ($validActionColumns as $col) {
+            if (!in_array($col, $selects)) {
+                $selects[] = $col;
+            }
+        }
+        // --- Same for raw template columns ---
+        foreach ($validRawTemplateColumns as $col) {
+            if (!in_array($col, $selects)) {
+                $selects[] = $col;
+            }
+        }
+
+        // --- Also, check for action columns that are NOT in $this->columns and add them to the query builder ---
+        // This ensures $row->uuid and similar are always available
+        foreach ($this->actions as $action) {
+            $template = is_array($action) && isset($action['raw']) ? $action['raw'] : $action;
+            preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $template, $matches);
+            if (!empty($matches[1])) {
+                foreach ($matches[1] as $columnName) {
+                    // Only add if it's a valid column and not already in selects
+                    if ($this->isValidColumn($columnName) && !in_array($columnName, $selects)) {
+                        $selects[] = $columnName;
+                    }
+                }
+            }
+        }
+
+        return array_unique($selects);
     }
 
     protected function applyCustomQueryConstraints(Builder $query): void
