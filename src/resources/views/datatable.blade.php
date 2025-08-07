@@ -184,16 +184,25 @@
 
                     @foreach ($columns as $columnKey => $column)
                         @if ($visibleColumns[$columnKey] ?? false)
+                            @php
+                                // Check if this is a nested relation that shouldn't be sortable
+                                $isNestedRelation = isset($column['relation']) && 
+                                    (strpos($column['relation'], '.') !== false && strpos($column['relation'], ':') !== false);
+                                $isSortable = !isset($column['function']) && isset($column['key']) && !$isNestedRelation;
+                            @endphp
                             <th class="fw-bold bg-light position-relative {{ $column['th_class'] ?? $column['class'] ?? '' }}"
-                                @if(!isset($column['function']) && isset($column['key']))
+                                @if($isSortable)
                                     wire:click="toggleSort('{{ $column['key'] }}')" style="cursor:pointer;"
                                 @endif
                             >
                                 <span class="d-inline-flex align-items-center">
                                     {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
-                                    @if (!isset($column['function']) && isset($column['key']) && $sortColumn == $column['key'])
+                                    @if ($isSortable && $sortColumn == $column['key'])
                                         <span class="ms-1"
                                             style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
+                                    @endif
+                                    @if($isNestedRelation)
+                                        <small class="text-muted ms-1" title="Nested relations are not sortable">(Not Sortable)</small>
                                     @endif
                                 </span>
                             </th>
@@ -294,9 +303,31 @@
                                             @endphp
                                             {!! $this->renderRawHtml($rawTemplate, $row) !!}
                                         @elseif (isset($column['relation']))
-                                            {{-- Handle relationship columns --}}
-                                            @php [$relation, $attribute] = explode(':', $column['relation']); @endphp
-                                            {{ $row->$relation->$attribute ?? '' }}
+                                            {{-- Handle relationship columns with nested support --}}
+                                            @php 
+                                                [$relation, $attribute] = explode(':', $column['relation']); 
+                                                
+                                                // Handle nested relationships and attributes
+                                                $relationParts = explode('.', $relation);
+                                                $attributeParts = explode('.', $attribute);
+                                                
+                                                $value = $row;
+                                                
+                                                // Traverse through relation parts
+                                                foreach ($relationParts as $relationPart) {
+                                                    $value = $value?->$relationPart ?? null;
+                                                    if (!$value) break;
+                                                }
+                                                
+                                                // Traverse through attribute parts
+                                                if ($value) {
+                                                    foreach ($attributeParts as $attributePart) {
+                                                        $value = $value?->$attributePart ?? null;
+                                                        if (!$value) break;
+                                                    }
+                                                }
+                                            @endphp
+                                            {{ $value ?? '' }}
                                         @elseif (isset($column['key']))
                                             {{-- Handle regular database columns --}}
                                             {{ $row->{$column['key']} ?? '' }}

@@ -51,6 +51,101 @@ A Laravel Livewire "datatable" component that makes it effortless to display, se
 
 ---
 
+## ⚠️ Nested Relationships - Current Limitations & Solutions
+
+AF Table supports both simple and nested relationships, but with some important considerations:
+
+### ✅ Supported Relationship Patterns
+
+#### Simple Relations (Fully Supported)
+```php
+// Single-level relationships - full support including sorting
+['key' => 'category_id', 'label' => 'Category', 'relation' => 'category:name']
+['key' => 'user_id', 'label' => 'Author', 'relation' => 'user:email']
+```
+
+#### Nested Relations (Display Only)
+```php
+// Multi-level relationships - display supported, sorting disabled for stability
+['key' => 'student_id', 'label' => 'Student Name', 'relation' => 'student.user:name']
+['key' => 'order_id', 'label' => 'Customer Company', 'relation' => 'order.customer.company:name']
+```
+
+### 🚫 Current Limitations
+
+1. **Nested Relation Sorting**: Columns with nested relations (e.g., `student.user:name`) cannot be sorted to prevent query errors
+2. **Deep Nesting Performance**: Relations deeper than 2 levels may impact performance
+3. **Complex Joins**: Very complex nested relations may require custom query optimization
+
+### 💡 Recommended Solutions
+
+#### Option 1: Model Accessors (Recommended)
+Create accessors in your model for commonly used nested data:
+
+```php
+// In your Enrollment model
+public function getUserNameAttribute()
+{
+    return $this->student?->user?->name;
+}
+
+public function getUserEmailAttribute() 
+{
+    return $this->student?->user?->email;
+}
+
+// Then use in your table configuration
+['key' => 'user_name', 'label' => 'Student Name']
+['key' => 'user_email', 'label' => 'Student Email']
+```
+
+**Benefits:**
+- ✅ Fully sortable and searchable
+- ✅ Better performance with eager loading
+- ✅ More maintainable and testable
+- ✅ Reusable across your application
+
+#### Option 2: Raw Templates with Relations
+For complex display formatting while maintaining performance:
+
+```php
+[
+    'key' => 'student_id',
+    'label' => 'Student Info', 
+    'raw' => '<div>
+        <strong>{{ $row->student?->user?->name }}</strong><br>
+        <small class="text-muted">{{ $row->student?->user?->email }}</small>
+    </div>'
+]
+```
+
+#### Option 3: Custom Query Scopes
+For complex filtering needs:
+
+```php
+// In your model
+public function scopeWithStudentUser($query)
+{
+    return $query->with(['student.user']);
+}
+
+// In your component
+'query' => fn($q) => $q->withStudentUser()
+```
+
+### 🔮 Future Roadmap
+
+We're actively working on full nested relationship support:
+
+- **Phase 1** (Current): Display support with accessor recommendations
+- **Phase 2** (Q2 2025): Full sorting support for nested relations
+- **Phase 3** (Q3 2025): Advanced nested filtering and search
+- **Phase 4** (Q4 2025): Unlimited nesting depth with performance optimization
+
+For the complete development roadmap, see `AF_TABLE_ROADMAP.md`.
+
+---
+
 ## Cache Management
 
 AF Table uses caching to improve performance, especially for filter dropdowns and relation mapping.

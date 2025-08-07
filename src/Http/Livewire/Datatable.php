@@ -124,8 +124,29 @@ class Datatable extends Component
             }
 
             if (isset($column['relation'])) {
-                [$relation,] = explode(':', $column['relation']);
-                $relations[] = $relation;
+                [$relation, $attribute] = explode(':', $column['relation']);
+                
+                // Handle nested relationships like 'student.user'
+                if (strpos($relation, '.') !== false) {
+                    $relationParts = explode('.', $relation);
+                    $currentRelation = '';
+                    foreach ($relationParts as $part) {
+                        $currentRelation .= ($currentRelation ? '.' : '') . $part;
+                        $relations[] = $currentRelation;
+                    }
+                } else {
+                    $relations[] = $relation;
+                }
+                
+                // Handle nested attributes like 'user.name' by adding the nested relation
+                if (strpos($attribute, '.') !== false) {
+                    $attributeParts = explode('.', $attribute);
+                    if (count($attributeParts) > 1) {
+                        // Add the nested relation path
+                        $nestedRelation = $relation . '.' . $attributeParts[0];
+                        $relations[] = $nestedRelation;
+                    }
+                }
             }
 
             // Scan raw templates for relation references
@@ -772,33 +793,57 @@ class Datatable extends Component
         if ($sortColumnConfig && isset($sortColumnConfig['relation'])) {
             [$relation, $attribute] = explode(':', $sortColumnConfig['relation']);
 
+            // Handle nested relations (e.g., 'student.user:name')
+            if (strpos($relation, '.') !== false) {
+                // For nested relations, disable sorting to prevent errors
+                // Alternative: implement complex JOIN logic for nested relations
+                logger()->warning("Sorting on nested relation '{$relation}' is not supported. Column: {$this->sortColumn}");
+                return;
+            }
+
             // Always eager load the relation for performance
             $query->with($relation);
 
-            // Use more efficient subquery sorting instead of JOIN
-            $modelInstance = new ($this->model);
-            $relationObj = $modelInstance->$relation();
-
-            if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
-                $query->orderBy(
-                    $relationObj->getRelated()::select($attribute)
-                        ->whereColumn(
-                            $relationObj->getRelated()->getTable() . '.' . $relationObj->getOwnerKeyName(),
-                            $modelInstance->getTable() . '.' . $relationObj->getForeignKeyName()
-                        )
-                        ->limit(1),
-                    $direction
-                );
-            } else {
-                // Fallback to JOIN for other relation types
-                $this->applyJoinSorting($query, $relationObj, $attribute);
+            // Handle nested attributes (e.g., 'student:user.name')
+            if (strpos($attribute, '.') !== false) {
+                // For nested attributes, disable sorting to prevent errors
+                logger()->warning("Sorting on nested attribute '{$attribute}' is not supported. Column: {$this->sortColumn}");
+                return;
             }
-        } elseif ($sortColumnConfig) {
+
+            // Use more efficient subquery sorting for simple relations
+            $modelInstance = new ($this->model);
+            
+            try {
+                $relationObj = $modelInstance->$relation();
+
+                if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                    $query->orderBy(
+                        $relationObj->getRelated()::select($attribute)
+                            ->whereColumn(
+                                $relationObj->getRelated()->getTable() . '.' . $relationObj->getOwnerKeyName(),
+                                $modelInstance->getTable() . '.' . $relationObj->getForeignKeyName()
+                            )
+                            ->limit(1),
+                        $direction
+                    );
+                } else {
+                    // Fallback to JOIN for other relation types
+                    $this->applyJoinSorting($query, $relationObj, $attribute, $direction);
+                }
+            } catch (\Exception $e) {
+                logger()->error("Error sorting by relation '{$relation}': " . $e->getMessage());
+                // Fallback to sorting by the foreign key if relation sorting fails
+                if ($this->isValidColumn($this->sortColumn)) {
+                    $query->orderBy($this->sortColumn, $direction);
+                }
+            }
+        } elseif ($sortColumnConfig && $this->isValidColumn($this->sortColumn)) {
             $query->orderBy($this->sortColumn, $direction);
         }
     }
 
-    protected function applyJoinSorting(Builder $query, $relationObj, $attribute): void
+    protected function applyJoinSorting(Builder $query, $relationObj, $attribute, $direction = 'asc'): void
     {
         $modelInstance = new ($this->model);
         $relationTable = $relationObj->getRelated()->getTable();
@@ -834,8 +879,8 @@ class Datatable extends Component
             );
         }
 
-        // Validate sort direction
-        $direction = strtolower($this->sortDirection);
+        // Validate sort direction - use passed parameter instead of instance variable
+        $direction = strtolower($direction);
         if (!in_array($direction, ['asc', 'desc'])) {
             $direction = 'asc';
         }
