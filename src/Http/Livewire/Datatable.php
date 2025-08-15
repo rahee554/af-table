@@ -126,7 +126,7 @@ class Datatable extends Component
             if (isset($column['relation'])) {
                 [$relation, $attribute] = explode(':', $column['relation']);
                 
-                // Handle nested relationships like 'student.user'
+                // Handle multi-level nested relationships like 'student.user.profile'
                 if (strpos($relation, '.') !== false) {
                     $relationParts = explode('.', $relation);
                     $currentRelation = '';
@@ -138,22 +138,41 @@ class Datatable extends Component
                     $relations[] = $relation;
                 }
                 
-                // Handle nested attributes like 'user.name' by adding the nested relation
+                // Handle nested attributes like 'user.profile.bio'
                 if (strpos($attribute, '.') !== false) {
                     $attributeParts = explode('.', $attribute);
                     if (count($attributeParts) > 1) {
-                        // Add the nested relation path
-                        $nestedRelation = $relation . '.' . $attributeParts[0];
-                        $relations[] = $nestedRelation;
+                        // Add the nested relation path for each attribute level
+                        $nestedRelationBase = $relation;
+                        for ($i = 0; $i < count($attributeParts) - 1; $i++) {
+                            $nestedRelationBase .= '.' . $attributeParts[$i];
+                            $relations[] = $nestedRelationBase;
+                        }
                     }
                 }
             }
 
-            // Scan raw templates for relation references
+            // Scan raw templates for relation references (improved parsing)
             if (isset($column['raw'])) {
-                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)->/', $column['raw'], $matches);
+                // Match patterns like $row->relation->nested->attribute
+                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*(?:->[a-zA-Z_][a-zA-Z0-9_]*)*)/', $column['raw'], $matches);
                 if (!empty($matches[1])) {
-                    $relations = array_merge($relations, $matches[1]);
+                    foreach ($matches[1] as $relationChain) {
+                        // Convert $row->user->profile->name to user.profile
+                        $parts = explode('->', $relationChain);
+                        if (count($parts) > 1) {
+                            // Remove the last part (it's the attribute)
+                            array_pop($parts);
+                            $relation = implode('.', $parts);
+                            
+                            // Add progressive relations (user, user.profile)
+                            $currentRelation = '';
+                            foreach ($parts as $part) {
+                                $currentRelation .= ($currentRelation ? '.' : '') . $part;
+                                $relations[] = $currentRelation;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -162,7 +181,16 @@ class Datatable extends Component
         foreach ($this->filters ?? [] as $filterKey => $filterConfig) {
             if (isset($filterConfig['relation']) && isset($columns[$filterKey]['relation'])) {
                 [$relation,] = explode(':', $columns[$filterKey]['relation']);
-                $relations[] = $relation;
+                if (strpos($relation, '.') !== false) {
+                    $relationParts = explode('.', $relation);
+                    $currentRelation = '';
+                    foreach ($relationParts as $part) {
+                        $currentRelation .= ($currentRelation ? '.' : '') . $part;
+                        $relations[] = $currentRelation;
+                    }
+                } else {
+                    $relations[] = $relation;
+                }
             }
         }
 
@@ -179,8 +207,10 @@ class Datatable extends Component
                 continue;
             }
 
-            if (isset($column['function']))
+            // Function columns don't need database columns - skip them
+            if (isset($column['function'])) {
                 continue;
+            }
 
             if (isset($column['relation'])) {
                 // Use the foreign key for the relation if 'key' is not a valid column
@@ -190,7 +220,9 @@ class Datatable extends Component
                 } else {
                     // Try to guess foreign key from relation name
                     [$relationName,] = explode(':', $column['relation']);
-                    $guessedFk = $relationName . '_id';
+                    // Handle nested relations - use the first part for foreign key guessing
+                    $baseRelation = explode('.', $relationName)[0];
+                    $guessedFk = $baseRelation . '_id';
                     if ($this->isValidColumn($guessedFk)) {
                         $fk = $guessedFk;
                     }
@@ -201,6 +233,7 @@ class Datatable extends Component
                 continue;
             }
 
+            // Only add database columns if they have a valid key
             if (isset($column['key']) && !in_array($column['key'], $selects)) {
                 if ($this->isValidColumn($column['key'])) {
                     $selects[] = $column['key'];

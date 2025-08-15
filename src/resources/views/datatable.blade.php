@@ -188,7 +188,15 @@
                                 // Check if this is a nested relation that shouldn't be sortable
                                 $isNestedRelation = isset($column['relation']) && 
                                     (strpos($column['relation'], '.') !== false && strpos($column['relation'], ':') !== false);
+                                // Function columns are never sortable, regular columns with keys are sortable unless nested
                                 $isSortable = !isset($column['function']) && isset($column['key']) && !$isNestedRelation;
+                                
+                                // Count nesting levels for relation complexity
+                                $nestingLevel = 0;
+                                if (isset($column['relation'])) {
+                                    [$relation, $attribute] = explode(':', $column['relation']);
+                                    $nestingLevel = substr_count($relation, '.') + substr_count($attribute, '.');
+                                }
                             @endphp
                             <th class="fw-bold bg-light position-relative {{ $column['th_class'] ?? $column['class'] ?? '' }}"
                                 @if($isSortable)
@@ -202,7 +210,7 @@
                                             style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
                                     @endif
                                     @if($isNestedRelation)
-                                        <small class="text-muted ms-1" title="Nested relations are not sortable">(Not Sortable)</small>
+                                        <small class="text-muted ms-1" title="Nested relations (level {{ $nestingLevel }}) are not sortable">(Level {{ $nestingLevel }})</small>
                                     @endif
                                 </span>
                             </th>
@@ -303,28 +311,47 @@
                                             @endphp
                                             {!! $this->renderRawHtml($rawTemplate, $row) !!}
                                         @elseif (isset($column['relation']))
-                                            {{-- Handle relationship columns with nested support --}}
+                                            {{-- Handle relationship columns with multi-level nested support --}}
                                             @php 
                                                 [$relation, $attribute] = explode(':', $column['relation']); 
                                                 
-                                                // Handle nested relationships and attributes
+                                                // Handle multi-level nested relationships and attributes
                                                 $relationParts = explode('.', $relation);
                                                 $attributeParts = explode('.', $attribute);
                                                 
                                                 $value = $row;
                                                 
-                                                // Traverse through relation parts
+                                                // Traverse through relation parts with null safety
                                                 foreach ($relationParts as $relationPart) {
-                                                    $value = $value?->$relationPart ?? null;
-                                                    if (!$value) break;
+                                                    if ($value && method_exists($value, $relationPart)) {
+                                                        $value = $value->$relationPart ?? null;
+                                                    } else {
+                                                        $value = null;
+                                                        break;
+                                                    }
                                                 }
                                                 
-                                                // Traverse through attribute parts
+                                                // Traverse through attribute parts with null safety
                                                 if ($value) {
                                                     foreach ($attributeParts as $attributePart) {
-                                                        $value = $value?->$attributePart ?? null;
-                                                        if (!$value) break;
+                                                        if (is_object($value) && isset($value->$attributePart)) {
+                                                            $value = $value->$attributePart ?? null;
+                                                        } elseif (is_array($value) && isset($value[$attributePart])) {
+                                                            $value = $value[$attributePart] ?? null;
+                                                        } else {
+                                                            $value = null;
+                                                            break;
+                                                        }
                                                     }
+                                                }
+                                                
+                                                // Format value for display
+                                                if (is_object($value) && method_exists($value, '__toString')) {
+                                                    $value = (string) $value;
+                                                } elseif (is_array($value)) {
+                                                    $value = json_encode($value);
+                                                } elseif (is_bool($value)) {
+                                                    $value = $value ? 'Yes' : 'No';
                                                 }
                                             @endphp
                                             {{ $value ?? '' }}

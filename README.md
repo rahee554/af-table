@@ -64,11 +64,41 @@ AF Table supports both simple and nested relationships, but with some important 
 ['key' => 'user_id', 'label' => 'Author', 'relation' => 'user:email']
 ```
 
-#### Nested Relations (Display Only)
+#### Nested Relations (Display Only - Multi-Level Support)
 ```php
 // Multi-level relationships - display supported, sorting disabled for stability
 ['key' => 'student_id', 'label' => 'Student Name', 'relation' => 'student.user:name']
 ['key' => 'order_id', 'label' => 'Customer Company', 'relation' => 'order.customer.company:name']
+
+// Deep nesting with complex attributes (Level 3+)
+['key' => 'enrollment_id', 'label' => 'Student Profile Bio', 'relation' => 'student.user.profile:bio']
+['key' => 'booking_id', 'label' => 'Traveler Address', 'relation' => 'passenger.user.profile.address:street']
+
+// Multi-level attributes (both relation and attribute can be nested)
+['key' => 'order_id', 'label' => 'Billing Address', 'relation' => 'customer.profile:address.street']
+```
+
+**Multi-Level Nesting Syntax:**
+- **Relation Part**: Use dots to separate relation levels: `student.user.profile`
+- **Attribute Part**: Use dots to separate attribute levels: `address.street.name`
+- **Full Syntax**: `relation.nested.chain:attribute.nested.chain`
+
+**Examples of Valid Nesting:**
+```php
+// Level 1: Simple relation
+'relation' => 'user:name'
+
+// Level 2: One nested relation
+'relation' => 'student.user:email'
+
+// Level 3: Two nested relations
+'relation' => 'enrollment.student.user:name'
+
+// Level 4: Three nested relations with nested attribute
+'relation' => 'booking.passenger.user.profile:address.street'
+
+// Complex: Both relation and attribute are multi-level
+'relation' => 'order.customer.profile:contact.address.city'
 ```
 
 ### 🚫 Current Limitations
@@ -215,19 +245,20 @@ For displaying related model attributes:
 ]
 ```
 
-### 3. Function-Based Columns
+### 3. Function-Based Columns (No Key Required)
 
 For displaying model method results without database queries:
 
 ```php
 [
-    'function' => 'isActive',
+    'function' => 'isActive',  // No 'key' required for function columns
     'label' => 'Status'
 ]
 ```
 
 #### Function-Based Column Features:
 
+- **No Key Required**: Function columns only need the `function` parameter, no `key` needed
 - **No Database Query**: Function columns are excluded from SELECT statements
 - **No Sorting**: Function-based columns are not sortable (since they're computed)
 - **Auto Boolean Conversion**: Boolean results are automatically converted to "Yes/No" for display
@@ -732,3 +763,19 @@ This will show a dropdown of all unique city values in ascending order.
 
 - **Input Sanitization**: All search and filter inputs are sanitized to prevent SQL injection and XSS attacks.
 - **Virtual Columns**: Some virtual columns (such as function-based columns or those not present in the database) are ignored in SQL queries and filtering for security and performance.
+
+---
+
+## README Improvement Suggestions
+
+- Add a quickstart section for new users with minimal setup steps
+- Include a visual diagram of component architecture and data flow
+- Add more real-world usage examples (API data, array data, custom actions)
+- Document limitations and workarounds for nested relations more clearly
+- Add a troubleshooting section for common issues (SQL errors, relation problems)
+- Provide migration guides for upgrading from older versions
+- Add links to interactive demos or live examples
+- Include a section on extensibility: how to add custom filters, actions, or export formats
+- Add best practices for performance optimization and security
+- Document trait-based architecture and how to extend core features
+- Add FAQ for advanced use cases (multi-table joins, dynamic columns, etc.)
