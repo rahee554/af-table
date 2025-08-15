@@ -188,8 +188,10 @@
                                 // Check if this is a nested relation that shouldn't be sortable
                                 $isNestedRelation = isset($column['relation']) && 
                                     (strpos($column['relation'], '.') !== false && strpos($column['relation'], ':') !== false);
-                                // Function columns are never sortable, regular columns with keys are sortable unless nested
-                                $isSortable = !isset($column['function']) && isset($column['key']) && !$isNestedRelation;
+                                // JSON columns are never sortable (computed values)
+                                $isJsonColumn = isset($column['json_path']);
+                                // Function columns are never sortable, regular columns with keys are sortable unless nested or JSON
+                                $isSortable = !isset($column['function']) && isset($column['key']) && !$isNestedRelation && !$isJsonColumn;
                                 
                                 // Count nesting levels for relation complexity
                                 $nestingLevel = 0;
@@ -211,6 +213,9 @@
                                     @endif
                                     @if($isNestedRelation)
                                         <small class="text-muted ms-1" title="Nested relations (level {{ $nestingLevel }}) are not sortable">(Level {{ $nestingLevel }})</small>
+                                    @endif
+                                    @if($isJsonColumn)
+                                        <small class="text-muted ms-1" title="JSON columns are not sortable (computed values)">(JSON)</small>
                                     @endif
                                 </span>
                             </th>
@@ -257,7 +262,22 @@
                             @foreach ($columns as $columnKey => $column)
                                 @if ($visibleColumns[$columnKey] ?? false)
                                     <td class="{{ $column['td_class'] ?? $column['class'] ?? '' }}">
-                                        @if (isset($column['function']))
+                                        @if (isset($column['json_path']))
+                                            {{-- Handle JSON column with json_path - this takes priority over other column types --}}
+                                            @php
+                                                $jsonColumn = $column['key'];
+                                                $jsonPath = $column['json_path'];
+                                                $value = $this->extractJsonValue($row, $jsonColumn, $jsonPath);
+                                                
+                                                // Format value for display
+                                                if (is_bool($value)) {
+                                                    $value = $value ? 'Yes' : 'No';
+                                                } elseif (is_array($value) || is_object($value)) {
+                                                    $value = json_encode($value);
+                                                }
+                                            @endphp
+                                            {{ $value ?? '' }}
+                                        @elseif (isset($column['function']))
                                             {{-- Handle function-based columns --}}
                                             @if (isset($column['raw']))
                                                 {{-- Function with custom raw template --}}
@@ -310,21 +330,6 @@
                                                 }
                                             @endphp
                                             {!! $this->renderRawHtml($rawTemplate, $row) !!}
-                                        @elseif (isset($column['json_path']))
-                                            {{-- Handle JSON column with json_path --}}
-                                            @php
-                                                $jsonColumn = $column['key'];
-                                                $jsonPath = $column['json_path'];
-                                                $value = $this->extractJsonValue($row, $jsonColumn, $jsonPath);
-                                                
-                                                // Format value for display
-                                                if (is_bool($value)) {
-                                                    $value = $value ? 'Yes' : 'No';
-                                                } elseif (is_array($value) || is_object($value)) {
-                                                    $value = json_encode($value);
-                                                }
-                                            @endphp
-                                            {{ $value ?? '' }}
                                         @elseif (isset($column['relation']))
                                             {{-- Handle relationship columns with multi-level nested support --}}
                                             @php 

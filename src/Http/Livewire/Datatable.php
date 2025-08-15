@@ -238,7 +238,7 @@ class Datatable extends Component
                 if ($this->isValidColumn($column['key']) && !in_array($column['key'], $selects)) {
                     $selects[] = $column['key'];
                 }
-                continue;
+                continue; // Skip regular column processing since this is a JSON column
             }
 
             // Only add database columns if they have a valid key
@@ -678,6 +678,14 @@ class Datatable extends Component
                 continue;
             if (isset($column['function']))
                 continue;
+
+            // Handle JSON columns - include the JSON column in SELECT
+            if (isset($column['json_path']) && isset($column['key'])) {
+                if ($this->isValidColumn($column['key']) && !in_array($column['key'], $selects)) {
+                    $selects[] = $column['key'];
+                }
+                continue; // Skip regular column processing since this is a JSON column
+            }
 
             if (isset($column['relation'])) {
                 $fk = null;

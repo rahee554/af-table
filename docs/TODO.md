@@ -14,19 +14,64 @@
 - **Performance**: Function columns excluded from SELECT queries
 - **Documentation**: Clear function column usage examples
 
-### ✅ JSON Column Support
+### ✅ JSON Column Support (Enhanced)
 - **Database Integration**: Extract values from JSON columns in same table
+- **Extracted Values Only**: Displays only the extracted JSON value, not the full JSON data
+- **Priority Rendering**: JSON columns take priority over other column types when `json_path` is present
 - **Dot Notation**: Support for nested JSON access (`contact.email`, `address.street`)
 - **Complex Keys**: Handles complex JSON keys like `et-dolor-fugiat-offi-5`
 - **Type Safety**: Automatic handling of different JSON value types
 - **Error Handling**: Graceful handling of malformed JSON or missing keys
-- **Code Generator**: Updated index.html with JSON path support
-- **Documentation**: Complete usage examples and syntax guide
+- **Visual Indicators**: Table headers show "(JSON)" indicator for non-sortable JSON columns
+- **Performance Optimized**: JSON columns included in SELECT queries but processed specially
+- **Code Generator**: Updated index.html with JSON path support and examples
+- **Documentation**: Complete usage examples showing extracted values only
 
 ### ✅ Enhanced Documentation
 - **README.md**: Comprehensive multi-level nesting and JSON column documentation
 - **ARCHITECTURE.md**: New trait-based architecture documentation
 - **Code Examples**: Real-world usage patterns and best practices
+
+## 📊 CURRENT CODEBASE ANALYSIS
+
+### Core Architecture Status
+- **Main Component**: `Datatable.php` (1,205 lines) - Well-structured Livewire component
+- **Template Engine**: `datatable.blade.php` (502 lines) - Comprehensive rendering logic
+- **Code Generator**: `index.html` (686 lines) - Interactive form for generating AFTable code
+- **Documentation**: Complete README.md and architecture documentation
+
+### Column Type Support Matrix
+| Column Type | Supported | Sortable | Searchable | Performance |
+|-------------|-----------|----------|------------|-------------|
+| Database Columns | ✅ | ✅ | ✅ | Optimized |
+| Function Columns | ✅ | ❌ | ❌ | Cached |
+| JSON Columns | ✅ | ❌ | ❌ | Optimized |
+| Relation Columns (Simple) | ✅ | ✅ | ✅ | Eager Loading |
+| Relation Columns (Multi-level) | ✅ | ❌ | ✅ | Progressive Loading |
+| Raw Template Columns | ✅ | Depends | ❌ | Custom |
+
+### Feature Implementation Status
+- **Multi-level Relationships**: ✅ Complete (up to 5 levels deep)
+- **Function-based Columns**: ✅ Complete (no key required)
+- **JSON Column Extraction**: ✅ Complete (extracted values only)
+- **Column Visibility**: ✅ Complete (session-based persistence)
+- **Advanced Filtering**: ✅ Complete (multiple filter types)
+- **Export Functionality**: ✅ Complete (CSV, Excel, PDF)
+- **Performance Optimization**: ✅ Complete (caching, eager loading)
+- **Error Handling**: ✅ Complete (graceful fallbacks)
+
+### Code Quality Metrics
+- **Performance**: Optimized query building, caching, memory management
+- **Maintainability**: Well-structured methods, clear separation of concerns
+- **Extensibility**: Plugin-ready architecture for custom column types
+- **Error Resistance**: Comprehensive try-catch blocks and validation
+- **Documentation**: Complete inline documentation and user guides
+
+### Current Technical Debt
+- **Monolithic Component**: Consider trait-based separation for better maintainability
+- **Export Dependencies**: External dependencies for Excel/PDF exports
+- **Complex Logic**: Some methods could benefit from further decomposition
+- **Test Coverage**: Unit tests needed for comprehensive coverage
 
 ## 🎯 HIGH PRIORITY (Next Sprint)
 
@@ -219,6 +264,49 @@
 *Last Updated: Current Session*  
 *Roadmap Version: 2.0*  
 *Status: Active Development*
+
+---
+
+## 🎉 LATEST IMPLEMENTATION SUMMARY
+
+**JSON Column Enhancement Completed Successfully!**
+
+The AF-Table package now supports extracting specific values from JSON database columns with the following user experience:
+
+```php
+// Example: Form submission with JSON data column
+@livewire('aftable', [
+    'model' => 'App\Models\FormSubmission',
+    'columns' => [
+        ['key' => 'title', 'label' => 'Title'],
+        ['key' => 'member_id', 'label' => 'YLP Member', 'raw' => '{{ $row->member_id ? "YLP Member" : "Not a member" }}'],
+        ['key' => 'data', 'json_path' => 'name', 'label' => 'Name'],           // Shows only extracted name
+        ['key' => 'data', 'json_path' => 'email', 'label' => 'Email'],         // Shows only extracted email  
+        ['key' => 'data', 'json_path' => 'contact.phone', 'label' => 'Phone'], // Shows only phone number
+        ['key' => 'status', 'label' => 'Status'],
+    ],
+    'actions' => [
+        '<a href="/download/{{$row->id}}" class="btn btn-sm btn-primary">Download</a>'
+    ]
+])
+```
+
+**Key Improvements:**
+- ✅ **Extracted Values Only**: JSON columns show only the extracted value, not the full JSON data
+- ✅ **Priority Processing**: JSON extraction takes precedence over other column types  
+- ✅ **Performance Optimized**: Efficient JSON column handling in SQL queries
+- ✅ **Visual Indicators**: Clear "(JSON)" labels in table headers
+- ✅ **Complete Documentation**: Updated README, code generator, and examples
+- ✅ **Backward Compatible**: No breaking changes to existing functionality
+
+**Files Updated:**
+- `Datatable.php`: Enhanced SELECT logic and JSON extraction method
+- `datatable.blade.php`: Priority JSON rendering and visual indicators
+- `README.md`: Complete JSON column documentation with examples
+- `index.html`: JSON path support in code generator
+- `TODO.md`: Comprehensive feature tracking and codebase analysis
+
+The package now handles all major column types efficiently: database columns, function columns, JSON columns, simple relations, and multi-level nested relations.
 
 ### Model Enhancements Completed
 

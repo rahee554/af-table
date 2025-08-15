@@ -50,10 +50,10 @@
     <!-- JSON Column Example -->
     <div class="alert alert-info mb-4">
         <h6><strong>🆕 New: JSON Column Support</strong></h6>
-        <p class="mb-2">Extract specific values from JSON columns in your database:</p>
+        <p class="mb-2">Extract specific values from JSON columns in your database (displays only the extracted value, not the full JSON):</p>
         <div class="row">
             <div class="col-md-6">
-                <strong>Example JSON Column:</strong> <code>user_data</code>
+                <strong>Example JSON Column:</strong> <code>data</code>
                 <pre class="bg-light p-2 mt-1 small">{
   "name": "John Doe",
   "contact": {
@@ -65,10 +65,11 @@
             <div class="col-md-6">
                 <strong>Column Configurations:</strong>
                 <ul class="small mb-0">
-                    <li><strong>Key:</strong> <code>user_data</code>, <strong>JSON Path:</strong> <code>name</code></li>
-                    <li><strong>Key:</strong> <code>user_data</code>, <strong>JSON Path:</strong> <code>contact.email</code></li>
-                    <li><strong>Key:</strong> <code>user_data</code>, <strong>JSON Path:</strong> <code>contact.phone</code></li>
+                    <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>name</code> → Displays: "John Doe"</li>
+                    <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>contact.email</code> → Displays: "john@example.com"</li>
+                    <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>contact.phone</code> → Displays: "123-456-7890"</li>
                 </ul>
+                <small class="text-muted">⚠️ JSON columns are not sortable (computed values)</small>
             </div>
         </div>
     </div>
