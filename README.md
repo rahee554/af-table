@@ -266,6 +266,68 @@ For displaying model method results without database queries:
 - **Method Validation**: Checks if the method exists before calling it
 - **Performance Optimized**: Only visible function columns are processed
 
+### 4. JSON Column Support
+
+For extracting specific values from JSON columns in your database:
+
+```php
+[
+    'key' => 'user_data',           // The JSON column name in database
+    'json_path' => 'name',          // Extract 'name' from JSON
+    'label' => 'User Name'
+],
+[
+    'key' => 'user_data',           // Same JSON column
+    'json_path' => 'contact.email', // Extract nested 'email' from 'contact' object
+    'label' => 'Email'
+],
+[
+    'key' => 'form_data',           // Another JSON column
+    'json_path' => 'et-dolor-fugiat-offi-5', // Extract specific form field
+    'label' => 'Score'
+]
+```
+
+#### JSON Column Features:
+
+- **Database JSON Column**: Works with actual JSON columns stored in your database table
+- **Dot Notation**: Support for nested JSON access using dot notation (`contact.email`, `address.street`)
+- **Complex Keys**: Handles complex JSON keys like `et-dolor-fugiat-offi-5`
+- **Type Safety**: Automatically handles different JSON value types (string, number, boolean, array, object)
+- **Error Handling**: Graceful handling of malformed JSON or missing keys
+- **Performance Optimized**: Only loads the JSON column once per row
+- **No Sorting**: JSON path columns are not sortable (since they're computed values)
+
+#### JSON Data Example:
+
+If your database has a JSON column `user_data` containing:
+```json
+{
+    "name": "John Doe",
+    "email": "john@example.com", 
+    "contact": {
+        "phone": "123-456-7890",
+        "email": "john.contact@example.com"
+    },
+    "preferences": {
+        "theme": "dark",
+        "notifications": true
+    }
+}
+```
+
+You can create columns like:
+```php
+[
+    ['key' => 'user_data', 'json_path' => 'name', 'label' => 'Name'],
+    ['key' => 'user_data', 'json_path' => 'email', 'label' => 'Primary Email'],
+    ['key' => 'user_data', 'json_path' => 'contact.phone', 'label' => 'Phone'],
+    ['key' => 'user_data', 'json_path' => 'contact.email', 'label' => 'Contact Email'],
+    ['key' => 'user_data', 'json_path' => 'preferences.theme', 'label' => 'Theme'],
+    ['key' => 'user_data', 'json_path' => 'preferences.notifications', 'label' => 'Notifications']
+]
+```
+
 #### Function Column Examples:
 
 ##### Simple Function Display

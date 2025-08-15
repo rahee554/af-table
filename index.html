@@ -45,7 +45,33 @@
 <body>
 <div class="container py-5">
     <h1 class="mb-4">AF Table Livewire Code Generator</h1>
-    <p class="lead text-muted">Generate AFTable Livewire code with support for database columns, function-based columns, filters, and more.</p>
+    <p class="lead text-muted">Generate AFTable Livewire code with support for database columns, function-based columns, JSON columns, filters, and more.</p>
+
+    <!-- JSON Column Example -->
+    <div class="alert alert-info mb-4">
+        <h6><strong>🆕 New: JSON Column Support</strong></h6>
+        <p class="mb-2">Extract specific values from JSON columns in your database:</p>
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Example JSON Column:</strong> <code>user_data</code>
+                <pre class="bg-light p-2 mt-1 small">{
+  "name": "John Doe",
+  "contact": {
+    "email": "john@example.com",
+    "phone": "123-456-7890"
+  }
+}</pre>
+            </div>
+            <div class="col-md-6">
+                <strong>Column Configurations:</strong>
+                <ul class="small mb-0">
+                    <li><strong>Key:</strong> <code>user_data</code>, <strong>JSON Path:</strong> <code>name</code></li>
+                    <li><strong>Key:</strong> <code>user_data</code>, <strong>JSON Path:</strong> <code>contact.email</code></li>
+                    <li><strong>Key:</strong> <code>user_data</code>, <strong>JSON Path:</strong> <code>contact.phone</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
     <form id="generatorForm">
         <div class="form-section">
@@ -204,6 +230,11 @@
                     <input type="text" class="form-control form-control-sm" placeholder="e.g. booking:unique_id" id="db-column-relation-${id}">
                     <small class="text-muted">Format: relationName:attribute</small>
                 </div>
+                <div class="col-sm-2">
+                    <label class="form-label small">JSON Path (optional)</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="e.g. name, contact.email" id="db-column-json-path-${id}">
+                    <small class="text-muted">Extract value from JSON column</small>
+                </div>
                 <div class="col-sm-1">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="db-column-hide-${id}">
@@ -213,7 +244,7 @@
                 <div class="col-12">
                     <label class="form-label small">Raw Template</label>
                     <textarea class="form-control form-control-sm" placeholder="Enter Blade template here, e.g. {{ \\$row->booking->unique_id }}" id="db-column-raw-${id}" rows="3" style="font-family: monospace;"></textarea>
-                    <small class="text-muted">For relations, use: {{ \\$row->relationName->attribute }}</small>
+                    <small class="text-muted">For relations: {{ \\$row->relationName->attribute }}, For JSON: Leave empty when using JSON Path</small>
                 </div>
                 <div class="col-sm-1">
                     <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('db-column-row-${id}')">Remove</button>
@@ -432,6 +463,7 @@
                 const thClassEl = document.getElementById(`db-column-th-class-${i}`);
                 const tdClassEl = document.getElementById(`db-column-td-class-${i}`);
                 const relationEl = document.getElementById(`db-column-relation-${i}`);
+                const jsonPathEl = document.getElementById(`db-column-json-path-${i}`);
                 const rawEl = document.getElementById(`db-column-raw-${i}`);
                 const hideEl = document.getElementById(`db-column-hide-${i}`);
                 
@@ -442,6 +474,7 @@
                 const thClass = phpString(thClassEl?.value?.trim() || '');
                 const tdClass = phpString(tdClassEl?.value?.trim() || '');
                 const relation = phpString(relationEl?.value?.trim() || '');
+                const jsonPath = phpString(jsonPathEl?.value?.trim() || '');
                 const raw = rawEl?.value?.trim() || '';
                 const hide = hideEl?.checked || false;
                 
@@ -451,6 +484,7 @@
                 if (thClass) col += `, 'th_class' => '${thClass}'`;
                 if (tdClass) col += `, 'td_class' => '${tdClass}'`;
                 if (relation) col += `, 'relation' => '${relation}'`;
+                if (jsonPath) col += `, 'json_path' => '${jsonPath}'`;
                 if (raw) col += `, 'raw' => '${raw.replace(/'/g, "\\'")}'`;
                 if (hide) col += `, 'hide' => true`;
                 col += ']';

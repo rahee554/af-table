@@ -14,8 +14,17 @@
 - **Performance**: Function columns excluded from SELECT queries
 - **Documentation**: Clear function column usage examples
 
+### ✅ JSON Column Support
+- **Database Integration**: Extract values from JSON columns in same table
+- **Dot Notation**: Support for nested JSON access (`contact.email`, `address.street`)
+- **Complex Keys**: Handles complex JSON keys like `et-dolor-fugiat-offi-5`
+- **Type Safety**: Automatic handling of different JSON value types
+- **Error Handling**: Graceful handling of malformed JSON or missing keys
+- **Code Generator**: Updated index.html with JSON path support
+- **Documentation**: Complete usage examples and syntax guide
+
 ### ✅ Enhanced Documentation
-- **README.md**: Comprehensive multi-level nesting documentation
+- **README.md**: Comprehensive multi-level nesting and JSON column documentation
 - **ARCHITECTURE.md**: New trait-based architecture documentation
 - **Code Examples**: Real-world usage patterns and best practices
 

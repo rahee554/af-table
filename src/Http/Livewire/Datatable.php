@@ -233,6 +233,14 @@ class Datatable extends Component
                 continue;
             }
 
+            // Handle JSON columns - always include the base JSON column when json_path is specified
+            if (isset($column['json_path']) && isset($column['key'])) {
+                if ($this->isValidColumn($column['key']) && !in_array($column['key'], $selects)) {
+                    $selects[] = $column['key'];
+                }
+                continue;
+            }
+
             // Only add database columns if they have a valid key
             if (isset($column['key']) && !in_array($column['key'], $selects)) {
                 if ($this->isValidColumn($column['key'])) {
@@ -1088,12 +1096,67 @@ class Datatable extends Component
         $classes = [];
         if (isset($column['classCondition']) && is_array($column['classCondition'])) {
             foreach ($column['classCondition'] as $class => $condition) {
-                if (is_callable($condition) && $condition($row)) {
+                if (eval("return $condition;")) {
                     $classes[] = $class;
                 }
             }
         }
         return implode(' ', $classes);
+    }
+
+    /**
+     * Extract value from JSON column using dot notation path
+     * 
+     * @param object $row The model instance
+     * @param string $jsonColumn The JSON column name
+     * @param string $jsonPath The dot notation path (e.g., 'name', 'address.street', 'contact.email')
+     * @return mixed The extracted value or null if not found
+     */
+    public function extractJsonValue($row, $jsonColumn, $jsonPath)
+    {
+        try {
+            // Get the JSON data from the column
+            $jsonData = $row->{$jsonColumn};
+            
+            // If it's already an array, use it directly
+            if (is_array($jsonData)) {
+                $data = $jsonData;
+            } elseif (is_string($jsonData)) {
+                // Decode JSON string
+                $data = json_decode($jsonData, true);
+            } else {
+                return null;
+            }
+            
+            // If decoding failed or data is not an array, return null
+            if (!is_array($data)) {
+                return null;
+            }
+            
+            // Handle simple key access (no dots)
+            if (strpos($jsonPath, '.') === false) {
+                return $data[$jsonPath] ?? null;
+            }
+            
+            // Handle nested path access using dot notation
+            $pathParts = explode('.', $jsonPath);
+            $value = $data;
+            
+            foreach ($pathParts as $part) {
+                if (is_array($value) && array_key_exists($part, $value)) {
+                    $value = $value[$part];
+                } else {
+                    return null;
+                }
+            }
+            
+            return $value;
+            
+        } catch (\Exception $e) {
+            // Log error for debugging but don't break the table
+            logger()->warning("JSON extraction failed for column '{$jsonColumn}' with path '{$jsonPath}': " . $e->getMessage());
+            return null;
+        }
     }
 
     //*----------- Component Render -----------*//

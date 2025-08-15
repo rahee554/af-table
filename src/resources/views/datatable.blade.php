@@ -310,6 +310,21 @@
                                                 }
                                             @endphp
                                             {!! $this->renderRawHtml($rawTemplate, $row) !!}
+                                        @elseif (isset($column['json_path']))
+                                            {{-- Handle JSON column with json_path --}}
+                                            @php
+                                                $jsonColumn = $column['key'];
+                                                $jsonPath = $column['json_path'];
+                                                $value = $this->extractJsonValue($row, $jsonColumn, $jsonPath);
+                                                
+                                                // Format value for display
+                                                if (is_bool($value)) {
+                                                    $value = $value ? 'Yes' : 'No';
+                                                } elseif (is_array($value) || is_object($value)) {
+                                                    $value = json_encode($value);
+                                                }
+                                            @endphp
+                                            {{ $value ?? '' }}
                                         @elseif (isset($column['relation']))
                                             {{-- Handle relationship columns with multi-level nested support --}}
                                             @php 
