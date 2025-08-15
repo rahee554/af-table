@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AF Table Livewire Code Generator</title>
+    <title>AF Table Livewire Code Generator v1.4</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap 5.3 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -44,13 +44,34 @@
 </head>
 <body>
 <div class="container py-5">
-    <h1 class="mb-4">AF Table Livewire Code Generator</h1>
-    <p class="lead text-muted">Generate AFTable Livewire code with support for database columns, function-based columns, JSON columns, filters, and more.</p>
+    <h1 class="mb-4">AF Table Livewire Code Generator v1.4</h1>
+    <p class="lead text-muted">Generate AFTable Livewire code with advanced v1.4 features: real-time column visibility, smart index column, enhanced JSON support, improved delete operations, and trait-based architecture ready.</p>
+
+    <!-- Version 1.4 Features Alert -->
+    <div class="alert alert-success mb-4">
+        <h6><strong>🚀 Version 1.4 Features</strong></h6>
+        <div class="row">
+            <div class="col-md-6">
+                <ul class="mb-2">
+                    <li><strong>Real-Time Column Visibility:</strong> Instant updates with wire:model.live</li>
+                    <li><strong>Smart Index Column:</strong> Sort-aware indexing with proper pagination</li>
+                    <li><strong>Enhanced JSON Support:</strong> Better handling of complex JSON structures</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <ul class="mb-2">
+                    <li><strong>Improved Delete Operations:</strong> Better event handling and parent communication</li>
+                    <li><strong>Session Persistence:</strong> Column visibility stored across page loads</li>
+                    <li><strong>Trait-Based Ready:</strong> Architecture prepared for modular v3.0</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
     <!-- JSON Column Example -->
     <div class="alert alert-info mb-4">
-        <h6><strong>🆕 New: JSON Column Support</strong></h6>
-        <p class="mb-2">Extract specific values from JSON columns in your database (displays only the extracted value, not the full JSON):</p>
+        <h6><strong>🆕 Enhanced JSON Column Support (v1.4)</strong></h6>
+        <p class="mb-2">Extract specific values from JSON columns with unique key handling and real-time visibility support:</p>
         <div class="row">
             <div class="col-md-6">
                 <strong>Example JSON Column:</strong> <code>data</code>
@@ -59,17 +80,28 @@
   "contact": {
     "email": "john@example.com",
     "phone": "123-456-7890"
+  },
+  "preferences": {
+    "theme": "dark",
+    "notifications": true
   }
 }</pre>
             </div>
             <div class="col-md-6">
                 <strong>Column Configurations:</strong>
-                <ul class="small mb-0">
+                <ul class="small mb-2">
                     <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>name</code> → Displays: "John Doe"</li>
                     <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>contact.email</code> → Displays: "john@example.com"</li>
-                    <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>contact.phone</code> → Displays: "123-456-7890"</li>
+                    <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>preferences.theme</code> → Displays: "dark"</li>
                 </ul>
-                <small class="text-muted">⚠️ JSON columns are not sortable (computed values)</small>
+                <div class="alert alert-warning py-2 mb-2">
+                    <small><strong>⚠️ v1.4 Notes:</strong></small>
+                    <ul class="small mb-0">
+                        <li>JSON columns have unique keys for proper visibility control</li>
+                        <li>Real-time column visibility works with JSON columns</li>
+                        <li>JSON columns are not sortable (computed values)</li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -144,7 +176,7 @@
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="checkbox" id="index">
-                        <label class="form-check-label" for="index">Index Column</label>
+                        <label class="form-check-label" for="index">Smart Index Column (v1.4)</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="checkbox" id="searchable" checked>
@@ -168,7 +200,7 @@
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="checkbox" id="colvisBtn" checked>
-                        <label class="form-check-label" for="colvisBtn">Column Visibility Button</label>
+                        <label class="form-check-label" for="colvisBtn">Real-Time Column Visibility (v1.4)</label>
                     </div>
                 </div>
             </div>
@@ -185,9 +217,30 @@
         </div>
 
         <button type="button" class="btn btn-success btn-lg mt-2" onclick="generateCode()">
-            <i class="me-2">⚡</i>Generate AFTable Code
+            <i class="me-2">⚡</i>Generate AFTable Code v1.4
         </button>
     </form>
+
+    <!-- Documentation Links -->
+    <div class="alert alert-light border mt-4 mb-4">
+        <h6><strong>📚 Documentation & Resources (v1.4)</strong></h6>
+        <div class="row">
+            <div class="col-md-6">
+                <ul class="mb-0">
+                    <li><strong>README.md</strong> - Complete usage guide and v1.4 features</li>
+                    <li><strong>CHANGELOG.md</strong> - Version history and updates</li>
+                    <li><strong>TODO.md</strong> - Future improvements and roadmap</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <ul class="mb-0">
+                    <li><strong>trait_based_architecture.md</strong> - v3.0 trait-based design plan</li>
+                    <li><strong>docs/</strong> - Technical documentation</li>
+                    <li><strong>index.html</strong> - This code generator (updated for v1.4)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
     <div class="mt-5 code-area-container" style="max-width:900px;position:relative;">
         <h3>Generated Code</h3>

@@ -1,4 +1,5 @@
-# AF Table
+````markdown
+# AF Table v1.4
 
 A Laravel Livewire "datatable" component that makes it effortless to display, search, filter, sort, paginate, and export your Eloquent model data.
 
@@ -9,17 +10,64 @@ A Laravel Livewire "datatable" component that makes it effortless to display, se
 - **Column-based sorting** with toggles for ascending/descending.
 - **Per-column filters** (text, select, number, and date-range).
 - **Dynamic column visibility** so users can choose which columns to view.
-- **Column visibility is now stored in the session** so user preferences persist across reloads.
+- **Real-time column visibility**: Session-stored preferences with instant UI updates.
 - **Column visibility button**: Toggle column visibility with a built-in button (`$colvisBtn`).
+- **JSON column support**: Extract and display specific values from JSON database columns.
 - **Export options**: CSV, Excel, and PDF (Excel with Filtered/All Data selection, see below).
 - **Print-friendly view** built in.
 - **Row selection** with checkboxes and "select all".
 - **Fully customizable columns**: raw Blade views, relation lookups, and conditional CSS classes.
 - **Function-based columns**: Display model method results directly without database queries.
 - **Index column**: Optional index column (1, 2, 3, ...) that's correct across sorting and pagination. **Disabled by default**.
+- **Smart index sorting**: Index respects table sorting (shows sequential numbers based on current sort order).
 - **High-Performance**: Optimized queries, caching, memory management, and efficient relation loading.
 - **Smart Query Optimization**: Indexed search patterns, consolidated eager loading, and efficient sorting.
 - **Memory Management**: Chunked processing for exports and limited distinct value queries.
+
+## Recent Major Updates (v1.4 - January 2025)
+
+### ✨ JSON Column Support (FIXED)
+- **Native JSON Column Extraction**: Extract specific values from JSON database columns
+- **Dot Notation Support**: Access nested JSON objects with `contact.email` syntax
+- **Complex Key Handling**: Works with complex JSON keys and dynamic form fields
+- **Type-Safe Display**: Automatic handling of different JSON value types
+- **Performance Optimized**: Only loads JSON columns once per row
+- **Fixed Visibility**: JSON columns now properly hide/show with real-time column visibility
+
+### 🔄 Real-Time Column Visibility (FIXED & ENHANCED)
+- **Instant Updates**: Column visibility checkboxes update immediately without page refresh
+- **Session Persistence**: User preferences stored in session and persist across page loads
+- **Smooth UI**: Dropdown remains open while toggling columns for better UX
+- **Unique JSON Keys**: Proper handling of multiple JSON columns from same database field
+- **Fixed Logic**: Corrected default visibility logic for all column types
+- **Improved Dropdown**: Clean labels without confusing technical keys for JSON columns
+- **Reliable Toggle**: Enhanced toggle mechanism using `wire:click` for consistent behavior
+
+### 📊 Smart Index Column (IMPROVED)
+- **Sort-Aware Indexing**: Index numbers reflect current sort order (1, 2, 3... based on `updated_at` or custom sort)
+- **Pagination Consistent**: Correct sequential numbering across all pages
+- **Performance Optimized**: Disabled by default to improve query performance
+- **Customizable**: Can be enabled per table with `'index' => true`
+
+### 🚀 Enhanced Delete Operations (STABLE)
+- **Parent-Child Communication**: Proper Livewire event handling between table and parent components
+- **Event Emission**: Support for both `dispatch()` and `$parent` method calls
+- **Error Handling**: Graceful handling of delete operations with user feedback
+- **State Management**: Automatic table refresh after successful delete operations
+
+### 🏗️ Trait-Based Architecture (Documented - Planned v3.0)
+- **Modular Design**: Split functionality into focused, reusable traits
+- **Enhanced Testability**: Individual traits can be unit tested
+- **Plugin System Ready**: Foundation for custom extensions and plugins
+- **Maintainability**: Clear separation of concerns and smaller code files
+- **Migration Plan**: Complete documentation in `docs/trait_based_architecture.md`
+
+### 📚 Documentation Overhaul (v1.4)
+- **Complete README**: Updated with all v1.4 features and fixes
+- **Code Generator**: Enhanced `index.html` with v1.4 feature support
+- **Architecture Docs**: New trait-based architecture documentation
+- **Version Management**: CHANGELOG.md for version history
+- **TODO Roadmap**: Future improvements and feature ideas
 
 ## Recent Performance Enhancements
 

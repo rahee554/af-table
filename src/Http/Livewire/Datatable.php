@@ -69,10 +69,14 @@ class Datatable extends Component
         $this->initializeColumnConfiguration($columns);
 
         // Re-key columns by 'key' or 'function' with fallback
+        // For JSON columns, use a unique identifier that includes the JSON path
         $this->columns = collect($columns)->mapWithKeys(function ($column, $index) {
-            // Priority: function > key > auto-generated
+            // Priority: function > key+json > key > auto-generated
             if (isset($column['function'])) {
                 $identifier = $column['function'];
+            } elseif (isset($column['key']) && isset($column['json'])) {
+                // For JSON columns, create unique identifier using key and json path
+                $identifier = $column['key'] . '.' . $column['json'];
             } elseif (isset($column['key'])) {
                 $identifier = $column['key'];
             } else {
@@ -81,17 +85,22 @@ class Datatable extends Component
             return [$identifier => $column];
         })->toArray();
 
-        // Session key for column visibility (unique per model/table and tableId)
+                // Session key for column visibility (unique per model/table and tableId)
         $sessionKey = $this->getColumnVisibilitySessionKey();
 
-        // Try to load column visibility from session, else default
-        $sessionVisibility = Session::get($sessionKey);
-        if (is_array($sessionVisibility)) {
+        // Initialize column visibility from session or defaults
+        $sessionVisibility = Session::get($sessionKey, []);
+        if (!empty($sessionVisibility)) {
             $this->visibleColumns = $this->getValidatedVisibleColumns($sessionVisibility);
-            Session::put($sessionKey, $this->visibleColumns);
         } else {
             $this->visibleColumns = $this->getDefaultVisibleColumns();
-            Session::put($sessionKey, $this->visibleColumns);
+        }
+        
+        // Ensure all columns have a visibility state
+        foreach ($this->columns as $columnKey => $column) {
+            if (!array_key_exists($columnKey, $this->visibleColumns)) {
+                $this->visibleColumns[$columnKey] = !($column['hide'] ?? false);
+            }
         }
 
         $this->filters = $filters;
@@ -200,6 +209,11 @@ class Datatable extends Component
     protected function calculateSelectColumns($columns): array
     {
         $selects = ['id']; // Always include ID
+        
+        // Always include updated_at for index sorting if it exists
+        if ($this->isValidColumn('updated_at')) {
+            $selects[] = 'updated_at';
+        }
 
         foreach ($columns as $columnKey => $column) {
             // Skip non-visible columns for performance
@@ -295,6 +309,11 @@ class Datatable extends Component
 
     protected function getOptimalSortColumn(): ?string
     {
+        // Prioritize updated_at for index sorting if it exists and index is enabled
+        if ($this->index && $this->isValidColumn('updated_at')) {
+            return 'updated_at';
+        }
+        
         // Find first indexed column for better sort performance
         $indexedColumns = ['id', 'created_at', 'updated_at']; // Common indexed columns
 
@@ -320,7 +339,9 @@ class Datatable extends Component
     protected function getDefaultVisibleColumns()
     {
         return collect($this->columns)->mapWithKeys(function ($column, $identifier) {
-            return [$identifier => empty($column['hide'])];
+            // Default to visible unless explicitly hidden
+            $isVisible = !isset($column['hide']) || !$column['hide'];
+            return [$identifier => $isVisible];
         })->toArray();
     }
 
@@ -331,7 +352,8 @@ class Datatable extends Component
             if (array_key_exists($columnKey, $sessionVisibility)) {
                 $validSessionVisibility[$columnKey] = $sessionVisibility[$columnKey];
             } else {
-                $validSessionVisibility[$columnKey] = empty($columnConfig['hide']);
+                // Default to visible unless explicitly hidden
+                $validSessionVisibility[$columnKey] = !isset($columnConfig['hide']) || !$columnConfig['hide'];
             }
         }
         return $validSessionVisibility;
@@ -339,8 +361,30 @@ class Datatable extends Component
 
     public function toggleColumnVisibility($columnKey)
     {
+        // Ensure the column exists in the visibility array with proper default
+        if (!array_key_exists($columnKey, $this->visibleColumns)) {
+            $this->visibleColumns[$columnKey] = !($this->columns[$columnKey]['hide'] ?? false);
+        }
+
+        // Toggle the visibility
         $this->visibleColumns[$columnKey] = !$this->visibleColumns[$columnKey];
+        
+        // Save to session
         Session::put($this->getColumnVisibilitySessionKey(), $this->visibleColumns);
+        
+        // Force component re-render
+        $this->dispatch('$refresh');
+    }
+
+    public function updateColumnVisibility($columnKey)
+    {
+        // This method is called when the wire:model updates
+        // The visibleColumns array is automatically updated by Livewire
+        // We just need to save it to the session
+        Session::put($this->getColumnVisibilitySessionKey(), $this->visibleColumns);
+        
+        // Force component re-render to ensure table updates
+        $this->dispatch('$refresh');
     }
 
     protected function getColumnVisibilitySessionKey()
@@ -384,8 +428,16 @@ class Datatable extends Component
         if (!$this->isAllowedColumn($column)) {
             return; // Ignore or handle invalid column
         }
-        $this->sortColumn = $column;
-        $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        
+        // If clicking the same column, toggle direction
+        if ($this->sortColumn === $column) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            // New column, start with asc
+            $this->sortColumn = $column;
+            $this->sortDirection = 'asc';
+        }
+        
         $this->resetPage();
     }
 
@@ -670,6 +722,11 @@ class Datatable extends Component
     protected function getValidSelectColumns(): array
     {
         $selects = ['id']; // Always include ID
+        
+        // Always include updated_at for index sorting if it exists
+        if ($this->isValidColumn('updated_at')) {
+            $selects[] = 'updated_at';
+        }
 
         foreach ($this->columns as $columnKey => $column) {
             // Skip non-visible columns for performance
@@ -800,6 +857,11 @@ class Datatable extends Component
 
     protected function isAllowedColumn($column)
     {
+        // Allow 'updated_at' for index column sorting
+        if ($column === 'updated_at') {
+            return $this->isValidColumn($column);
+        }
+        
         return array_key_exists($column, $this->columns);
     }
 
@@ -838,9 +900,15 @@ class Datatable extends Component
 
     protected function applyOptimizedSorting(Builder $query): void
     {
+        // First try to find by key (backward compatibility)
         $sortColumnConfig = collect($this->columns)->first(function ($col) {
             return isset($col['key']) && $col['key'] === $this->sortColumn;
         });
+
+        // If not found by key, try to find by the full column identifier (for JSON columns)
+        if (!$sortColumnConfig) {
+            $sortColumnConfig = $this->columns[$this->sortColumn] ?? null;
+        }
 
         // Validate sort direction
         $direction = strtolower($this->sortDirection);
@@ -896,8 +964,12 @@ class Datatable extends Component
                     $query->orderBy($this->sortColumn, $direction);
                 }
             }
-        } elseif ($sortColumnConfig && $this->isValidColumn($this->sortColumn)) {
-            $query->orderBy($this->sortColumn, $direction);
+        } elseif ($sortColumnConfig && isset($sortColumnConfig['key']) && $this->isValidColumn($sortColumnConfig['key'])) {
+            // Use the original column key for database sorting, not the identifier
+            $query->orderBy($sortColumnConfig['key'], $direction);
+        } elseif ($this->sortColumn === 'updated_at' && $this->isValidColumn('updated_at')) {
+            // Handle index column sorting by updated_at
+            $query->orderBy('updated_at', $direction);
         }
     }
 
@@ -1179,8 +1251,10 @@ class Datatable extends Component
     //*----------- Component Render -----------*//
     public function render()
     {
+        $data = $this->query()->paginate($this->records);
+        
         return view('artflow-studio.table::datatable', [
-            'data' => $this->query()->paginate($this->records),
+            'data' => $data,
             'filters' => $this->filters,
             'columns' => $this->columns,
             'visibleColumns' => $this->visibleColumns,

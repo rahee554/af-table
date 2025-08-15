@@ -121,14 +121,21 @@
                     </button>
                     <ul class="dropdown-menu" aria-labelledby="columnVisibilityDropdown">
                         @foreach ($columns as $columnKey => $column)
+                            @php
+                                // Determine current visibility state
+                                $isCurrentlyVisible = isset($visibleColumns[$columnKey]) ? (bool)$visibleColumns[$columnKey] : !($column['hide'] ?? false);
+                            @endphp
                             <li class="cursor-pointer">
                                 <div class="form-check form-switch form-check-custom form-check-solid me-10">
                                     <input class="form-check-input h-20px w-30px m-1" type="checkbox"
                                         id="column-{{ $columnKey }}"
-                                        wire:click.prevent="toggleColumnVisibility('{{ $columnKey }}')"
-                                        {{ ($visibleColumns[$columnKey] ?? false) ? 'checked' : '' }}>
+                                        wire:click="toggleColumnVisibility('{{ $columnKey }}')"
+                                        {{ $isCurrentlyVisible ? 'checked' : '' }}>
                                     <label class="form-check-label" for="column-{{ $columnKey }}">
                                         {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
+                                        @if(!isset($column['json']))
+                                            <small class="text-muted">({{ $columnKey }})</small>
+                                        @endif
                                     </label>
                                 </div>
                             </li>
@@ -138,31 +145,13 @@
             @endif
             @if ($refreshBtn == true)
                 <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
-                    Refresh
-                </button>
-            @endif
-
-        </div>
-        {{-- <div class="col d-flex">
-            @if ($exportable)
-                <div class="dropdown me-2">
-                    <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="exportDropdown"
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                        Export
-                    </button>
-                    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
-                        <li><a class="dropdown-item" href="#" wire:click.prevent="export('csv')">Export CSV</a>
-                        </li>
-                        <li><a class="dropdown-item" href="#" wire:click.prevent="export('xlsx')">Export Excel</a>
-                        </li>
-                        <li><a class="dropdown-item" href="#" wire:click.prevent="exportPdf">Export PDF</a></li>
-                    </ul>
+             
                 </div>
             @endif
             @if ($printable)
                 <button onclick="window.print()" class="btn btn-sm btn-secondary">Print</button>
             @endif
-        </div> --}}
+        </div>
     </div>
 
     <div class="table-responsive rounded {{ count($data) < 5 ? 'h-500px' : '' }}">
@@ -179,11 +168,22 @@
                     @endif
 
                     @if (!isset($index) || $index)
-                        <th class="fw-bold bg-light">#</th>
+                        <th class="fw-bold bg-light" wire:click="toggleSort('updated_at')" style="cursor:pointer;">
+                            <span class="d-inline-flex align-items-center">
+                                #
+                                @if ($sortColumn == 'updated_at')
+                                    <span class="ms-1" style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
+                                @endif
+                            </span>
+                        </th>
                     @endif
 
                     @foreach ($columns as $columnKey => $column)
-                        @if ($visibleColumns[$columnKey] ?? false)
+                        @php
+                            // Determine if column should be visible - default to true unless explicitly hidden
+                            $isVisible = isset($visibleColumns[$columnKey]) ? (bool)$visibleColumns[$columnKey] : !($column['hide'] ?? false);
+                        @endphp
+                        @if ($isVisible)
                             @php
                                 // Check if this is a nested relation that shouldn't be sortable
                                 $isNestedRelation = isset($column['relation']) && 
@@ -207,6 +207,7 @@
                             >
                                 <span class="d-inline-flex align-items-center">
                                     {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
+                                    {{-- <small class="text-muted ms-1">({{ $columnKey }})</small> --}}
                                     @if ($isSortable && $sortColumn == $column['key'])
                                         <span class="ms-1"
                                             style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
@@ -255,12 +256,30 @@
 
                             @if (!isset($index) || $index)
                                 <td>
-                                    {{ ($data->currentPage() - 1) * $data->perPage() + $loop->iteration }}
+                                    @php
+                                        // Calculate index based on sorting order
+                                        $baseIndex = ($data->currentPage() - 1) * $data->perPage() + $loop->iteration;
+                                        
+                                        // If sorting by updated_at DESC or any DESC order, reverse the index calculation
+                                        if ($sortDirection === 'desc') {
+                                            // Get total count for proper reverse indexing
+                                            $totalCount = $data->total();
+                                            $displayIndex = $totalCount - (($data->currentPage() - 1) * $data->perPage()) - ($loop->iteration - 1);
+                                        } else {
+                                            // Normal ascending order
+                                            $displayIndex = $baseIndex;
+                                        }
+                                    @endphp
+                                    {{ $displayIndex }}
                                 </td>
                             @endif
 
                             @foreach ($columns as $columnKey => $column)
-                                @if ($visibleColumns[$columnKey] ?? false)
+                                @php
+                                    // Determine if column should be visible - default to true unless explicitly hidden
+                                    $isVisible = isset($visibleColumns[$columnKey]) ? (bool)$visibleColumns[$columnKey] : !($column['hide'] ?? false);
+                                @endphp
+                                @if ($isVisible)
                                     <td class="{{ $column['td_class'] ?? $column['class'] ?? '' }}">
                                         @if (isset($column['json']))
                                             {{-- Handle JSON column with json - this takes priority over other column types --}}
@@ -467,9 +486,10 @@
 
             cb(start, end);
 
-            // Animate table body on update
-            Livewire.hook('message.processed', (message, component) => {
-                const tbody = document.getElementById('datatable-tbody');
+            document.addEventListener('DOMContentLoaded', function () {
+            // Livewire event listener for table updates
+            window.addEventListener('livewire:update', function () {
+                const tbody = document.querySelector('#myTable tbody');
                 if (tbody) {
                     // Remove and re-add the class for animation
                     tbody.classList.remove('table-fade');
@@ -496,6 +516,7 @@
                     window._keepColumnDropdownOpen = true;
                 }
             });
+        });
         });
     </script>
 @endpush
