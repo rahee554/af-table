@@ -17,7 +17,7 @@
 ### ✅ JSON Column Support (Enhanced)
 - **Database Integration**: Extract values from JSON columns in same table
 - **Extracted Values Only**: Displays only the extracted JSON value, not the full JSON data
-- **Priority Rendering**: JSON columns take priority over other column types when `json_path` is present
+- **Priority Rendering**: JSON columns take priority over other column types when `json` is present
 - **Dot Notation**: Support for nested JSON access (`contact.email`, `address.street`)
 - **Complex Keys**: Handles complex JSON keys like `et-dolor-fugiat-offi-5`
 - **Type Safety**: Automatic handling of different JSON value types
@@ -280,9 +280,9 @@ The AF-Table package now supports extracting specific values from JSON database 
     'columns' => [
         ['key' => 'title', 'label' => 'Title'],
         ['key' => 'member_id', 'label' => 'YLP Member', 'raw' => '{{ $row->member_id ? "YLP Member" : "Not a member" }}'],
-        ['key' => 'data', 'json_path' => 'name', 'label' => 'Name'],           // Shows only extracted name
-        ['key' => 'data', 'json_path' => 'email', 'label' => 'Email'],         // Shows only extracted email  
-        ['key' => 'data', 'json_path' => 'contact.phone', 'label' => 'Phone'], // Shows only phone number
+        ['key' => 'data', 'json' => 'name', 'label' => 'Name'],           // Shows only extracted name
+        ['key' => 'data', 'json' => 'email', 'label' => 'Email'],         // Shows only extracted email  
+        ['key' => 'data', 'json' => 'contact.phone', 'label' => 'Phone'], // Shows only phone number
         ['key' => 'status', 'label' => 'Status'],
     ],
     'actions' => [

@@ -273,17 +273,17 @@ For extracting specific values from JSON columns in your database:
 ```php
 [
     'key' => 'data',                // The JSON column name in database  
-    'json_path' => 'name',          // Extract 'name' from JSON
+    'json' => 'name',               // Extract 'name' from JSON
     'label' => 'User Name'          // Only the extracted value will be displayed
 ],
 [
     'key' => 'data',                // Same JSON column
-    'json_path' => 'contact.email', // Extract nested 'email' from 'contact' object
+    'json' => 'contact.email',      // Extract nested 'email' from 'contact' object
     'label' => 'Email'              // Only the email value will be displayed
 ],
 [
     'key' => 'form_data',           // Another JSON column
-    'json_path' => 'et-dolor-fugiat-offi-5', // Extract specific form field
+    'json' => 'et-dolor-fugiat-offi-5', // Extract specific form field
     'label' => 'Score'              // Only the score value will be displayed
 ]
 ```
@@ -297,7 +297,7 @@ For extracting specific values from JSON columns in your database:
 - **Type Safety**: Automatically handles different JSON value types (string, number, boolean, array, object)
 - **Error Handling**: Graceful handling of malformed JSON or missing keys
 - **Performance Optimized**: Only loads the JSON column once per row
-- **No Sorting**: JSON path columns are not sortable (since they're computed values)
+- **No Sorting**: JSON columns are not sortable (since they're computed values)
 
 #### JSON Data Example:
 
@@ -320,16 +320,70 @@ If your database has a JSON column `data` containing:
 You can create columns like:
 ```php
 [
-    ['key' => 'data', 'json_path' => 'name', 'label' => 'Name'],                    // Shows: "John Doe"
-    ['key' => 'data', 'json_path' => 'email', 'label' => 'Primary Email'],         // Shows: "john@example.com"
-    ['key' => 'data', 'json_path' => 'contact.phone', 'label' => 'Phone'],         // Shows: "123-456-7890"
-    ['key' => 'data', 'json_path' => 'contact.email', 'label' => 'Contact Email'], // Shows: "john.contact@example.com"
-    ['key' => 'data', 'json_path' => 'preferences.theme', 'label' => 'Theme'],     // Shows: "dark"
-    ['key' => 'data', 'json_path' => 'preferences.notifications', 'label' => 'Notifications'] // Shows: "Yes"
+    ['key' => 'data', 'json' => 'name', 'label' => 'Name'],                    // Shows: "John Doe"
+    ['key' => 'data', 'json' => 'email', 'label' => 'Primary Email'],         // Shows: "john@example.com"
+    ['key' => 'data', 'json' => 'contact.phone', 'label' => 'Phone'],         // Shows: "123-456-7890"
+    ['key' => 'data', 'json' => 'contact.email', 'label' => 'Contact Email'], // Shows: "john.contact@example.com"
+    ['key' => 'data', 'json' => 'preferences.theme', 'label' => 'Theme'],     // Shows: "dark"
+    ['key' => 'data', 'json' => 'preferences.notifications', 'label' => 'Notifications'] // Shows: "Yes"
 ]
 ```
 
-**Important**: When using `json_path`, the column will only display the extracted JSON value, not the entire JSON object.
+**Important**: When using `json`, the column will only display the extracted JSON value, not the entire JSON object.
+
+### 5. Dynamic Query Constraints
+
+For applying conditional filters based on parent component variables:
+
+```php
+@livewire('aftable', [
+    'model' => 'App\Models\FormSubmission',
+    'columns' => [
+        ['key' => 'title', 'label' => 'Title'],
+        ['key' => 'data', 'json' => 'name', 'label' => 'Name'],
+    ],
+    'query' => [
+        'form_id' => $formId,        // Dynamic constraint from parent component
+        'status' => 'active',        // Static constraint
+        'user_id' => auth()->id(),   // Dynamic constraint with function
+    ]
+])
+```
+
+#### Query Constraint Features:
+
+- **Dynamic Variables**: Pass variables from parent Livewire components
+- **Conditional Rendering**: If constraint value is null/empty, no data will be shown
+- **Multiple Constraints**: Support multiple WHERE conditions
+- **Security**: Column validation prevents SQL injection
+- **Flexible Format**: Supports key-value pairs and array formats
+
+#### Query Constraint Examples:
+
+```php
+// Simple key-value constraints
+'query' => [
+    'form_id' => $formId,
+    'status' => 'published',
+    'user_id' => auth()->id()
+]
+
+// Advanced constraints with operators
+'query' => [
+    ['created_at', '>=', now()->subDays(30)],
+    ['status', '!=', 'deleted'],
+    'user_id' => $userId
+]
+
+// Mixed format
+'query' => [
+    'category_id' => $categoryId,
+    ['price', '>', 100],
+    ['featured', '=', true]
+]
+```
+
+**Important**: If any required constraint value (like `$formId`) is null or empty, the table will show no data to prevent displaying unfiltered results.
 
 #### Function Column Examples:
 

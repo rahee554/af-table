@@ -233,8 +233,8 @@ class Datatable extends Component
                 continue;
             }
 
-            // Handle JSON columns - always include the base JSON column when json_path is specified
-            if (isset($column['json_path']) && isset($column['key'])) {
+            // Handle JSON columns - always include the base JSON column when json is specified
+            if (isset($column['json']) && isset($column['key'])) {
                 if ($this->isValidColumn($column['key']) && !in_array($column['key'], $selects)) {
                     $selects[] = $column['key'];
                 }
@@ -680,7 +680,7 @@ class Datatable extends Component
                 continue;
 
             // Handle JSON columns - include the JSON column in SELECT
-            if (isset($column['json_path']) && isset($column['key'])) {
+            if (isset($column['json']) && isset($column['key'])) {
                 if ($this->isValidColumn($column['key']) && !in_array($column['key'], $selects)) {
                     $selects[] = $column['key'];
                 }
@@ -758,17 +758,26 @@ class Datatable extends Component
     protected function applyCustomQueryConstraints(Builder $query): void
     {
         if (is_array($this->query)) {
-            foreach ($this->query as $constraint) {
-                if (is_array($constraint)) {
-                    if (count($constraint) === 3) {
-                        [$column, $operator, $value] = $constraint;
+            foreach ($this->query as $column => $value) {
+                // Handle different constraint formats
+                if (is_array($value)) {
+                    if (count($value) === 3) {
+                        [$col, $operator, $val] = $value;
                         // Validate column exists to prevent SQL injection
-                        if ($this->isValidColumn($column)) {
-                            $query->where($column, $operator, $value);
+                        if ($this->isValidColumn($col)) {
+                            $query->where($col, $operator, $val);
                         }
-                    } elseif (count($constraint) === 2) {
-                        [$column, $value] = $constraint;
-                        if ($this->isValidColumn($column)) {
+                    } elseif (count($value) === 2) {
+                        [$col, $val] = $value;
+                        if ($this->isValidColumn($col)) {
+                            $query->where($col, $val);
+                        }
+                    }
+                } else {
+                    // Simple key-value constraint: 'column' => 'value'
+                    if ($this->isValidColumn($column)) {
+                        // Handle null values - if value is null, don't apply constraint
+                        if ($value !== null && $value !== '') {
                             $query->where($column, $value);
                         }
                     }

@@ -189,7 +189,7 @@
                                 $isNestedRelation = isset($column['relation']) && 
                                     (strpos($column['relation'], '.') !== false && strpos($column['relation'], ':') !== false);
                                 // JSON columns are never sortable (computed values)
-                                $isJsonColumn = isset($column['json_path']);
+                                $isJsonColumn = isset($column['json']);
                                 // Function columns are never sortable, regular columns with keys are sortable unless nested or JSON
                                 $isSortable = !isset($column['function']) && isset($column['key']) && !$isNestedRelation && !$isJsonColumn;
                                 
@@ -215,7 +215,7 @@
                                         <small class="text-muted ms-1" title="Nested relations (level {{ $nestingLevel }}) are not sortable">(Level {{ $nestingLevel }})</small>
                                     @endif
                                     @if($isJsonColumn)
-                                        <small class="text-muted ms-1" title="JSON columns are not sortable (computed values)">(JSON)</small>
+                                        <small class="text-muted ms-1" title="JSON columns are not sortable (computed values)">(Not Sortable)</small>
                                     @endif
                                 </span>
                             </th>
@@ -262,11 +262,11 @@
                             @foreach ($columns as $columnKey => $column)
                                 @if ($visibleColumns[$columnKey] ?? false)
                                     <td class="{{ $column['td_class'] ?? $column['class'] ?? '' }}">
-                                        @if (isset($column['json_path']))
-                                            {{-- Handle JSON column with json_path - this takes priority over other column types --}}
+                                        @if (isset($column['json']))
+                                            {{-- Handle JSON column with json - this takes priority over other column types --}}
                                             @php
                                                 $jsonColumn = $column['key'];
-                                                $jsonPath = $column['json_path'];
+                                                $jsonPath = $column['json'];
                                                 $value = $this->extractJsonValue($row, $jsonColumn, $jsonPath);
                                                 
                                                 // Format value for display
