@@ -32,6 +32,13 @@ class TableServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/resources/assets' => public_path('vendor/artflow-studio/table'),
         ], 'assets');
+
+        // Register commands
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \ArtflowStudio\Table\Commands\AFTableTestCommand::class,
+            ]);
+        }
     }
 
     public function register()

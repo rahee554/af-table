@@ -213,7 +213,7 @@
                                             style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
                                     @endif
                                     @if($isNestedRelation)
-                                        <small class="text-muted ms-1" title="Nested relations (level {{ $nestingLevel }}) are not sortable">(Level {{ $nestingLevel }})</small>
+                                        <small class="text-muted ms-1" title="Nested relations are not sortable for performance and stability reasons">(Not Sortable)</small>
                                     @endif
                                     @if($isJsonColumn)
                                         <small class="text-muted ms-1" title="JSON columns are not sortable (computed values)">(Not Sortable)</small>
