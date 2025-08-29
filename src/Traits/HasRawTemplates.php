@@ -1,0 +1,336 @@
+<?php
+
+namespace ArtflowStudio\Table\Traits;
+
+trait HasRawTemplates
+{
+    /**
+     * Process raw template for a column
+     */
+    protected function processRawTemplate($record, $template): string
+    {
+        if (empty($template)) {
+            return '';
+        }
+
+        // Replace placeholders with actual values
+        $processedTemplate = $template;
+        
+        // Find all placeholders in the format {column_name} or {relation:column}
+        preg_match_all('/\{([^}]+)\}/', $template, $matches);
+        
+        if (!empty($matches[1])) {
+            foreach ($matches[1] as $placeholder) {
+                $value = $this->getPlaceholderValue($record, $placeholder);
+                $processedTemplate = str_replace('{' . $placeholder . '}', $value, $processedTemplate);
+            }
+        }
+        
+        return $processedTemplate;
+    }
+
+    /**
+     * Get value for a placeholder
+     */
+    protected function getPlaceholderValue($record, $placeholder): string
+    {
+        // Check if it's a relation placeholder
+        if (str_contains($placeholder, ':')) {
+            return (string) $this->getRelationValue($record, $placeholder);
+        }
+        
+        // Check if it's a direct column
+        if (isset($record->$placeholder)) {
+            return (string) $record->$placeholder;
+        }
+        
+        // Check if it's defined in columns configuration
+        foreach ($this->columns as $columnKey => $column) {
+            if (isset($column['key']) && $column['key'] === $placeholder) {
+                return (string) $this->getColumnValue($record, $columnKey);
+            }
+        }
+        
+        return '';
+    }
+
+    /**
+     * Parse raw template to find dependencies
+     */
+    protected function parseTemplateDependencies($template): array
+    {
+        $dependencies = [];
+        
+        preg_match_all('/\{([^}]+)\}/', $template, $matches);
+        
+        if (!empty($matches[1])) {
+            foreach ($matches[1] as $placeholder) {
+                if (str_contains($placeholder, ':')) {
+                    // It's a relation
+                    [$relation] = explode(':', $placeholder);
+                    $dependencies['relations'][] = $relation;
+                } else {
+                    // It's a column
+                    $dependencies['columns'][] = $placeholder;
+                }
+            }
+        }
+        
+        return [
+            'relations' => array_unique($dependencies['relations'] ?? []),
+            'columns' => array_unique($dependencies['columns'] ?? [])
+        ];
+    }
+
+    /**
+     * Validate raw template syntax
+     */
+    protected function validateRawTemplate($template): array
+    {
+        $errors = [];
+        $warnings = [];
+        
+        // Check for basic syntax
+        $openBraces = substr_count($template, '{');
+        $closeBraces = substr_count($template, '}');
+        
+        if ($openBraces !== $closeBraces) {
+            $errors[] = 'Mismatched braces in template';
+        }
+        
+        // Check for empty placeholders
+        if (preg_match('/\{\s*\}/', $template)) {
+            $errors[] = 'Empty placeholders found';
+        }
+        
+        // Check for nested placeholders
+        if (preg_match('/\{[^}]*\{/', $template)) {
+            $errors[] = 'Nested placeholders are not supported';
+        }
+        
+        // Validate dependencies
+        $dependencies = $this->parseTemplateDependencies($template);
+        
+        // Check if relations exist
+        foreach ($dependencies['relations'] as $relation) {
+            if (!$this->relationExists($relation)) {
+                $warnings[] = "Relation '{$relation}' may not exist on model";
+            }
+        }
+        
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
+            'dependencies' => $dependencies
+        ];
+    }
+
+    /**
+     * Get all raw template columns
+     */
+    protected function getRawTemplateColumns(): array
+    {
+        $rawTemplateColumns = [];
+        
+        foreach ($this->columns as $columnKey => $column) {
+            if (isset($column['raw_template'])) {
+                $rawTemplateColumns[$columnKey] = [
+                    'template' => $column['raw_template'],
+                    'validation' => $this->validateRawTemplate($column['raw_template']),
+                    'dependencies' => $this->parseTemplateDependencies($column['raw_template'])
+                ];
+            }
+        }
+        
+        return $rawTemplateColumns;
+    }
+
+    /**
+     * Render raw template with custom functions
+     */
+    protected function renderTemplateWithFunctions($record, $template): string
+    {
+        $processedTemplate = $this->processRawTemplate($record, $template);
+        
+        // Apply custom functions like |upper, |lower, |date, etc.
+        $processedTemplate = $this->applyTemplateFunctions($processedTemplate);
+        
+        return $processedTemplate;
+    }
+
+    /**
+     * Apply template functions (filters)
+     */
+    protected function applyTemplateFunctions($content): string
+    {
+        // This is a basic implementation - you could extend it with more functions
+        
+        // Date formatting: {created_at|date:Y-m-d}
+        $content = preg_replace_callback(
+            '/\{([^|]+)\|date:([^}]+)\}/',
+            function ($matches) {
+                $value = $matches[1];
+                $format = $matches[2];
+                
+                try {
+                    $date = new \DateTime($value);
+                    return $date->format($format);
+                } catch (\Exception $e) {
+                    return $value;
+                }
+            },
+            $content
+        );
+        
+        // Uppercase: {name|upper}
+        $content = preg_replace_callback(
+            '/\{([^|]+)\|upper\}/',
+            function ($matches) {
+                return strtoupper($matches[1]);
+            },
+            $content
+        );
+        
+        // Lowercase: {name|lower}
+        $content = preg_replace_callback(
+            '/\{([^|]+)\|lower\}/',
+            function ($matches) {
+                return strtolower($matches[1]);
+            },
+            $content
+        );
+        
+        // Truncate: {description|truncate:50}
+        $content = preg_replace_callback(
+            '/\{([^|]+)\|truncate:(\d+)\}/',
+            function ($matches) {
+                $value = $matches[1];
+                $length = (int) $matches[2];
+                
+                return strlen($value) > $length ? substr($value, 0, $length) . '...' : $value;
+            },
+            $content
+        );
+        
+        return $content;
+    }
+
+    /**
+     * Create template with HTML elements
+     */
+    protected function createHtmlTemplate($record, $template): string
+    {
+        $processedTemplate = $this->renderTemplateWithFunctions($record, $template);
+        
+        // Basic HTML encoding for safety
+        // You might want to be more selective about what gets encoded
+        return $processedTemplate;
+    }
+
+    /**
+     * Get template performance statistics
+     */
+    public function getTemplateStats(): array
+    {
+        $rawTemplateColumns = $this->getRawTemplateColumns();
+        $totalTemplates = count($rawTemplateColumns);
+        $validTemplates = 0;
+        $templatesWithWarnings = 0;
+        $totalDependencies = 0;
+        
+        foreach ($rawTemplateColumns as $columnData) {
+            if ($columnData['validation']['valid']) {
+                $validTemplates++;
+            }
+            
+            if (!empty($columnData['validation']['warnings'])) {
+                $templatesWithWarnings++;
+            }
+            
+            $totalDependencies += count($columnData['dependencies']['columns']) + count($columnData['dependencies']['relations']);
+        }
+        
+        return [
+            'total_templates' => $totalTemplates,
+            'valid_templates' => $validTemplates,
+            'invalid_templates' => $totalTemplates - $validTemplates,
+            'templates_with_warnings' => $templatesWithWarnings,
+            'total_dependencies' => $totalDependencies,
+            'average_dependencies_per_template' => $totalTemplates > 0 ? round($totalDependencies / $totalTemplates, 2) : 0,
+            'templates' => $rawTemplateColumns
+        ];
+    }
+
+    /**
+     * Test template rendering
+     */
+    public function testTemplate($columnKey, $testData = null): array
+    {
+        if (!isset($this->columns[$columnKey]['raw_template'])) {
+            return [
+                'error' => 'Column does not have raw template configuration',
+                'column_key' => $columnKey
+            ];
+        }
+        
+        $template = $this->columns[$columnKey]['raw_template'];
+        $validation = $this->validateRawTemplate($template);
+        
+        $result = [
+            'column_key' => $columnKey,
+            'template' => $template,
+            'validation' => $validation
+        ];
+        
+        if (!$validation['valid']) {
+            return $result;
+        }
+        
+        // Test with actual data if available
+        if ($testData) {
+            try {
+                $rendered = $this->renderTemplateWithFunctions($testData, $template);
+                $result['test_render'] = [
+                    'success' => true,
+                    'output' => $rendered
+                ];
+            } catch (\Exception $e) {
+                $result['test_render'] = [
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ];
+            }
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Get template suggestions for a column
+     */
+    public function getTemplateSuggestions($columnKey): array
+    {
+        $suggestions = [];
+        
+        // Basic column value
+        $suggestions[] = '{' . $columnKey . '}';
+        
+        // With formatting functions
+        $suggestions[] = '{' . $columnKey . '|upper}';
+        $suggestions[] = '{' . $columnKey . '|lower}';
+        $suggestions[] = '{' . $columnKey . '|truncate:50}';
+        
+        // If it's a date field
+        if (str_contains(strtolower($columnKey), 'date') || str_contains(strtolower($columnKey), 'created') || str_contains(strtolower($columnKey), 'updated')) {
+            $suggestions[] = '{' . $columnKey . '|date:Y-m-d}';
+            $suggestions[] = '{' . $columnKey . '|date:d/m/Y H:i}';
+        }
+        
+        // Common HTML templates
+        $suggestions[] = '<span class="badge">{' . $columnKey . '}</span>';
+        $suggestions[] = '<a href="/edit/{id}">{' . $columnKey . '}</a>';
+        
+        return $suggestions;
+    }
+}

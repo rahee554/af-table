@@ -18,7 +18,7 @@ class AFTableTestCommand extends Command
      */
     protected $signature = 'af-table:test 
                            {--suite= : Run specific test suite}
-                           {--verbose : Show detailed output}
+                           {--detailed : Show detailed output}
                            {--setup : Setup test environment}
                            {--cleanup : Cleanup test data}';
 
@@ -141,7 +141,7 @@ class AFTableTestCommand extends Command
 
                 default:
                     $this->error('❌ Invalid option. Please try again.');
-                    continue;
+                    continue 2;
             }
         }
     }

@@ -10,13 +10,19 @@ class TableServiceProvider extends ServiceProvider
 {
     public function boot()
     {
-        // Explicitly register the Livewire component
+        // Explicitly register the Livewire components
         Livewire::component('aftable', \ArtflowStudio\Table\Http\Livewire\Datatable::class);
+        Livewire::component('aftable-trait', \ArtflowStudio\Table\Http\Livewire\DatatableTrait::class);
 
-        // Register the custom Blade directive
+        // Register the custom Blade directives
         Blade::directive('AFtable', function ($expression) {
             // Dynamically mount the Datatable Livewire component and pass the array to the component
             return "<?php echo app('livewire')->mount('aftable', {$expression})->html(); ?>";
+        });
+
+        Blade::directive('AFtableTrait', function ($expression) {
+            // Dynamically mount the DatatableTrait Livewire component and pass the array to the component
+            return "<?php echo app('livewire')->mount('aftable-trait', {$expression})->html(); ?>";
         });
 
         // Load views from the resources/views folder in your package
@@ -37,6 +43,9 @@ class TableServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \ArtflowStudio\Table\Commands\AFTableTestCommand::class,
+                \ArtflowStudio\Table\Console\Commands\CreateDummyTableCommand::class,
+                \ArtflowStudio\Table\Console\Commands\TestTraitsCommand::class,
+                \ArtflowStudio\Table\Console\Commands\CleanupDummyTablesCommand::class,
             ]);
         }
     }

@@ -1,0 +1,1081 @@
+````markdown
+# ArtflowStudio Laravel Livewire Datatable Package
+
+A comprehensive, trait-based Laravel Livewire datatable package with advanced features for building powerful data tables with minimal configuration.
+
+## 🚀 Features
+
+### Core Features
+- **Trait-Based Architecture**: Modular design with 18 specialized traits
+- **Advanced Search**: Global and column-specific search capabilities
+- **Smart Filtering**: Multiple filter types with caching
+- **Flexible Sorting**: Column-based sorting with relation support
+- **Dynamic Columns**: Show/hide columns with session persistence
+- **Export Functionality**: CSV, JSON, Excel export with chunking
+- **Relationship Support**: Eager loading and nested relationships
+- **JSON Column Support**: Search and filter JSON data
+- **Memory Management**: Automatic optimization for large datasets
+- **Session Persistence**: Save and restore table state
+- **Query String Support**: Shareable URLs with table state
+- **Event System**: Comprehensive event listeners
+- **Actions & Bulk Actions**: Row and bulk operations
+- **Raw Templates**: Custom HTML templates with placeholders
+- **Performance Optimization**: Caching, chunking, eager loading
+
+### Available Traits
+
+1. **HasQueryBuilder** - Core query building functionality
+2. **HasDataValidation** - Column and data validation
+3. **HasColumnConfiguration** - Column setup and management
+4. **HasColumnVisibility** - Show/hide columns dynamically
+5. **HasSearch** - Global and column search
+6. **HasFiltering** - Advanced filtering capabilities
+7. **HasSorting** - Column sorting with relations
+8. **HasCaching** - Intelligent caching system
+9. **HasEagerLoading** - Optimized relationship loading
+10. **HasMemoryManagement** - Memory optimization
+11. **HasJsonSupport** - JSON column operations
+12. **HasRelationships** - Relationship handling
+13. **HasExport** - Data export functionality
+14. **HasRawTemplates** - Custom HTML templates
+15. **HasSessionManagement** - State persistence
+16. **HasQueryStringSupport** - URL-based state
+17. **HasEventListeners** - Event system
+18. **HasActions** - Row and bulk actions
+
+## 📦 Installation
+
+```bash
+composer require artflowstudio/table
+```
+
+## 🔧 Setup
+
+### 1. Service Provider Registration
+
+The package auto-registers via Laravel's package discovery. For manual registration:
+
+```php
+// config/app.php
+'providers' => [
+    ArtflowStudio\Table\TableServiceProvider::class,
+],
+```
+
+### 2. Publish Assets (Optional)
+
+```bash
+php artisan vendor:publish --provider="ArtflowStudio\Table\TableServiceProvider" --tag=views
+php artisan vendor:publish --provider="ArtflowStudio\Table\TableServiceProvider" --tag=assets
+```
+
+## 🎯 Usage
+
+### Basic Usage
+
+#### Original Datatable Component
+
+```php
+use ArtflowStudio\Table\Http\Livewire\Datatable;
+
+class UserDatatable extends Datatable 
+{
+    public function mount()
+    {
+        $this->model = User::class;
+        $this->columns = [
+            'id' => ['label' => 'ID', 'sortable' => true],
+            'name' => ['label' => 'Name', 'searchable' => true, 'sortable' => true],
+            'email' => ['label' => 'Email', 'searchable' => true],
+            'created_at' => ['label' => 'Created', 'sortable' => true],
+        ];
+    }
+}
+```
+
+#### New Trait-Based Component
+
+```php
+use ArtflowStudio\Table\Http\Livewire\DatatableTrait;
+
+class UserTraitDatatable extends DatatableTrait 
+{
+    public function mount()
+    {
+        $this->model = User::class;
+        $this->columns = [
+            'id' => ['label' => 'ID', 'sortable' => true],
+            'name' => ['label' => 'Name', 'searchable' => true, 'sortable' => true],
+            'email' => ['label' => 'Email', 'searchable' => true],
+            'profile_name' => ['label' => 'Profile', 'relation' => 'profile:name'],
+            'settings_theme' => ['label' => 'Theme', 'json' => 'theme', 'key' => 'settings'],
+            'created_at' => ['label' => 'Created', 'sortable' => true],
+        ];
+        
+        // Configure filters
+        $this->filters = [
+            'status' => [
+                'type' => 'select',
+                'options' => ['active', 'inactive', 'pending']
+            ],
+            'created_at' => [
+                'type' => 'date_range'
+            ]
+        ];
+        
+        // Setup actions
+        $this->addAction('edit', [
+            'label' => 'Edit',
+            'route' => 'users.edit',
+            'class' => 'btn btn-primary'
+        ]);
+        
+        $this->addBulkAction('delete', [
+            'label' => 'Delete Selected',
+            'confirm' => 'Are you sure?',
+            'handler' => [$this, 'bulkDelete']
+        ]);
+    }
+    
+    public function bulkDelete($recordIds)
+    {
+        User::whereIn('id', $recordIds)->delete();
+        return ['success' => true, 'message' => 'Users deleted successfully'];
+    }
+}
+```
+
+### Blade Directives
+
+#### Original Component
+```blade
+@AFtable(['model' => App\Models\User::class, 'columns' => [...]])
+```
+
+#### Trait-Based Component
+```blade
+@AFtableTrait(['model' => App\Models\User::class, 'columns' => [...]])
+```
+
+## Recent Major Updates (v1.4 - January 2025)
+
+### ✨ JSON Column Support (FIXED)
+- **Native JSON Column Extraction**: Extract specific values from JSON database columns
+- **Dot Notation Support**: Access nested JSON objects with `contact.email` syntax
+- **Complex Key Handling**: Works with complex JSON keys and dynamic form fields
+- **Type-Safe Display**: Automatic handling of different JSON value types
+- **Performance Optimized**: Only loads JSON columns once per row
+- **Fixed Visibility**: JSON columns now properly hide/show with real-time column visibility
+
+### 🔄 Real-Time Column Visibility (FIXED & ENHANCED)
+- **Instant Updates**: Column visibility checkboxes update immediately without page refresh
+- **Session Persistence**: User preferences stored in session and persist across page loads
+- **Smooth UI**: Dropdown remains open while toggling columns for better UX
+- **Unique JSON Keys**: Proper handling of multiple JSON columns from same database field
+- **Fixed Logic**: Corrected default visibility logic for all column types
+- **Improved Dropdown**: Clean labels without confusing technical keys for JSON columns
+- **Reliable Toggle**: Enhanced toggle mechanism using `wire:click` for consistent behavior
+
+### 📊 Smart Index Column (IMPROVED)
+- **Sort-Aware Indexing**: Index numbers reflect current sort order (1, 2, 3... based on `updated_at` or custom sort)
+- **Pagination Consistent**: Correct sequential numbering across all pages
+- **Performance Optimized**: Disabled by default to improve query performance
+- **Customizable**: Can be enabled per table with `'index' => true`
+
+### 🚀 Enhanced Delete Operations (STABLE)
+- **Parent-Child Communication**: Proper Livewire event handling between table and parent components
+- **Event Emission**: Support for both `dispatch()` and `$parent` method calls
+- **Error Handling**: Graceful handling of delete operations with user feedback
+- **State Management**: Automatic table refresh after successful delete operations
+
+### 🏗️ Trait-Based Architecture (Documented - Planned v3.0)
+- **Modular Design**: Split functionality into focused, reusable traits
+- **Enhanced Testability**: Individual traits can be unit tested
+- **Plugin System Ready**: Foundation for custom extensions and plugins
+- **Maintainability**: Clear separation of concerns and smaller code files
+- **Migration Plan**: Complete documentation in `docs/trait_based_architecture.md`
+
+### 📚 Documentation Overhaul (v1.4)
+- **Complete README**: Updated with all v1.4 features and fixes
+- **Code Generator**: Enhanced `index.html` with v1.4 feature support
+- **Architecture Docs**: New trait-based architecture documentation
+- **Version Management**: CHANGELOG.md for version history
+- **TODO Roadmap**: Future improvements and feature ideas
+
+## Recent Performance Enhancements
+
+- **Query Optimization**: Consolidated eager loading, efficient JOIN strategies, and cached relation detection
+- **Memory Management**: Chunked export processing, limited distinct value queries, and lazy loading
+- **Search Performance**: Indexed query patterns, numeric search optimization, and reduced LIKE wildcards  
+- **Caching Strategy**: Cached distinct values, relation mapping, and column configuration
+- **N+1 Prevention**: Single consolidated queries instead of multiple separate calls
+- **Index Column Default**: Changed to `false` by default for better performance
+
+## Performance Features
+
+### Query Optimization
+- **Consolidated Eager Loading**: Single query loads all required relations
+- **Cached Relation Detection**: Pre-calculated relation dependencies  
+- **Efficient Column Selection**: Only visible columns included in queries
+- **Indexed Search Patterns**: Optimized LIKE queries for better index usage
+
+### Memory Management  
+- **Chunked Processing**: Large datasets processed in chunks to prevent memory overflow
+- **Limited Distinct Values**: Configurable limits on filter dropdown options (default: 1000)
+- **Lazy Collections**: Memory-efficient data processing for exports
+- **Cache Management**: Configurable cache timeouts and targeted cache clearing
+
+### Smart Caching
+- **Distinct Value Caching**: Filter options cached for 5 minutes by default
+- **Relation Mapping Cache**: Pre-calculated relation dependencies
+- **Column Configuration Cache**: Optimized column selection and processing
+
+---
+
+## ⚠️ Nested Relationships - Current Limitations & Solutions
+
+AF Table supports both simple and nested relationships, but with some important considerations:
+
+### ✅ Supported Relationship Patterns
+
+#### Simple Relations (Fully Supported)
+```php
+// Single-level relationships - full support including sorting
+['key' => 'category_id', 'label' => 'Category', 'relation' => 'category:name']
+['key' => 'user_id', 'label' => 'Author', 'relation' => 'user:email']
+```
+
+#### Nested Relations (Display Only - Multi-Level Support)
+```php
+// Multi-level relationships - display supported, sorting disabled for stability
+['key' => 'student_id', 'label' => 'Student Name', 'relation' => 'student.user:name']
+['key' => 'order_id', 'label' => 'Customer Company', 'relation' => 'order.customer.company:name']
+
+// Deep nesting with complex attributes (Level 3+)
+['key' => 'enrollment_id', 'label' => 'Student Profile Bio', 'relation' => 'student.user.profile:bio']
+['key' => 'booking_id', 'label' => 'Traveler Address', 'relation' => 'passenger.user.profile.address:street']
+
+// Multi-level attributes (both relation and attribute can be nested)
+['key' => 'order_id', 'label' => 'Billing Address', 'relation' => 'customer.profile:address.street']
+```
+
+**Multi-Level Nesting Syntax:**
+- **Relation Part**: Use dots to separate relation levels: `student.user.profile`
+- **Attribute Part**: Use dots to separate attribute levels: `address.street.name`
+- **Full Syntax**: `relation.nested.chain:attribute.nested.chain`
+
+**Examples of Valid Nesting:**
+```php
+// Level 1: Simple relation
+'relation' => 'user:name'
+
+// Level 2: One nested relation
+'relation' => 'student.user:email'
+
+// Level 3: Two nested relations
+'relation' => 'enrollment.student.user:name'
+
+// Level 4: Three nested relations with nested attribute
+'relation' => 'booking.passenger.user.profile:address.street'
+
+// Complex: Both relation and attribute are multi-level
+'relation' => 'order.customer.profile:contact.address.city'
+```
+
+### 🚫 Current Limitations
+
+1. **Nested Relation Sorting**: Columns with nested relations (e.g., `student.user:name`) cannot be sorted to prevent query errors
+2. **Deep Nesting Performance**: Relations deeper than 2 levels may impact performance
+3. **Complex Joins**: Very complex nested relations may require custom query optimization
+
+### 💡 Recommended Solutions
+
+#### Option 1: Model Accessors (Recommended)
+Create accessors in your model for commonly used nested data:
+
+```php
+// In your Enrollment model
+public function getUserNameAttribute()
+{
+    return $this->student?->user?->name;
+}
+
+public function getUserEmailAttribute() 
+{
+    return $this->student?->user?->email;
+}
+
+// Then use in your table configuration
+['key' => 'user_name', 'label' => 'Student Name']
+['key' => 'user_email', 'label' => 'Student Email']
+```
+
+**Benefits:**
+- ✅ Fully sortable and searchable
+- ✅ Better performance with eager loading
+- ✅ More maintainable and testable
+- ✅ Reusable across your application
+
+#### Option 2: Raw Templates with Relations
+For complex display formatting while maintaining performance:
+
+```php
+[
+    'key' => 'student_id',
+    'label' => 'Student Info', 
+    'raw' => '<div>
+        <strong>{{ $row->student?->user?->name }}</strong><br>
+        <small class="text-muted">{{ $row->student?->user?->email }}</small>
+    </div>'
+]
+```
+
+#### Option 3: Custom Query Scopes
+For complex filtering needs:
+
+```php
+// In your model
+public function scopeWithStudentUser($query)
+{
+    return $query->with(['student.user']);
+}
+
+// In your component
+'query' => fn($q) => $q->withStudentUser()
+```
+
+### 🔮 Future Roadmap
+
+We're actively working on full nested relationship support:
+
+- **Phase 1** (Current): Display support with accessor recommendations
+- **Phase 2** (Q2 2025): Full sorting support for nested relations
+- **Phase 3** (Q3 2025): Advanced nested filtering and search
+- **Phase 4** (Q4 2025): Unlimited nesting depth with performance optimization
+
+For the complete development roadmap, see `AF_TABLE_ROADMAP.md`.
+
+---
+
+## Cache Management
+
+AF Table uses caching to improve performance, especially for filter dropdowns and relation mapping.
+
+- **Distinct Values Cache**: Filter dropdown options (distinct values) are cached for 5 minutes by default (`distinctValuesCacheTime`).
+- **Cache Clearing**: When you change filter columns or want to refresh filter options, the cache is automatically cleared. You can also clear all distinct value caches programmatically using:
+    ```php
+    $this->clearDistinctValuesCache();
+    ```
+- **Targeted Cache**: The cache is keyed per table instance and column, so clearing one does not affect others.
+
+---
+
+## Column and Relation Validation
+
+AF Table validates all columns and relations before including them in SQL queries to prevent SQL errors and improve security.
+
+- **Column Validation**: Only columns that exist in your model's table (or are common columns like `id`, `created_at`, `updated_at`) are included in SELECT statements and filters.
+- **Relation Validation**: Relation columns are checked to ensure the relation exists on your model and the foreign key is valid.
+- **Raw Templates**: Any columns or relations referenced in raw Blade templates are also validated before being included in queries.
+
+This validation prevents SQL errors and ensures that only valid columns and relations are queried.
+
+---
+
+## Default Sort Column Logic
+
+AF Table automatically selects the most optimal default sort column for performance and usability:
+
+- **Indexed Columns First**: If your columns include common indexed columns like `id`, `created_at`, or `updated_at`, the first one found is used as the default sort column.
+- **Fallback**: If no indexed columns are present, the first sortable column is used.
+- **Customizable**: You can override the default by setting the `sortColumn` property or passing a `sort` option.
+
+This logic ensures fast sorting and a sensible default order for your data.
+
+---
+
+## Eager Loading and Sort Direction Validation
+
+- **Eager Loading**: AF Table always uses eager loading (`with()`) for all relations referenced in columns, filters, and sorting, including when sorting by a relation. This prevents N+1 query issues and ensures optimal performance.
+- **Sort Direction Validation**: The component validates the sort direction for all sorting operations, only allowing `'asc'` or `'desc'` values. Any invalid value will default to `'asc'` to prevent SQL errors and ensure consistent behavior.
+
+---
+
+## Column Types
+
+### 1. Database Columns (key-based)
+
+For displaying database column values:
+
+```php
+[
+    'key' => 'name',
+    'label' => 'Product Name'
+]
+```
+
+### 2. Relation Columns
+
+For displaying related model attributes:
+
+```php
+[
+    'key' => 'category_id',
+    'relation' => 'category:name',
+    'label' => 'Category'
+]
+```
+
+### 3. Function-Based Columns (No Key Required)
+
+For displaying model method results without database queries:
+
+```php
+[
+    'function' => 'isActive',  // No 'key' required for function columns
+    'label' => 'Status'
+]
+```
+
+#### Function-Based Column Features:
+
+- **No Key Required**: Function columns only need the `function` parameter, no `key` needed
+- **No Database Query**: Function columns are excluded from SELECT statements
+- **No Sorting**: Function-based columns are not sortable (since they're computed)
+- **Auto Boolean Conversion**: Boolean results are automatically converted to "Yes/No" for display
+- **Raw Template Support**: Can be combined with raw templates for custom formatting
+- **Method Validation**: Checks if the method exists before calling it
+- **Performance Optimized**: Only visible function columns are processed
+
+### 4. JSON Column Support
+
+For extracting specific values from JSON columns in your database:
+
+```php
+[
+    'key' => 'data',                // The JSON column name in database  
+    'json' => 'name',               // Extract 'name' from JSON
+    'label' => 'User Name'          // Only the extracted value will be displayed
+],
+[
+    'key' => 'data',                // Same JSON column
+    'json' => 'contact.email',      // Extract nested 'email' from 'contact' object
+    'label' => 'Email'              // Only the email value will be displayed
+],
+[
+    'key' => 'form_data',           // Another JSON column
+    'json' => 'et-dolor-fugiat-offi-5', // Extract specific form field
+    'label' => 'Score'              // Only the score value will be displayed
+]
+```
+
+#### JSON Column Features:
+
+- **Database JSON Column**: Works with actual JSON columns stored in your database table
+- **Extracted Values Only**: Displays only the extracted JSON value, not the full JSON data
+- **Dot Notation**: Support for nested JSON access using dot notation (`contact.email`, `address.street`)
+- **Complex Keys**: Handles complex JSON keys like `et-dolor-fugiat-offi-5`
+- **Type Safety**: Automatically handles different JSON value types (string, number, boolean, array, object)
+- **Error Handling**: Graceful handling of malformed JSON or missing keys
+- **Performance Optimized**: Only loads the JSON column once per row
+- **No Sorting**: JSON columns are not sortable (since they're computed values)
+
+#### JSON Data Example:
+
+If your database has a JSON column `data` containing:
+```json
+{
+    "name": "John Doe",
+    "email": "john@example.com", 
+    "contact": {
+        "phone": "123-456-7890",
+        "email": "john.contact@example.com"
+    },
+    "preferences": {
+        "theme": "dark",
+        "notifications": true
+    }
+}
+```
+
+You can create columns like:
+```php
+[
+    ['key' => 'data', 'json' => 'name', 'label' => 'Name'],                    // Shows: "John Doe"
+    ['key' => 'data', 'json' => 'email', 'label' => 'Primary Email'],         // Shows: "john@example.com"
+    ['key' => 'data', 'json' => 'contact.phone', 'label' => 'Phone'],         // Shows: "123-456-7890"
+    ['key' => 'data', 'json' => 'contact.email', 'label' => 'Contact Email'], // Shows: "john.contact@example.com"
+    ['key' => 'data', 'json' => 'preferences.theme', 'label' => 'Theme'],     // Shows: "dark"
+    ['key' => 'data', 'json' => 'preferences.notifications', 'label' => 'Notifications'] // Shows: "Yes"
+]
+```
+
+**Important**: When using `json`, the column will only display the extracted JSON value, not the entire JSON object.
+
+### 5. Dynamic Query Constraints
+
+For applying conditional filters based on parent component variables:
+
+```php
+@livewire('aftable', [
+    'model' => 'App\Models\FormSubmission',
+    'columns' => [
+        ['key' => 'title', 'label' => 'Title'],
+        ['key' => 'data', 'json' => 'name', 'label' => 'Name'],
+    ],
+    'query' => [
+        'form_id' => $formId,        // Dynamic constraint from parent component
+        'status' => 'active',        // Static constraint
+        'user_id' => auth()->id(),   // Dynamic constraint with function
+    ]
+])
+```
+
+#### Query Constraint Features:
+
+- **Dynamic Variables**: Pass variables from parent Livewire components
+- **Conditional Rendering**: If constraint value is null/empty, no data will be shown
+- **Multiple Constraints**: Support multiple WHERE conditions
+- **Security**: Column validation prevents SQL injection
+- **Flexible Format**: Supports key-value pairs and array formats
+
+#### Query Constraint Examples:
+
+```php
+// Simple key-value constraints
+'query' => [
+    'form_id' => $formId,
+    'status' => 'published',
+    'user_id' => auth()->id()
+]
+
+// Advanced constraints with operators
+'query' => [
+    ['created_at', '>=', now()->subDays(30)],
+    ['status', '!=', 'deleted'],
+    'user_id' => $userId
+]
+
+// Mixed format
+'query' => [
+    'category_id' => $categoryId,
+    ['price', '>', 100],
+    ['featured', '=', true]
+]
+```
+
+**Important**: If any required constraint value (like `$formId`) is null or empty, the table will show no data to prevent displaying unfiltered results.
+
+#### Function Column Examples:
+
+##### Simple Function Display
+```php
+[
+    'function' => 'isActive',
+    'label' => 'Active Status'
+]
+// Displays: "Yes" or "No" based on the isActive() method result
+```
+
+##### Function with Custom Raw Template
+```php
+[
+    'function' => 'getStatusBadge',
+    'label' => 'Status',
+    'raw' => '<span class="badge bg-{{ $row->getStatusBadge() === "active" ? "success" : "warning" }}">
+                {{ ucfirst($row->getStatusBadge()) }}
+              </span>'
+]
+// Displays: Custom badge with conditional styling
+```
+
+##### Multiple Function Calls in Raw Template
+```php
+[
+    'function' => 'getOrderStatus',
+    'label' => 'Order Details',
+    'raw' => '<div>
+                <span>Status: {{ $row->getOrderStatus() }}</span><br>
+                <small>Shipped: {{ $row->isShipped() ? "Yes" : "No" }}</small>
+              </div>'
+]
+```
+
+##### Complex Business Logic Example
+```php
+[
+    'function' => 'calculateDiscount',
+    'label' => 'Discount Available',
+    'raw' => '<span class="text-{{ $row->calculateDiscount() > 0 ? "success" : "muted" }}">
+                {{ $row->calculateDiscount() > 0 ? $row->calculateDiscount() . "%" : "No Discount" }}
+              </span>'
+]
+```
+
+### Model Method Requirements
+
+Your Eloquent model should have the corresponding methods:
+
+```php
+// Example methods in your Eloquent model (e.g., Product, Order, User model)
+public function isActive(): bool
+{
+    return $this->status === 'active';
+}
+
+public function getStatusBadge(): string
+{
+    return $this->status ?? 'pending';
+}
+
+public function isShipped(): bool
+{
+    return !is_null($this->shipped_at);
+}
+
+public function calculateDiscount(): float
+{
+    // Your business logic here
+    return $this->total > 100 ? 10.0 : 0.0;
+}
+
+public function getOrderStatus(): string
+{
+    return match($this->status) {
+        'pending' => 'Pending Processing',
+        'processing' => 'Being Processed',
+        'shipped' => 'Shipped',
+        'delivered' => 'Delivered',
+        default => 'Unknown Status'
+    };
+}
+```
+
+### Column Identification
+
+The component now supports flexible column identification:
+
+- **Database columns**: Use `'key' => 'column_name'`
+- **Function columns**: Use `'function' => 'methodName'`
+- **Auto-generated**: If neither key nor function is provided, an auto-generated identifier is used
+
+## Relation Handling and Raw Templates
+
+### Simple Relation Display
+
+For basic relation display, just use the `relation` key:
+
+```php
+[
+    'key' => 'category_id',
+    'relation' => 'category:name',  // Automatically displays category.name
+    'label' => 'Category'
+]
+```
+
+### Raw Templates with Relations
+
+When you need custom formatting but still want to use relations, combine `relation` and `raw`:
+
+```php
+[
+    'key' => 'category_id',
+    'relation' => 'category:name',
+    'label' => 'Category',
+    'raw' => '<span class="badge bg-primary">{{ $row->category->name }}</span>'
+]
+```
+
+### Advanced Raw Templates with Multiple Relation Attributes
+
+For complex displays using multiple attributes from the same relation:
+
+```php
+[
+    'key' => 'category_id',
+    'relation' => 'category:name',  // Still needed for sorting/filtering
+    'label' => 'Category',
+    'raw' => '<span>
+                <img src="{{ asset("icons/" . $row->category->icon) }}" class="me-2">
+                {{ $row->category->name }}
+              </span>'
+]
+```
+
+### Concatenated Fields
+
+For concatenating multiple columns from the same table:
+
+```php
+[
+    'key' => 'first_name',  // Primary column
+    'label' => 'Full Name',
+    'raw' => '{{ $row->first_name . " " . $row->last_name }}'
+    // last_name is automatically detected and included in query
+]
+```
+
+### Key Features:
+
+- **Automatic Detection**: Columns referenced in raw templates are automatically detected and included in the database query
+- **Relation Auto-loading**: Relations used in raw templates are automatically eager loaded
+- **Foreign Key Management**: Foreign keys for relations are automatically included in SELECT statements
+- **Smart Parsing**: The system distinguishes between direct column references, relation references, and method calls
+- **No Manual Column Lists**: You don't need to manually specify every column used in raw templates
+- **Function Method Calls**: Model methods in raw templates are automatically detected and called
+
+### Important Notes:
+
+1. **Relation Format**: Always use `"relation:attribute"` format for the `relation` key
+2. **Raw Template Relations**: When using `$row->relation->attribute` in raw templates, the relation is automatically loaded
+3. **Column Detection**: Columns like `$row->first_name` in raw templates are automatically included in queries
+4. **Method Detection**: Method calls like `$row->methodName()` in raw templates are automatically processed
+5. **Performance**: Only visible columns and their dependencies are loaded, keeping queries efficient
+
+## Mixed Column Example
+
+Here's an example showing all column types together using a generic e-commerce scenario:
+
+```php
+'columns' => [
+    // Database column
+    ['key' => 'id', 'label' => 'Order ID'],
+    
+    // Relation column with raw template
+    [
+        'key' => 'customer_id',
+        'relation' => 'customer:first_name',
+        'label' => 'Customer',
+        'raw' => '{{ $row->customer->first_name . " " . $row->customer->last_name }}'
+    ],
+    
+    // Regular database column with formatting
+    [
+        'key' => 'total_amount',
+        'label' => 'Total',
+        'raw' => '<span class="text-success fw-bold">${{ number_format($row->total_amount, 2) }}</span>'
+    ],
+    
+    // Function-based column with simple display
+    [
+        'function' => 'isShipped',
+        'label' => 'Shipped'
+    ],
+    
+    // Function-based column with custom template
+    [
+        'function' => 'getOrderStatus',
+        'label' => 'Status',
+        'raw' => '<span class="badge bg-{{ $row->getOrderStatus() === "completed" ? "success" : "warning" }}">
+                    {{ ucfirst($row->getOrderStatus()) }}
+                  </span>'
+    ],
+    
+    // Function for calculated values
+    [
+        'function' => 'getDaysToDelivery',
+        'label' => 'Delivery ETA',
+        'raw' => '<small class="text-muted">{{ $row->getDaysToDelivery() }} days</small>'
+    ]
+]
+```
+
+## Common Function Column Use Cases
+
+### Status Checks
+```php
+// Check if user has specific permissions
+['function' => 'hasAdminAccess', 'label' => 'Admin Access']
+
+// Check payment status
+['function' => 'isPaid', 'label' => 'Payment Status']
+
+// Check if item is in stock
+['function' => 'isInStock', 'label' => 'Available']
+```
+
+### Calculated Values
+```php
+// Calculate age from birthdate
+['function' => 'getAge', 'label' => 'Age']
+
+// Calculate total with taxes
+['function' => 'getTotalWithTax', 'label' => 'Total (incl. tax)']
+
+// Get formatted price
+['function' => 'getFormattedPrice', 'label' => 'Price']
+```
+
+### Dynamic Content
+```php
+// Get user's full display name
+['function' => 'getDisplayName', 'label' => 'Name']
+
+// Get formatted address
+['function' => 'getFullAddress', 'label' => 'Address']
+
+// Get relative date (e.g., "2 days ago")
+['function' => 'getTimeAgo', 'label' => 'Last Activity']
+```
+
+## Installation
+
+```bash
+composer require artflow-studio/table
+
+php artisan vendor:publish --provider="ArtflowStudio\Table\TableServiceProvider" --tag="config"
+php artisan vendor:publish --provider="ArtflowStudio\Table\TableServiceProvider" --tag="views"
+php artisan vendor:publish --provider="ArtflowStudio\Table\TableServiceProvider" --tag="assets"
+```
+
+## Registering the Component
+
+In most cases this is automatic via the service provider:
+
+```php
+Livewire::component('aftable', \ArtflowStudio\Table\Http\Livewire\Datatable::class);
+```
+
+You may also use the Blade directive:
+
+```blade
+@AFtable('myTableId', App\Models\MyModel::class, $columns, $filters, $actions)
+```
+
+## Usage
+
+### In Blade (Example Usage)
+
+```blade
+<div>
+    @livewire('aftable',[
+        'model' => 'App\\Models\\ExampleModel',
+        'columns' => [
+            ['key' => 'column1', 'label' => 'Column 1'],
+            ['key' => 'column2', 'label' => 'Column 2'],
+            ['key' => 'column3', 'label' => 'Column 3', 'raw' => '<span>{{$row->column3}}</span>'],
+            ['key' => 'relation_id', 'relation' => 'relation:attribute', 'label' => 'Related Attribute'],
+            ['key' => 'hidden_column', 'label' => 'Hidden Column', 'hide' => true],
+            // ...add more columns as needed
+        ],
+        'filters' => [
+            'relation_id' => [
+                'type' => 'select',
+                'relation' => 'relation:attribute'
+            ],
+            'column2' => [
+                'type' => 'text'
+            ],
+            'date_column' => [
+                'type' => 'date'
+            ],
+            // ...add more filters as needed
+        ],
+        'actions' => [
+            '<div class="dropdown">
+                <button class="btn btn-sm btn-light dropdown-toggle" type="button" id="actionMenu{{$row->id}}" data-bs-toggle="dropdown" aria-expanded="false">
+                Actions
+                </button>
+                <ul class="dropdown-menu" aria-labelled by="actionMenu{{$row->id}}">
+                <li><a class="dropdown-item" href="#">View</a></li>
+                <li><a class="dropdown-item" href="#">Edit</a></li>
+                <li><a class="dropdown-item text-danger" href="#" onclick="return confirm(\'Are you sure?\')">Delete</a></li>
+                </ul>
+            </div>'
+        ],
+        'exportable' => true,
+    ])
+</div>
+```
+
+### Exporting Excel (Filtered/All Data)
+
+When you click the **Export Excel** button, a modal will appear asking if you want to export "Filtered Data" (current filters/search applied) or "All Data" (entire dataset). Select your option and the Excel file will be generated accordingly.
+
+- **Filtered Data**: Exports only the rows currently visible with filters/search applied.
+- **All Data**: Exports the entire dataset for the model, ignoring filters/search.
+
+> **Note:** Only Excel export is enabled by default. PDF and CSV can be enabled/extended as needed.
+
+## Configuration Options
+
+### Public Properties
+
+| Property         | Type           | Default     | Description                                      |
+|------------------|----------------|-------------|--------------------------------------------------|
+| `model`          | `string`       | _required_  | Fully-qualified Eloquent model class.            |
+| `columns`        | `array`        | `[]`        | Column definitions (see below).                  |
+| `filters`        | `array`        | `[]`        | Column filter configurations.                    |
+| `actions`        | `array`        | `[]`        | Row-action Blade snippets.                       |
+| `query`          | `array`        | `[]`        | Custom query constraints applied before table operations. |
+| `searchable`     | `bool`         | `true`      | Show global search box.                          |
+| `exportable`     | `bool`         | `true`      | Show export menu (Excel, PDF).                   |
+| `printable`      | `bool`         | `true`      | Show print button.                               |
+| `checkbox`       | `bool`         | `false`     | Enable row-selection checkboxes.                 |
+| `records`        | `int`          | `10`        | Rows per page.                                   |
+| `dateColumn`     | `string|null`  | `null`      | Enables date-range filter on this column.        |
+| `sort`           | `string`       | `'desc'`    | Default sort direction (`'asc'` or `'desc'`).    |
+| `colSort`        | `bool`         | `true`      | Allow sorting by clicking on column headers.     |
+| `refreshBtn`     | `bool`         | `false`     | Show a manual refresh button to reload the table data. |
+| `index`          | `bool`         | `false`     | Show index column as first column. **Changed to false by default for better performance**. |
+| `colvisBtn`      | `bool`         | `true`      | Show the column visibility button to let users toggle which columns are visible. |
+
+### Performance Configuration
+
+| Property                    | Type    | Default | Description                                |
+|----------------------------|---------|---------|-------------------------------------------|
+| `distinctValuesCacheTime`  | `int`   | `300`   | Seconds to cache filter distinct values   |
+| `maxDistinctValues`        | `int`   | `1000`  | Maximum distinct values per filter        |
+
+#### Query Parameter Examples
+
+The `query` parameter accepts an array of conditions in the following formats:
+
+```php
+// Single condition with operator
+'query' => [
+    ['active', '=', true]
+]
+
+// Multiple conditions
+'query' => [
+    ['active', '=', true],
+    ['cost', '>', 100],
+    ['status', 'in', ['published', 'active']]
+]
+
+// Shorthand for equality
+'query' => [
+    ['active', true],  // Equivalent to ['active', '=', true]
+    ['published', 1]
+]
+
+// Complex conditions with LIKE
+'query' => [
+    ['name', 'like', '%premium%'],
+    ['category', '!=', 'draft']
+]
+
+// Date-based filtering
+'query' => [
+    ['created_at', '>=', '2024-01-01'],
+    ['updated_at', '<', now()->toDateString()]
+]
+```
+
+### Column Definitions
+
+Each entry in `columns` can include:
+
+#### Required (one of these):
+- `key` (string): Model attribute or database column name.
+- `function` (string): Model method name to call for computed values.
+
+#### Optional:
+- `label` (string, **required**): Header text.
+- `class` (string): CSS classes applied to both `<th>` and `<td>` elements (legacy support).
+- `th_class` (string): CSS classes applied specifically to the header `<th>` element.
+- `td_class` (string): CSS classes applied specifically to the table cell `<td>` elements.
+- `sortable` (bool): Enable sorting (ignored for function columns).
+- `searchable` (bool): Include in global search (ignored for function columns).
+- `raw` (string): Raw Blade snippet for custom rendering. **Automatically detects and includes referenced columns/relations/methods**.
+- `relation` (string): Use the format `"relation:column"` (e.g. `"category:name"` or `"member:email"`) to display and enable sorting/filtering on a related model field.
+- `classCondition` (array): `[ 'css-class' => fn($row)=> condition ]`.
+- `hide` (bool): Hide column by default (can be toggled via column visibility).
+
+#### CSS Class Priority
+
+The component supports three class properties with the following priority:
+
+1. **`th_class`**: Specific classes for table headers (`<th>` elements)
+2. **`td_class`**: Specific classes for table cells (`<td>` elements)  
+3. **`class`**: Fallback classes applied to both if specific classes are not provided
+
+```php
+// Example with all class types
+[
+    'key' => 'status',
+    'label' => 'Status',
+    'th_class' => 'bg-primary text-white text-center',    // Header styling
+    'td_class' => 'text-center fw-bold',                   // Cell styling
+    'class' => 'w-100px'                                   // Applied to both if th_class/td_class/
+```
+
+## Important Notes on Relation Columns
+
+- **For relation columns, the `key` must be the foreign key column in your main table, not the related attribute.**
+    - Example: If you want to show `booking.unique_id` via the `booking` relation, your column config should be:
+      ```php
+      [
+          'key' => 'booking_id', // foreign key in your table
+          'label' => 'Booking ID',
+          'relation' => 'booking:unique_id' // relation:attribute on related model
+      ]
+      ```
+    - **Do NOT use `'key' => 'unique_id'`** if `unique_id` does not exist in your main table. This will result in empty columns or SQL errors.
+
+- The component will attempt to auto-detect the foreign key if you use a relation, but it is best practice to always specify the correct foreign key in `key`.
+
+- For regular columns (not relations), always use the actual column name from your model's table in `key`.
+
+## Example: Relation Column
+
+```php
+[
+    'key' => 'booking_id', // foreign key in flight_details table
+    'label' => 'Booking ID',
+    'relation' => 'booking:unique_id' // will display $row->booking->unique_id
+]
+```
+
+## What Changed
+
+- **Column selection logic**: The backend now ensures that for relation columns, only the foreign key from the main table is included in the SQL SELECT, not the related attribute.
+- **Auto-detection**: If you specify a relation but the `key` is not a valid column, the system tries to guess the foreign key (e.g., `booking_id` for `booking`).
+- **Action columns always available**: Any column referenced in the `actions` array (such as `{{$row->uuid}}`) is now automatically detected and included in the SQL SELECT, even if not present in the `columns` array. This ensures that `$row->uuid` and similar fields are always available in your action templates.
+- **Documentation**: This README now clarifies that for relation columns, you must use the foreign key as `key`, and the related attribute in `relation`.
+- **Error prevention**: This prevents SQL errors and ensures relation columns display data correctly.
+
+---
+
+## Filter Types
+
+- `text`: Free text input, uses `LIKE %value%` for partial matches.
+- `select`: Dropdown with values you provide or from a relation.
+- `distinct`: Dropdown with all distinct values from the column, auto-populated and sorted A-Z.
+- `number`/`integer`: Numeric input.
+- `date`: Date picker input.
+
+### Example: Distinct Filter
+
+```php
+'filters' => [
+    'city' => [
+        'type' => 'distinct'
+    ],
+    // ...
+]
+```
+
+This will show a dropdown of all unique city values in ascending order.
+
+## Security Notes
+
+- **Input Sanitization**: All search and filter inputs are sanitized to prevent SQL injection and XSS attacks.
+- **Virtual Columns**: Some virtual columns (such as function-based columns or those not present in the database) are ignored in SQL queries and filtering for security and performance.
+
+---
+
+## README Improvement Suggestions
+
+- Add a quickstart section for new users with minimal setup steps
+- Include a visual diagram of component architecture and data flow
+- Add more real-world usage examples (API data, array data, custom actions)
+- Document limitations and workarounds for nested relations more clearly
+- Add a troubleshooting section for common issues (SQL errors, relation problems)
+- Provide migration guides for upgrading from older versions
+- Add links to interactive demos or live examples
+- Include a section on extensibility: how to add custom filters, actions, or export formats
+- Add best practices for performance optimization and security
+- Document trait-based architecture and how to extend core features
+- Add FAQ for advanced use cases (multi-table joins, dynamic columns, etc.)
