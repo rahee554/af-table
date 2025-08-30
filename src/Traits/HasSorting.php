@@ -7,6 +7,28 @@ use Illuminate\Database\Eloquent\Builder;
 trait HasSorting
 {
     /**
+     * Apply sorting to query (alias for applyOptimizedSorting)
+     */
+    public function applySortingToQuery(Builder $query, string $column, string $direction): void
+    {
+        // Store the sort parameters temporarily
+        $originalColumn = $this->sortColumn ?? null;
+        $originalDirection = $this->sortDirection ?? 'asc';
+        
+        $this->sortColumn = $column;
+        $this->sortDirection = $direction;
+        
+        // Apply the sorting
+        $this->applyOptimizedSorting($query);
+        
+        // Restore original values if they were different
+        if ($originalColumn !== $column || $originalDirection !== $direction) {
+            $this->sortColumn = $originalColumn;
+            $this->sortDirection = $originalDirection;
+        }
+    }
+
+    /**
      * Toggle sort for a column
      */
     public function toggleSort($column)
@@ -77,7 +99,7 @@ trait HasSorting
             $this->applyJoinSorting($query, $relationObj, $attribute, $direction);
         } catch (\Exception $e) {
             // Fallback to basic sorting if relation fails
-            \Log::warning('Relation sorting failed: ' . $e->getMessage());
+            logger()->warning('Relation sorting failed: ' . $e->getMessage());
         }
     }
 

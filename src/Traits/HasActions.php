@@ -5,9 +5,9 @@ namespace ArtflowStudio\Table\Traits;
 trait HasActions
 {
     /**
-     * Available actions for records
+     * Available actions for records (public for Livewire compatibility)
      */
-    protected $actions = [];
+    public $actions = [];
 
     /**
      * Bulk actions available

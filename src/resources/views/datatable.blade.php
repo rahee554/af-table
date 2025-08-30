@@ -331,9 +331,18 @@
                                             {{-- Handle regular raw templates --}}
                                             @php
                                                 $rawTemplate = $column['raw'];
+                                                
+                                                // Ensure rawTemplate is a string
+                                                if (!is_string($rawTemplate)) {
+                                                    $rawTemplate = '';
+                                                }
 
                                                 // Handle method calls in raw templates
-                                                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $rawTemplate, $methodMatches);
+                                                if (!empty($rawTemplate)) {
+                                                    preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $rawTemplate, $methodMatches);
+                                                } else {
+                                                    $methodMatches = [[], []];
+                                                }
 
                                                 if (!empty($methodMatches[0])) {
                                                     foreach ($methodMatches[0] as $index => $fullMatch) {
@@ -410,9 +419,22 @@
                                     @foreach ($actions as $action)
                                         @php
                                             $actionTemplate = $action;
+                                            
+                                            // Ensure actionTemplate is a string
+                                            if (is_array($actionTemplate)) {
+                                                $actionTemplate = $actionTemplate['raw'] ?? '';
+                                            }
+                                            
+                                            if (!is_string($actionTemplate)) {
+                                                $actionTemplate = '';
+                                            }
 
                                             // Handle method calls in actions
-                                            preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $actionTemplate, $methodMatches);
+                                            if (!empty($actionTemplate)) {
+                                                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $actionTemplate, $methodMatches);
+                                            } else {
+                                                $methodMatches = [[], []];
+                                            }
 
                                             if (!empty($methodMatches[0])) {
                                                 foreach ($methodMatches[0] as $index => $fullMatch) {
@@ -439,7 +461,7 @@
     </div>
 
     <div>
-        {{ $data->links('artflow-studio.table::pagination') }}
+        {{ $data->links('artflow-table::pagination') }}
         @if ($records > 10)
             <div class="w-100px">
                 <select wire:model.change="records" id="records" class="form-select form-select-sm">

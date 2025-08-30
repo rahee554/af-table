@@ -121,6 +121,28 @@ abstract class BaseTestRunner
     }
 
     /**
+     * Assert that string contains substring
+     */
+    protected function assertStringContainsString(string $needle, string $haystack, string $message = ''): bool
+    {
+        if (strpos($haystack, $needle) === false) {
+            throw new \Exception($message ?: "Assertion failed: string '{$haystack}' does not contain '{$needle}'");
+        }
+        return true;
+    }
+
+    /**
+     * Assert that string ends with substring
+     */
+    protected function assertStringEndsWith(string $suffix, string $string, string $message = ''): bool
+    {
+        if (!str_ends_with($string, $suffix)) {
+            throw new \Exception($message ?: "Assertion failed: string '{$string}' does not end with '{$suffix}'");
+        }
+        return true;
+    }
+
+    /**
      * Assert that two values are not equal
      */
     protected function assertNotEquals($expected, $actual, string $message = ''): bool
@@ -215,6 +237,36 @@ abstract class BaseTestRunner
     {
         if ($actual >= $expected) {
             throw new \Exception($message ?: "Assertion failed: expected '{$actual}' to be less than '{$expected}'");
+        }
+        return true;
+    }
+
+    /**
+     * Assert that value is an array
+     */
+    protected function assertIsArray($value, string $message = ''): bool
+    {
+        if (!is_array($value)) {
+            throw new \Exception($message ?: 'Assertion failed: expected array');
+        }
+        return true;
+    }
+
+    /**
+     * Assert count of array or countable
+     */
+    protected function assertCount(int $expected, $actual, string $message = ''): bool
+    {
+        if (is_array($actual)) {
+            $count = count($actual);
+        } elseif ($actual instanceof \Countable) {
+            $count = $actual->count();
+        } else {
+            throw new \Exception($message ?: 'Assertion failed: value is not countable');
+        }
+
+        if ($count !== $expected) {
+            throw new \Exception($message ?: "Assertion failed: expected count {$expected}, got {$count}");
         }
         return true;
     }

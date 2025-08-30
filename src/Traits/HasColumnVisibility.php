@@ -157,6 +157,20 @@ trait HasColumnVisibility
     }
 
     /**
+     * Get visible columns (filtered to show only visible ones)
+     */
+    public function getVisibleColumns(): array
+    {
+        $visibleColumns = [];
+        foreach ($this->columns as $columnKey => $column) {
+            if ($this->isColumnVisible($columnKey)) {
+                $visibleColumns[$columnKey] = $column;
+            }
+        }
+        return $visibleColumns;
+    }
+
+    /**
      * Get visible columns count
      */
     public function getVisibleColumnsCount(): int

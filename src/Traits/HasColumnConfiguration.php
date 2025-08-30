@@ -41,7 +41,7 @@ trait HasColumnConfiguration
             }
 
             // Scan raw templates for relation references
-            if (isset($column['raw'])) {
+            if (isset($column['raw']) && is_string($column['raw'])) {
                 preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)->([a-zA-Z_][a-zA-Z0-9_]*)/', $column['raw'], $matches);
                 if (!empty($matches[1])) {
                     foreach ($matches[1] as $relationName) {
@@ -147,6 +147,12 @@ trait HasColumnConfiguration
         // Check for action columns that are NOT in $this->columns
         foreach ($this->actions as $action) {
             $template = is_array($action) && isset($action['raw']) ? $action['raw'] : $action;
+            
+            // Ensure template is a string before using preg_match_all
+            if (!is_string($template)) {
+                continue;
+            }
+            
             preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $template, $matches);
             if (!empty($matches[1])) {
                 foreach ($matches[1] as $columnName) {
@@ -228,6 +234,12 @@ trait HasColumnConfiguration
 
         foreach ($this->actions as $action) {
             $template = is_array($action) && isset($action['raw']) ? $action['raw'] : $action;
+            
+            // Ensure template is a string before using preg_match_all
+            if (!is_string($template)) {
+                continue;
+            }
+            
             preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $template, $matches);
             if (!empty($matches[1])) {
                 $neededColumns = array_merge($neededColumns, $matches[1]);
@@ -245,7 +257,7 @@ trait HasColumnConfiguration
         $neededColumns = [];
 
         foreach ($this->columns as $column) {
-            if (isset($column['raw'])) {
+            if (isset($column['raw']) && is_string($column['raw'])) {
                 preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $column['raw'], $matches);
                 if (!empty($matches[1])) {
                     $neededColumns = array_merge($neededColumns, $matches[1]);
@@ -323,5 +335,42 @@ trait HasColumnConfiguration
 
         // Default to true for most columns
         return true;
+    }
+
+    /**
+     * Get column configuration statistics
+     */
+    public function getColumnStats(): array
+    {
+        $columns = $this->columns ?? [];
+        $visibleColumns = $this->visibleColumns ?? [];
+        
+        $searchableCount = 0;
+        $sortableCount = 0;
+        $exportableCount = 0;
+        $relationCount = 0;
+        $rawCount = 0;
+        
+        foreach ($columns as $column) {
+            if (is_array($column)) {
+                if ($this->isColumnSearchable($column)) $searchableCount++;
+                if ($this->isColumnSortable($column)) $sortableCount++;
+                if ($this->isColumnExportable($column)) $exportableCount++;
+                if (isset($column['relation'])) $relationCount++;
+                if (isset($column['raw'])) $rawCount++;
+            }
+        }
+        
+        return [
+            'total_columns' => count($columns),
+            'visible_columns' => count($visibleColumns),
+            'hidden_columns' => count($columns) - count($visibleColumns),
+            'searchable_columns' => $searchableCount,
+            'sortable_columns' => $sortableCount,
+            'exportable_columns' => $exportableCount,
+            'relation_columns' => $relationCount,
+            'raw_columns' => $rawCount,
+            'timestamp' => now()->toISOString()
+        ];
     }
 }

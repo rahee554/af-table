@@ -20,7 +20,7 @@ trait HasSessionManagement
     {
         $state = [
             'search' => $this->search,
-            'sortBy' => $this->sortBy,
+            'sortColumn' => $this->sortColumn,
             'sortDirection' => $this->sortDirection,
             'perPage' => $this->perPage,
             'visibleColumns' => $this->visibleColumns,
@@ -45,7 +45,7 @@ trait HasSessionManagement
 
         // Restore state
         $this->search = $state['search'] ?? '';
-        $this->sortBy = $state['sortBy'] ?? '';
+        $this->sortColumn = $state['sortColumn'] ?? $state['sortBy'] ?? '';  // Support both old and new formats
         $this->sortDirection = $state['sortDirection'] ?? 'asc';
         $this->perPage = $state['perPage'] ?? $this->perPage;
         $this->visibleColumns = $state['visibleColumns'] ?? $this->visibleColumns;
@@ -349,7 +349,7 @@ trait HasSessionManagement
             'session_data' => $this->getAllSessionData(),
             'current_state' => [
                 'search' => $this->search,
-                'sortBy' => $this->sortBy,
+                'sortColumn' => $this->sortColumn,
                 'sortDirection' => $this->sortDirection,
                 'perPage' => $this->perPage,
                 'visibleColumns' => $this->visibleColumns,

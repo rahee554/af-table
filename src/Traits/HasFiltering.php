@@ -38,6 +38,14 @@ trait HasFiltering
     }
 
     /**
+     * Update filter value
+     */
+    public function updatedFilterValue()
+    {
+        $this->resetPage();
+    }
+
+    /**
      * Apply filters to query
      */
     protected function applyFilters(Builder $query)
@@ -351,5 +359,33 @@ trait HasFiltering
         }
 
         return implode(', ', $summary);
+    }
+
+    /**
+     * Get filter usage statistics
+     */
+    public function getFilterStats(): array
+    {
+        $filters = $this->filters ?? [];
+        $activeFilters = array_filter($filters, function($filter) {
+            return !empty($filter);
+        });
+        
+        return [
+            'total_filters' => count($filters),
+            'active_filters' => count($activeFilters),
+            'filter_column' => $this->filterColumn,
+            'filter_operator' => $this->filterOperator,
+            'filter_value' => $this->filterValue,
+            'date_column' => $this->dateColumn,
+            'start_date' => $this->startDate,
+            'end_date' => $this->endDate,
+            'selected_column' => $this->selectedColumn,
+            'number_operator' => $this->numberOperator,
+            'column_type' => $this->columnType,
+            'distinct_values_count' => count($this->distinctValues ?? []),
+            'has_date_filter' => !empty($this->startDate) || !empty($this->endDate),
+            'timestamp' => now()->toISOString()
+        ];
     }
 }

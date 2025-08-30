@@ -26,12 +26,12 @@ class TableServiceProvider extends ServiceProvider
         });
 
         // Load views from the resources/views folder in your package
-        $this->loadViewsFrom(__DIR__ . '/resources/views', 'artflow-studio.table');
+        $this->loadViewsFrom(__DIR__ . '/resources/views', 'artflow-table');
         
 
         // Optionally publish the views to the app's resources/views/vendor directory
         $this->publishes([
-            __DIR__ . '/resources/views' => resource_path('views/vendor/artflow-studio/table'),
+            __DIR__ . '/resources/views' => resource_path('views/vendor/artflow-table'),
         ], 'views');
 
         // Optionally, publish assets (CSS/JS)
@@ -46,6 +46,7 @@ class TableServiceProvider extends ServiceProvider
                 \ArtflowStudio\Table\Console\Commands\CreateDummyTableCommand::class,
                 \ArtflowStudio\Table\Console\Commands\TestTraitsCommand::class,
                 \ArtflowStudio\Table\Console\Commands\CleanupDummyTablesCommand::class,
+                \ArtflowStudio\Table\Console\Commands\TestDatatableTraitCommand::class,
             ]);
         }
     }

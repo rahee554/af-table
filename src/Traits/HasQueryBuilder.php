@@ -7,6 +7,14 @@ use Illuminate\Database\Eloquent\Builder;
 trait HasQueryBuilder
 {
     /**
+     * Get the main query for the datatable (alias for query method)
+     */
+    public function getQuery(): Builder
+    {
+        return $this->query();
+    }
+
+    /**
      * Build the main query for the datatable
      */
     protected function query(): Builder
@@ -19,7 +27,7 @@ trait HasQueryBuilder
                 $this->applyCustomQueryConstraints($query);
             } catch (\Exception $e) {
                 // Log error and continue with base query
-                \Log::warning('Custom query constraint failed: ' . $e->getMessage());
+                logger()->warning('Custom query constraint failed: ' . $e->getMessage());
             }
         }
 
@@ -157,6 +165,12 @@ trait HasQueryBuilder
         // Check for action columns that are NOT in $this->columns
         foreach ($this->actions as $action) {
             $template = is_array($action) && isset($action['raw']) ? $action['raw'] : $action;
+            
+            // Ensure template is a string before using preg_match_all
+            if (!is_string($template)) {
+                continue;
+            }
+            
             preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $template, $matches);
             if (!empty($matches[1])) {
                 foreach ($matches[1] as $columnName) {
@@ -196,5 +210,28 @@ trait HasQueryBuilder
                 }
             }
         });
+    }
+
+    /**
+     * Get query performance statistics
+     */
+    public function getQueryStats(): array
+    {
+        $query = $this->getQuery();
+        
+        return [
+            'has_query' => !is_null($query),
+            'query_type' => $query ? get_class($query) : null,
+            'has_search' => !empty($this->search),
+            'has_filters' => !empty($this->filters),
+            'has_sorting' => !empty($this->sortColumn),
+            'sort_column' => $this->sortColumn,
+            'sort_direction' => $this->sortDirection,
+            'per_page' => $this->perPage,
+            'search_length' => strlen($this->search ?? ''),
+            'filter_count' => count($this->filters ?? []),
+            'has_custom_query' => !is_null($this->query),
+            'timestamp' => now()->toISOString()
+        ];
     }
 }

@@ -20,7 +20,7 @@ trait HasExport
         $exportableColumns = $this->getExportableColumns();
         
         foreach ($exportableColumns as $columnKey) {
-            $headers[] = $this->getColumnLabel($columnKey);
+            $headers[] = $this->getExportColumnLabel($columnKey);
         }
         
         // Create CSV content
@@ -59,7 +59,7 @@ trait HasExport
         foreach ($records as $record) {
             $row = [];
             foreach ($exportableColumns as $columnKey) {
-                $row[$this->getColumnLabel($columnKey)] = $this->getColumnValueForExport($record, $columnKey);
+                $row[$this->getExportColumnLabel($columnKey)] = $this->getColumnValueForExport($record, $columnKey);
             }
             $exportData[] = $row;
         }
@@ -102,18 +102,9 @@ trait HasExport
     }
 
     /**
-     * Check if column is exportable
-     */
-    protected function isColumnExportable($column): bool
-    {
-        // Default to true unless explicitly set to false
-        return !isset($column['exportable']) || $column['exportable'] !== false;
-    }
-
-    /**
      * Get column label for export
      */
-    protected function getColumnLabel($columnKey): string
+    protected function getExportColumnLabel($columnKey): string
     {
         if (isset($this->columns[$columnKey]['label'])) {
             return $this->columns[$columnKey]['label'];
@@ -225,7 +216,7 @@ trait HasExport
         $headers = [];
         
         foreach ($exportableColumns as $columnKey) {
-            $headers[] = $this->getColumnLabel($columnKey);
+            $headers[] = $this->getExportColumnLabel($columnKey);
         }
         
         // Create temporary file

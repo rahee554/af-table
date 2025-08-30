@@ -10,11 +10,32 @@ trait HasDataValidation
     protected function isValidColumn($column): bool
     {
         try {
+            if (!class_exists($this->model)) {
+                return false;
+            }
+            
             $modelInstance = new ($this->model);
-            return in_array($column, $modelInstance->getFillable()) ||
-                $modelInstance->getConnection()->getSchemaBuilder()->hasColumn($modelInstance->getTable(), $column);
+            
+            // Check if it's a standard column
+            if (in_array($column, ['id', 'created_at', 'updated_at'])) {
+                return true;
+            }
+            
+            // Check if it's fillable
+            if (in_array($column, $modelInstance->getFillable())) {
+                return true;
+            }
+            
+            // Try to check if column exists in database table
+            try {
+                return $modelInstance->getConnection()->getSchemaBuilder()->hasColumn($modelInstance->getTable(), $column);
+            } catch (\Exception $dbException) {
+                // If database check fails, assume column exists if it's configured
+                return array_key_exists($column, $this->columns ?? []);
+            }
         } catch (\Exception $e) {
-            return false;
+            // If model instantiation fails, check if column is configured
+            return array_key_exists($column, $this->columns ?? []);
         }
     }
 
@@ -29,16 +50,6 @@ trait HasDataValidation
         }
         
         return array_key_exists($column, $this->columns);
-    }
-
-    /**
-     * Sanitize search input
-     */
-    protected function sanitizeSearch($search)
-    {
-        $search = trim($search);
-        // Limit length to prevent abuse
-        return mb_substr($search, 0, 100);
     }
 
     /**
@@ -113,9 +124,9 @@ trait HasDataValidation
     }
 
     /**
-     * Validate relation string format
+     * Validate basic relation string format (validation-specific)
      */
-    protected function validateRelationString($relationString): bool
+    protected function validateBasicRelationString($relationString): bool
     {
         if (!is_string($relationString)) {
             return false;
@@ -166,13 +177,14 @@ trait HasDataValidation
      */
     protected function validateColumnConfiguration(array $column): bool
     {
-        // Must have either 'key' or 'function'
-        if (!isset($column['key']) && !isset($column['function'])) {
+        // Column configuration is valid if it's an array with at least a label
+        // The key is provided as the array key when columns are defined
+        if (!is_array($column)) {
             return false;
         }
 
         // If relation is set, it must be valid
-        if (isset($column['relation']) && !$this->validateRelationString($column['relation'])) {
+        if (isset($column['relation']) && !$this->validateBasicRelationString($column['relation'])) {
             return false;
         }
 
@@ -182,5 +194,85 @@ trait HasDataValidation
         }
 
         return true;
+    }
+
+    /**
+     * Validate all columns configuration
+     */
+    protected function validateColumns(): array
+    {
+        $result = [
+            'valid' => [],
+            'invalid' => [],
+            'errors' => []
+        ];
+
+        if (empty($this->columns)) {
+            $result['errors'][] = 'No columns defined';
+            return $result;
+        }
+
+        foreach ($this->columns as $columnKey => $column) {
+            if (!is_array($column)) {
+                $result['invalid'][$columnKey] = 'Column configuration must be an array';
+                $result['errors'][] = "Column {$columnKey}: Configuration must be an array";
+                continue;
+            }
+
+            if ($this->validateColumnConfiguration($column)) {
+                $result['valid'][$columnKey] = $column;
+            } else {
+                $result['invalid'][$columnKey] = 'Invalid column configuration';
+                $result['errors'][] = "Column {$columnKey}: Invalid configuration";
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Validate relation columns specifically (basic validation)
+     */
+    protected function validateBasicRelationColumns(): array
+    {
+        $result = [
+            'valid' => [],
+            'invalid' => [],
+            'errors' => []
+        ];
+
+        foreach ($this->columns as $columnKey => $column) {
+            if (!isset($column['relation'])) {
+                continue; // Skip non-relation columns
+            }
+
+            if (!$this->validateBasicRelationString($column['relation'])) {
+                $result['invalid'][$columnKey] = 'Invalid relation string format';
+                $result['errors'][] = "Column {$columnKey}: Invalid relation string format '{$column['relation']}'";
+                continue;
+            }
+
+            // Further validation: check if relation exists on model
+            try {
+                [$relationName, $attribute] = explode(':', $column['relation']);
+                $baseRelation = explode('.', $relationName)[0]; // Get base relation for nested relations
+
+                if (class_exists($this->model)) {
+                    $modelInstance = new ($this->model);
+                    if (!method_exists($modelInstance, $baseRelation)) {
+                        $result['invalid'][$columnKey] = "Relation '{$baseRelation}' does not exist on model";
+                        $result['errors'][] = "Column {$columnKey}: Relation '{$baseRelation}' does not exist on model";
+                        continue;
+                    }
+                }
+
+                $result['valid'][$columnKey] = $column;
+            } catch (\Exception $e) {
+                $result['invalid'][$columnKey] = 'Error validating relation: ' . $e->getMessage();
+                $result['errors'][] = "Column {$columnKey}: Error validating relation - " . $e->getMessage();
+            }
+        }
+
+        return $result;
     }
 }

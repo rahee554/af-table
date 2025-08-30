@@ -87,7 +87,7 @@ trait HasEventListeners
             'query' => $query,
             'search' => $this->search,
             'filters' => $this->filters ?? [],
-            'sort_by' => $this->sortBy,
+            'sort_column' => $this->sortColumn,
             'sort_direction' => $this->sortDirection
         ]);
     }

@@ -5,6 +5,20 @@ namespace ArtflowStudio\Table\Traits;
 trait HasSearch
 {
     /**
+     * Sanitize search input
+     */
+    protected function sanitizeSearch($search)
+    {
+        if (!is_string($search)) {
+            return '';
+        }
+        
+        $search = trim($search);
+        // Limit length to prevent abuse
+        return mb_substr($search, 0, 100);
+    }
+
+    /**
      * Update search and reset pagination
      */
     public function updatedSearch()
