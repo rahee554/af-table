@@ -320,7 +320,7 @@ class DatabaseTestRunner extends BaseTestRunner
             $this->assertContains('user_id', $selectColumns);
             
             // Should not contain unnecessary columns
-            $this->assertNotContains('*', $selectColumns);
+            $this->assertFalse(in_array('*', $selectColumns), "Select columns should not contain '*'");
 
             return true;
         } catch (\Exception $e) {

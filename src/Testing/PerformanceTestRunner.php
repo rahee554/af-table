@@ -406,8 +406,11 @@ class PerformanceTestRunner extends BaseTestRunner
 
             // Test cache operations (simulated)
             $metrics = $this->measureTime(function() use ($component) {
-                // Simulate cache operations
-                $sessionKey = $component->getColumnVisibilitySessionKey();
+                // Simulate cache operations using reflection
+                $reflection = new \ReflectionClass($component);
+                $method = $reflection->getMethod('getColumnVisibilitySessionKey');
+                $method->setAccessible(true);
+                $sessionKey = $method->invoke($component);
                 $this->assertNotNull($sessionKey);
                 
                 // Simulate multiple session operations

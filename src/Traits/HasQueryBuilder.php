@@ -27,18 +27,18 @@ trait HasQueryBuilder
                 $this->applyCustomQueryConstraints($query);
             } catch (\Exception $e) {
                 // Log error and continue with base query
-                logger()->warning('Custom query constraint failed: ' . $e->getMessage());
+                logger()->warning('Custom query constraint failed: '.$e->getMessage());
             }
         }
 
         // Use cached relations for better performance
-        if (!empty($this->cachedRelations)) {
+        if (! empty($this->cachedRelations)) {
             $query->with($this->cachedRelations);
         }
 
         // Use cached select columns - but recalculate based on current visibility
         $selectColumns = $this->getValidSelectColumns();
-        if (!empty($selectColumns)) {
+        if (! empty($selectColumns)) {
             $query->select($selectColumns);
         }
 
@@ -89,48 +89,63 @@ trait HasQueryBuilder
      */
     protected function getValidSelectColumns(): array
     {
-        $selects = ['id']; // Always include ID
-        
+        $modelInstance = new ($this->model);
+        $parentTable = $modelInstance->getTable();
+
+        $selects = [$parentTable.'.id']; // Always include ID with table qualifier
+
         // Always include updated_at for index sorting if it exists
         if ($this->isValidColumn('updated_at')) {
-            $selects[] = 'updated_at';
+            $selects[] = $parentTable.'.updated_at';
         }
 
         foreach ($this->columns as $columnKey => $column) {
             // Skip non-visible columns for performance
             $isVisible = $this->visibleColumns[$columnKey] ?? false;
-            if (!$isVisible) {
+            if (! $isVisible) {
                 continue;
             }
-            
+
             if (isset($column['function'])) {
                 continue; // Function columns don't need database columns
             }
 
-            // Handle JSON columns - include the JSON column in SELECT
+            // Handle JSON columns - include the JSON column in SELECT with table qualifier
             if (isset($column['json']) && isset($column['key'])) {
-                if (!in_array($column['key'], $selects)) {
-                    $selects[] = $column['key'];
+                $qualifiedColumn = $parentTable.'.'.$column['key'];
+                if (! in_array($qualifiedColumn, $selects)) {
+                    $selects[] = $qualifiedColumn;
                 }
+
                 continue;
             }
 
             if (isset($column['relation'])) {
                 [$relationName] = explode(':', $column['relation']);
                 $relationParts = explode('.', $relationName);
-                
-                if (count($relationParts) === 1 && $this->isValidColumn($relationParts[0] . '_id')) {
-                    $foreignKey = $relationParts[0] . '_id';
-                    if (!in_array($foreignKey, $selects)) {
+
+                // For single-level relations like 'booking:unique_id'
+                if (count($relationParts) === 1 && $this->isValidColumn($relationParts[0].'_id')) {
+                    $foreignKey = $parentTable.'.'.$relationParts[0].'_id';
+                    if (! in_array($foreignKey, $selects)) {
                         $selects[] = $foreignKey;
                     }
                 }
+                // For nested relations like 'flight.airline:name', we need the base relation foreign key
+                elseif (count($relationParts) > 1 && $this->isValidColumn($relationParts[0].'_id')) {
+                    $foreignKey = $parentTable.'.'.$relationParts[0].'_id';
+                    if (! in_array($foreignKey, $selects)) {
+                        $selects[] = $foreignKey;
+                    }
+                }
+
                 continue;
             }
 
-            if (isset($column['key']) && !in_array($column['key'], $selects)) {
-                if ($this->isValidColumn($column['key'])) {
-                    $selects[] = $column['key'];
+            if (isset($column['key']) && $this->isValidColumn($column['key'])) {
+                $qualifiedColumn = $parentTable.'.'.$column['key'];
+                if (! in_array($qualifiedColumn, $selects)) {
+                    $selects[] = $qualifiedColumn;
                 }
             }
         }
@@ -139,7 +154,7 @@ trait HasQueryBuilder
         $actionColumns = $this->getColumnsNeededForActions();
         $rawTemplateColumns = $this->getColumnsNeededForRawTemplates();
 
-        // Filter out invalid columns
+        // Filter out invalid columns and add table qualifiers
         $validActionColumns = array_filter($actionColumns, function ($col) {
             return $this->isValidColumn($col);
         });
@@ -148,34 +163,39 @@ trait HasQueryBuilder
             return $this->isValidColumn($col);
         });
 
-        // Ensure action columns are always included
+        // Ensure action columns are always included with table qualifiers
         foreach ($validActionColumns as $col) {
-            if (!in_array($col, $selects)) {
-                $selects[] = $col;
+            $qualifiedColumn = $parentTable.'.'.$col;
+            if (! in_array($qualifiedColumn, $selects)) {
+                $selects[] = $qualifiedColumn;
             }
         }
-        
+
         // Same for raw template columns
         foreach ($validRawTemplateColumns as $col) {
-            if (!in_array($col, $selects)) {
-                $selects[] = $col;
+            $qualifiedColumn = $parentTable.'.'.$col;
+            if (! in_array($qualifiedColumn, $selects)) {
+                $selects[] = $qualifiedColumn;
             }
         }
 
         // Check for action columns that are NOT in $this->columns
         foreach ($this->actions as $action) {
             $template = is_array($action) && isset($action['raw']) ? $action['raw'] : $action;
-            
+
             // Ensure template is a string before using preg_match_all
-            if (!is_string($template)) {
+            if (! is_string($template)) {
                 continue;
             }
-            
+
             preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $template, $matches);
-            if (!empty($matches[1])) {
+            if (! empty($matches[1])) {
                 foreach ($matches[1] as $columnName) {
-                    if ($this->isValidColumn($columnName) && !in_array($columnName, $selects)) {
-                        $selects[] = $columnName;
+                    if ($this->isValidColumn($columnName)) {
+                        $qualifiedColumn = $parentTable.'.'.$columnName;
+                        if (! in_array($qualifiedColumn, $selects)) {
+                            $selects[] = $qualifiedColumn;
+                        }
                     }
                 }
             }
@@ -190,7 +210,9 @@ trait HasQueryBuilder
     protected function applyColumnSearch(Builder $query, $columnKey, $search)
     {
         $column = $this->columns[$columnKey] ?? null;
-        if (!$column) return;
+        if (! $column) {
+            return;
+        }
 
         $search = $this->sanitizeSearch($search);
 
@@ -218,20 +240,20 @@ trait HasQueryBuilder
     public function getQueryStats(): array
     {
         $query = $this->getQuery();
-        
+
         return [
-            'has_query' => !is_null($query),
+            'has_query' => ! is_null($query),
             'query_type' => $query ? get_class($query) : null,
-            'has_search' => !empty($this->search),
-            'has_filters' => !empty($this->filters),
-            'has_sorting' => !empty($this->sortColumn),
+            'has_search' => ! empty($this->search),
+            'has_filters' => ! empty($this->filters),
+            'has_sorting' => ! empty($this->sortColumn),
             'sort_column' => $this->sortColumn,
             'sort_direction' => $this->sortDirection,
             'per_page' => $this->perPage,
             'search_length' => strlen($this->search ?? ''),
             'filter_count' => count($this->filters ?? []),
-            'has_custom_query' => !is_null($this->query),
-            'timestamp' => now()->toISOString()
+            'has_custom_query' => ! is_null($this->query),
+            'timestamp' => now()->toISOString(),
         ];
     }
 }

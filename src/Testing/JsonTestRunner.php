@@ -2,7 +2,7 @@
 
 namespace ArtflowStudio\Table\Testing;
 
-use ArtflowStudio\Table\Http\Livewire\DatatableJson;
+use ArtflowStudio\Table\Http\Livewire\Datatable;
 
 class JsonTestRunner extends BaseTestRunner
 {
@@ -62,7 +62,7 @@ class JsonTestRunner extends BaseTestRunner
                 ['key' => 'settings', 'label' => 'Settings', 'type' => 'json'],
             ];
 
-            $component = new DatatableJson();
+            $component = new Datatable();
             $component->mount('App\\Models\\Product', $columns);
 
             // Test that the component initializes correctly
@@ -94,7 +94,7 @@ class JsonTestRunner extends BaseTestRunner
                 ['key' => 'tags', 'label' => 'Tags', 'type' => 'json', 'is_array' => true],
             ];
 
-            $component = new DatatableJson();
+            $component = new Datatable();
             $component->mount('App\\Models\\Product', $columns);
 
             // Test JSON column configuration
@@ -132,7 +132,7 @@ class JsonTestRunner extends BaseTestRunner
                 ['key' => 'tags', 'label' => 'Tags', 'type' => 'json', 'is_array' => true],
             ];
 
-            $component = new DatatableJson();
+            $component = new Datatable();
             $component->mount('App\\Models\\Product', $columns);
 
             // Test JSON data extraction
@@ -164,7 +164,7 @@ class JsonTestRunner extends BaseTestRunner
                 ['key' => 'settings', 'label' => 'Settings', 'type' => 'json'],
             ];
 
-            $component = new DatatableJson();
+            $component = new Datatable();
             $component->mount('App\\Models\\Product', $columns);
 
             // Test search on JSON columns
@@ -197,7 +197,7 @@ class JsonTestRunner extends BaseTestRunner
                 'settings' => ['type' => 'json', 'path' => 'theme.color'],
             ];
 
-            $component = new DatatableJson();
+            $component = new Datatable();
             $component->mount('App\\Models\\Product', $columns, $filters);
 
             // Test JSON filter configuration
@@ -229,7 +229,7 @@ class JsonTestRunner extends BaseTestRunner
                 ['key' => 'settings', 'label' => 'Settings', 'type' => 'json', 'path' => 'priority'],
             ];
 
-            $component = new DatatableJson();
+            $component = new Datatable();
             $component->mount('App\\Models\\Product', $columns);
 
             // Test sorting on JSON columns
@@ -255,7 +255,7 @@ class JsonTestRunner extends BaseTestRunner
         try {
             $testJson = '{"user": {"profile": {"name": "John Doe", "age": 30}, "settings": {"theme": "dark"}}}';
 
-            $component = new DatatableJson();
+            $component = new Datatable();
             
             // Test deep nested access
             $name = $this->invokeMethod($component, 'extractJsonValue', [$testJson, 'user.profile.name']);
@@ -287,7 +287,7 @@ class JsonTestRunner extends BaseTestRunner
             $arrayJson = '["apple", "banana", "cherry"]';
             $objectArrayJson = '[{"name": "Item 1", "value": 10}, {"name": "Item 2", "value": 20}]';
 
-            $component = new DatatableJson();
+            $component = new Datatable();
 
             // Test simple array
             $simpleArray = $this->invokeMethod($component, 'extractJsonValue', [$arrayJson, null, true]);
@@ -332,7 +332,7 @@ class JsonTestRunner extends BaseTestRunner
             ]);
 
             $metrics = $this->measureTime(function() use ($complexJson) {
-                $component = new DatatableJson();
+                $component = new Datatable();
                 
                 // Test multiple JSON extractions
                 $values = [];
@@ -363,7 +363,7 @@ class JsonTestRunner extends BaseTestRunner
     public function testJsonValidation(): bool
     {
         try {
-            $component = new DatatableJson();
+            $component = new Datatable();
 
             // Test valid JSON
             $validJson = '{"name": "John", "age": 30}';

@@ -42,9 +42,9 @@ class TableServiceProvider extends ServiceProvider
         // Register commands
         if ($this->app->runningInConsole()) {
             $this->commands([
-                \ArtflowStudio\Table\Commands\AFTableTestCommand::class,
                 \ArtflowStudio\Table\Console\Commands\CreateDummyTableCommand::class,
-                \ArtflowStudio\Table\Console\Commands\TestTraitsCommand::class,
+                \ArtflowStudio\Table\Console\Commands\TestTraitCommand::class,
+                \ArtflowStudio\Table\Console\Commands\TestTraitPerformanceCommand::class,
                 \ArtflowStudio\Table\Console\Commands\CleanupDummyTablesCommand::class,
                 \ArtflowStudio\Table\Console\Commands\TestDatatableTraitCommand::class,
             ]);

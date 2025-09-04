@@ -154,7 +154,7 @@
         </div>
     </div>
 
-    <div class="table-responsive rounded {{ (isset($data) && count($data) < 5) ? 'h-500px' : '' }}">
+    <div class="table-responsive rounded {{ count($data) < 5 ? 'h-500px' : '' }}">
         <table class="table table-bordered p-2 " id="myTable">
             <thead>
                 <tr>
@@ -229,7 +229,7 @@
                 </tr>
             </thead>
             <tbody id="datatable-tbody">
-                @if (!isset($data) || count($data) === 0)
+                @if (count($data) === 0)
                     <tr>
                         <td colspan="{{ 
                             ($checkbox ? 1 : 0) +
@@ -461,9 +461,7 @@
     </div>
 
     <div>
-        @if(isset($data))
-            {{ $data->links('artflow-table::pagination') }}
-        @endif
+        {{ $data->links('artflow-table::livewire.pagination') }}
         @if ($records > 10)
             <div class="w-100px">
                 <select wire:model.change="records" id="records" class="form-select form-select-sm">

@@ -7,14 +7,14 @@ use Illuminate\Support\Facades\Log;
 trait HasMemoryManagement
 {
     /**
-     * Memory usage threshold in bytes (default: 128MB)
+     * Memory usage threshold in bytes (default: 64MB - optimized for consolidated traits)
      */
-    protected $memoryThreshold = 134217728;
+    protected $memoryThreshold = 67108864;
 
     /**
-     * Maximum records to process in a single batch
+     * Maximum records to process in a single batch (optimized)
      */
-    protected $maxBatchSize = 1000;
+    protected $maxBatchSize = 500;
 
     /**
      * Check current memory usage

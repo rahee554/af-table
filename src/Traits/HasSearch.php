@@ -14,6 +14,13 @@ trait HasSearch
         }
         
         $search = trim($search);
+        // Strip HTML tags for security
+        $search = strip_tags($search);
+        // Remove SQL injection patterns
+        $dangerous_patterns = ['DROP', 'DELETE', 'UNION', 'SELECT', 'INSERT', 'UPDATE', '--', ';'];
+        foreach ($dangerous_patterns as $pattern) {
+            $search = str_ireplace($pattern, '', $search);
+        }
         // Limit length to prevent abuse
         return mb_substr($search, 0, 100);
     }

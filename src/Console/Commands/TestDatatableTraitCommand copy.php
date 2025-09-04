@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 
 class TestDatatableTraitCommand extends Command
 {
-    protected $signature = 'af-table:test {--interactive : Run interactive tests} {--suite=all : Test suite to run}';
-    protected $description = 'Test the DatatableTrait architecture and functionality with 20 comprehensive test tables';
+    protected $signature = 'af-table:test-trait {--interactive : Run interactive tests} {--suite=all : Test suite to run}';
+    protected $description = 'Test the DatatableTrait architecture and functionality';
 
     public function handle()
     {

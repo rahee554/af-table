@@ -10,11 +10,6 @@ trait HasActions
     public $actions = [];
 
     /**
-     * Bulk actions available
-     */
-    protected $bulkActions = [];
-
-    /**
      * Selected record IDs for bulk actions
      */
     protected $selectedRecords = [];

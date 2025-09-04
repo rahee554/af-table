@@ -209,21 +209,25 @@ trait HasEagerLoading
      */
     protected function getRelationLoadingStrategy(): string
     {
-        $totalRelations = count($this->getEagerLoads());
+        // Default to 'adaptive' which balances performance and functionality
+        $default = 'adaptive';
+
+        // Determine the best strategy based on context
         $recordCount = $this->getEstimatedRecordCount();
+        $relationCount = count($this->cachedRelations ?? []);
 
-        // Use lazy loading for large datasets with many relations
-        if ($recordCount > 1000 && $totalRelations > 5) {
-            return 'lazy';
-        }
-
-        // Use eager loading for smaller datasets
-        if ($recordCount <= 100) {
+        // Use 'eager' for small datasets with many relations
+        if ($recordCount < 100 && $relationCount > 3) {
             return 'eager';
         }
 
-        // Use selective eager loading for medium datasets
-        return 'selective';
+        // Use 'selective' for medium datasets
+        if ($recordCount < 1000) {
+            return 'selective';
+        }
+
+        // Use 'lazy' for large datasets to prevent memory issues
+        return 'lazy';
     }
 
     /**

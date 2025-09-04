@@ -136,9 +136,12 @@ class ComponentTestRunner extends BaseTestRunner
             $component->updatedSearch();
             $this->assertEquals('test', $component->search);
 
-            // Test search sanitization
+            // Test search sanitization using reflection
             $component->search = '<script>alert("xss")</script>';
-            $sanitized = $component->sanitizeSearch($component->search);
+            $reflection = new \ReflectionClass($component);
+            $method = $reflection->getMethod('sanitizeSearch');
+            $method->setAccessible(true);
+            $sanitized = $method->invoke($component, $component->search);
             $this->assertFalse(strpos($sanitized, '<script>') !== false);
 
             return true;

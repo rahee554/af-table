@@ -1,0 +1,192 @@
+[
+    {
+        "product_id": "PROD001",
+        "name": "iPhone 15 Pro",
+        "category": "Electronics",
+        "brand": "Apple",
+        "price": 999.99,
+        "currency": "USD",
+        "stock": 150,
+        "rating": 4.8,
+        "reviews": 1247,
+        "tags": ["smartphone", "premium", "5G"],
+        "specifications": {
+            "storage": "256GB",
+            "color": "Natural Titanium",
+            "display": "6.1 inch"
+        },
+        "availability": true,
+        "release_date": "2023-09-22"
+    },
+    {
+        "product_id": "PROD002",
+        "name": "Samsung Galaxy S24",
+        "category": "Electronics",
+        "brand": "Samsung",
+        "price": 899.99,
+        "currency": "USD",
+        "stock": 89,
+        "rating": 4.6,
+        "reviews": 892,
+        "tags": ["smartphone", "android", "flagship"],
+        "specifications": {
+            "storage": "128GB",
+            "color": "Phantom Black",
+            "display": "6.2 inch"
+        },
+        "availability": true,
+        "release_date": "2024-01-17"
+    },
+    {
+        "product_id": "PROD003",
+        "name": "MacBook Air M3",
+        "category": "Computers",
+        "brand": "Apple",
+        "price": 1299.99,
+        "currency": "USD",
+        "stock": 45,
+        "rating": 4.9,
+        "reviews": 567,
+        "tags": ["laptop", "ultrabook", "M3"],
+        "specifications": {
+            "storage": "512GB",
+            "color": "Space Gray",
+            "screen": "13.6 inch"
+        },
+        "availability": true,
+        "release_date": "2024-03-08"
+    },
+    {
+        "product_id": "PROD004",
+        "name": "Dell XPS 13",
+        "category": "Computers",
+        "brand": "Dell",
+        "price": 1099.99,
+        "currency": "USD",
+        "stock": 32,
+        "rating": 4.4,
+        "reviews": 234,
+        "tags": ["laptop", "windows", "business"],
+        "specifications": {
+            "storage": "256GB",
+            "color": "Platinum Silver",
+            "screen": "13.4 inch"
+        },
+        "availability": false,
+        "release_date": "2023-10-15"
+    },
+    {
+        "product_id": "PROD005",
+        "name": "AirPods Pro 2",
+        "category": "Audio",
+        "brand": "Apple",
+        "price": 249.99,
+        "currency": "USD",
+        "stock": 200,
+        "rating": 4.7,
+        "reviews": 3421,
+        "tags": ["earbuds", "wireless", "noise-canceling"],
+        "specifications": {
+            "battery": "6 hours",
+            "color": "White",
+            "connectivity": "Bluetooth 5.3"
+        },
+        "availability": true,
+        "release_date": "2022-09-23"
+    },
+    {
+        "product_id": "PROD006",
+        "name": "Sony WH-1000XM5",
+        "category": "Audio",
+        "brand": "Sony",
+        "price": 399.99,
+        "currency": "USD",
+        "stock": 67,
+        "rating": 4.5,
+        "reviews": 1876,
+        "tags": ["headphones", "wireless", "premium"],
+        "specifications": {
+            "battery": "30 hours",
+            "color": "Black",
+            "connectivity": "Bluetooth 5.2"
+        },
+        "availability": true,
+        "release_date": "2022-05-12"
+    },
+    {
+        "product_id": "PROD007",
+        "name": "iPad Pro 12.9",
+        "category": "Tablets",
+        "brand": "Apple",
+        "price": 1099.99,
+        "currency": "USD",
+        "stock": 78,
+        "rating": 4.8,
+        "reviews": 689,
+        "tags": ["tablet", "professional", "M2"],
+        "specifications": {
+            "storage": "128GB",
+            "color": "Space Gray",
+            "display": "12.9 inch"
+        },
+        "availability": true,
+        "release_date": "2022-10-18"
+    },
+    {
+        "product_id": "PROD008",
+        "name": "Nintendo Switch OLED",
+        "category": "Gaming",
+        "brand": "Nintendo",
+        "price": 349.99,
+        "currency": "USD",
+        "stock": 120,
+        "rating": 4.6,
+        "reviews": 2543,
+        "tags": ["gaming", "portable", "console"],
+        "specifications": {
+            "storage": "64GB",
+            "color": "White",
+            "display": "7 inch OLED"
+        },
+        "availability": true,
+        "release_date": "2021-10-08"
+    },
+    {
+        "product_id": "PROD009",
+        "name": "Tesla Model Y",
+        "category": "Automotive",
+        "brand": "Tesla",
+        "price": 47190.00,
+        "currency": "USD",
+        "stock": 8,
+        "rating": 4.4,
+        "reviews": 156,
+        "tags": ["electric", "SUV", "autopilot"],
+        "specifications": {
+            "range": "330 miles",
+            "color": "Pearl White",
+            "seats": "5 seater"
+        },
+        "availability": true,
+        "release_date": "2020-03-14"
+    },
+    {
+        "product_id": "PROD010",
+        "name": "Dyson V15 Detect",
+        "category": "Home Appliances",
+        "brand": "Dyson",
+        "price": 749.99,
+        "currency": "USD",
+        "stock": 25,
+        "rating": 4.3,
+        "reviews": 445,
+        "tags": ["vacuum", "cordless", "laser"],
+        "specifications": {
+            "battery": "60 minutes",
+            "color": "Yellow/Nickel",
+            "weight": "3.1 kg"
+        },
+        "availability": true,
+        "release_date": "2021-03-24"
+    }
+]

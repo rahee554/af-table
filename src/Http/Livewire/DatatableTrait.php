@@ -2,72 +2,150 @@
 
 namespace ArtflowStudio\Table\Http\Livewire;
 
+use ArtflowStudio\Table\Traits\HasActions;
+use ArtflowStudio\Table\Traits\HasAdvancedCaching;
+use ArtflowStudio\Table\Traits\HasAdvancedExport;
+use ArtflowStudio\Table\Traits\HasAdvancedFiltering;
+use ArtflowStudio\Table\Traits\HasApiEndpoint;
+use ArtflowStudio\Table\Traits\HasJsonFile;
+use ArtflowStudio\Table\Traits\HasBulkActions;
+use ArtflowStudio\Table\Traits\HasColumnConfiguration;
+use ArtflowStudio\Table\Traits\HasColumnOptimization;
+use ArtflowStudio\Table\Traits\HasColumnVisibility;
+use ArtflowStudio\Table\Traits\HasDataValidation;
+use ArtflowStudio\Table\Traits\HasDistinctValues;
+use ArtflowStudio\Table\Traits\HasEagerLoading;
+use ArtflowStudio\Table\Traits\HasEventListeners;
+use ArtflowStudio\Table\Traits\HasForEach;
+use ArtflowStudio\Table\Traits\HasJsonSupport;
+use ArtflowStudio\Table\Traits\HasMemoryManagement;
+use ArtflowStudio\Table\Traits\HasPerformanceMonitoring;
+use ArtflowStudio\Table\Traits\HasQueryBuilder;
+use ArtflowStudio\Table\Traits\HasQueryOptimization;
+use ArtflowStudio\Table\Traits\HasQueryStringSupport;
+use ArtflowStudio\Table\Traits\HasRawTemplates;
+use ArtflowStudio\Table\Traits\HasRelationships;
+use ArtflowStudio\Table\Traits\HasSearch;
+use ArtflowStudio\Table\Traits\HasSessionManagement;
+use ArtflowStudio\Table\Traits\HasSorting;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithPagination;
-use ArtflowStudio\Table\Traits\HasQueryBuilder;
-use ArtflowStudio\Table\Traits\HasDataValidation;
-use ArtflowStudio\Table\Traits\HasColumnConfiguration;
-use ArtflowStudio\Table\Traits\HasColumnVisibility;
-use ArtflowStudio\Table\Traits\HasSearch;
-use ArtflowStudio\Table\Traits\HasFiltering;
-use ArtflowStudio\Table\Traits\HasSorting;
-use ArtflowStudio\Table\Traits\HasCaching;
-use ArtflowStudio\Table\Traits\HasEagerLoading;
-use ArtflowStudio\Table\Traits\HasMemoryManagement;
-use ArtflowStudio\Table\Traits\HasJsonSupport;
-use ArtflowStudio\Table\Traits\HasRelationships;
-use ArtflowStudio\Table\Traits\HasExport;
-use ArtflowStudio\Table\Traits\HasRawTemplates;
-use ArtflowStudio\Table\Traits\HasSessionManagement;
-use ArtflowStudio\Table\Traits\HasQueryStringSupport;
-use ArtflowStudio\Table\Traits\HasEventListeners;
-use ArtflowStudio\Table\Traits\HasActions;
 
 class DatatableTrait extends Component
 {
-    use WithPagination;
-    use HasQueryBuilder;
-    use HasDataValidation;
+    use HasActions {
+        HasActions::clearSelection as clearActionSelection;
+        HasActions::getSelectedCount as getActionSelectedCount;
+    }
+    use HasAdvancedCaching, HasDistinctValues {
+        HasAdvancedCaching::generateDistinctValuesCacheKey insteadof HasDistinctValues;
+        HasDistinctValues::generateDistinctValuesCacheKey as generateBasicDistinctCacheKey;
+    }
+    use HasAdvancedExport;
+    use HasAdvancedFiltering;
+    use HasApiEndpoint;
+    use HasJsonFile;
+    use HasBulkActions {
+        HasBulkActions::clearSelection as clearBulkSelection;
+        HasBulkActions::getSelectedCount as getBulkSelectedCount;
+    }
     use HasColumnConfiguration;
+    use HasColumnOptimization;
     use HasColumnVisibility;
-    use HasSearch;
-    use HasFiltering;
-    use HasSorting;
-    use HasCaching;
+    use HasDataValidation;
     use HasEagerLoading;
-    use HasMemoryManagement;
-    use HasJsonSupport;
-    use HasRelationships;
-    use HasExport;
-    use HasRawTemplates;
-    use HasSessionManagement;
-    use HasQueryStringSupport;
     use HasEventListeners;
-    use HasActions;
+    use HasForEach;
+    use HasJsonSupport;
+    use HasMemoryManagement;
+    use HasPerformanceMonitoring;
+    use HasQueryBuilder;
+    use HasQueryOptimization;
+    use HasQueryStringSupport;
+    use HasRawTemplates;
+    use HasRelationships;
+    use HasSearch;
+    use HasSessionManagement;
+    use HasSorting;
+    use WithPagination;
 
-    //*----------- Properties -----------*//
-    public $model, $columns = [], $visibleColumns = [],
-    $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
-    $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
-    $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null;
+    // *----------- Properties -----------*//
+    public $model;
+
+    public $columns = [];
+
+    public $visibleColumns = [];
+
+    public $checkbox = false;
+
+    public $records = 10;
+
+    public $search = '';
+
+    public $sortColumn = null;
+
+    public $sortDirection = 'asc';
+
+    public $selectedRows = [];
+
+    public $selectAll = false;
+
+    public $filters = [];
+
+    public $filterColumn = null;
+
+    public $filterOperator = '=';
+
+    public $filterValue = null;
+
+    public $dateColumn = null;
+
+    public $startDate = null;
+
+    public $endDate = null;
+
+    public $selectedColumn = null;
+
+    public $numberOperator = '=';
+
+    public $distinctValues = [];
+
+    public $columnType = null;
+
     public $index = false; // Changed: Show index column false by default
+
     public $tableId = null;
+
     public $query = null;
+
     public $colvisBtn = true;
+
     public $perPage = 10;
 
     // Performance optimization properties
     protected $cachedRelations = null;
+
     protected $cachedSelectColumns = null;
+
     protected $distinctValuesCacheTime = 300; // 5 minutes
+
     protected $maxDistinctValues = 1000; // Limit for memory management
 
-    //*----------- Optional Configuration -----------*//
-    public $searchable = true, $exportable = false, $printable = false, $colSort = true,
-    $sort = 'desc',
-    $refreshBtn = false;
+    // *----------- Optional Configuration -----------*//
+    public $searchable = true;
 
-    //*----------- Query String Parameters -----------*//
+    public $exportable = false;
+
+    public $printable = false;
+
+    public $colSort = true;
+
+    public $sort = 'desc';
+
+    public $refreshBtn = false;
+
+    // *----------- Query String Parameters -----------*//
     public $queryString = [
         'records' => ['except' => 10], // Default to 10 if not set
         'search' => ['except' => ''],
@@ -80,17 +158,18 @@ class DatatableTrait extends Component
         'endDate' => ['except' => null],
     ];
 
-    //*----------- Additional Properties for Trait Functionality -----------*//
+    // *----------- Additional Properties for Trait Functionality -----------*//
     public $enableSessionPersistence = true;
+
     public $enableQueryStringSupport = true;
 
-    //*----------- Event Listeners -----------*//
+    // *----------- Event Listeners -----------*//
     protected $listeners = [
         'dateRangeSelected' => 'applyDateRange',
         'refreshTable' => '$refresh',
     ];
 
-    //*----------- Component Initialization -----------*//
+    // *----------- Component Initialization -----------*//
     public function mount($model, $columns, $filters = [], $actions = [], $index = false, $tableId = null, $query = null)
     {
         $this->model = $model;
@@ -108,12 +187,13 @@ class DatatableTrait extends Component
                 $identifier = $column['function'];
             } elseif (isset($column['key']) && isset($column['json'])) {
                 // For JSON columns, create unique identifier using key and json path
-                $identifier = $column['key'] . '.' . $column['json'];
+                $identifier = $column['key'].'.'.$column['json'];
             } elseif (isset($column['key'])) {
                 $identifier = $column['key'];
             } else {
-                $identifier = 'col_' . $index; // Fallback for columns without key or function
+                $identifier = 'col_'.$index; // Fallback for columns without key or function
             }
+
             return [$identifier => $column];
         })->toArray();
 
@@ -122,16 +202,16 @@ class DatatableTrait extends Component
 
         // Initialize column visibility from session or defaults
         $sessionVisibility = \Illuminate\Support\Facades\Session::get($sessionKey, []);
-        if (!empty($sessionVisibility)) {
+        if (! empty($sessionVisibility)) {
             $this->visibleColumns = $this->getValidatedVisibleColumns($sessionVisibility);
         } else {
             $this->visibleColumns = $this->getDefaultVisibleColumns();
         }
-        
+
         // Ensure all columns have a visibility state
         foreach ($this->columns as $columnKey => $column) {
-            if (!array_key_exists($columnKey, $this->visibleColumns)) {
-                $this->visibleColumns[$columnKey] = !($column['hide'] ?? false);
+            if (! array_key_exists($columnKey, $this->visibleColumns)) {
+                $this->visibleColumns[$columnKey] = ! ($column['hide'] ?? false);
             }
         }
 
@@ -173,23 +253,27 @@ class DatatableTrait extends Component
     {
         $query = $this->getQuery();
 
+        // Apply column optimization for selective loading
+        $query = $this->applyColumnOptimization($query);
+
         // Apply search
-        if (!empty($this->search)) {
+        if (! empty($this->search)) {
             $this->applyOptimizedSearch($query);
         }
 
         // Apply filters
-        if (!empty($this->filters)) {
+        if (! empty($this->filters)) {
             $this->applyFilters($query);
         }
 
         // Apply sorting
-        if (!empty($this->sortColumn)) {
+        if (! empty($this->sortColumn)) {
             $this->applyOptimizedSorting($query);
         }
 
-        // Apply eager loading
+        // Apply eager loading with optimization
         $query = $this->applyLoadingStrategy($query);
+        $query = $this->optimizeRelationLoading($query);
 
         // Optimize for memory if needed
         if ($this->isMemoryThresholdExceeded()) {
@@ -205,12 +289,14 @@ class DatatableTrait extends Component
     public function render()
     {
         $data = $this->query()->paginate($this->records);
-        
-        return view('artflow-table::datatable-trait', [
+
+        return view('artflow-table::livewire.datatable-trait', [
             'data' => $data,
             'index' => $this->index,
         ]);
-    }    /**
+    }
+
+    /**
      * Handle search updates
      */
     public function updatedSearch($value)
@@ -218,9 +304,9 @@ class DatatableTrait extends Component
         $oldValue = $this->search;
         $this->search = $value;
         $this->resetPage();
-        
+
         $this->triggerSearchEvent($value, $oldValue);
-        
+
         if ($this->enableSessionPersistence) {
             $this->autoSaveState();
         }
@@ -233,11 +319,11 @@ class DatatableTrait extends Component
     {
         $columnKey = str_replace('filters.', '', $key);
         $oldValue = $this->filters[$columnKey] ?? null;
-        
+
         $this->resetPage();
-        
+
         $this->triggerFilterEvent($columnKey, $value, $oldValue);
-        
+
         if ($this->enableSessionPersistence) {
             $this->autoSaveState();
         }
@@ -259,9 +345,9 @@ class DatatableTrait extends Component
         }
 
         $this->resetPage();
-        
+
         $this->triggerSortEvent($this->sortColumn, $this->sortDirection, $oldColumn, $oldDirection);
-        
+
         if ($this->enableSessionPersistence) {
             $this->autoSaveState();
         }
@@ -275,9 +361,9 @@ class DatatableTrait extends Component
         $oldValue = $this->perPage;
         $this->perPage = $value;
         $this->resetPage();
-        
+
         $this->triggerPaginationEvent(1, $value, $this->page, $oldValue);
-        
+
         if ($this->enableSessionPersistence) {
             $this->autoSaveState();
         }
@@ -289,10 +375,10 @@ class DatatableTrait extends Component
     public function toggleColumn($columnKey)
     {
         $oldVisibility = $this->visibleColumns[$columnKey] ?? true;
-        $this->visibleColumns[$columnKey] = !$oldVisibility;
-        
+        $this->visibleColumns[$columnKey] = ! $oldVisibility;
+
         $this->triggerColumnVisibilityEvent($columnKey, $this->visibleColumns[$columnKey], $oldVisibility);
-        
+
         if ($this->enableSessionPersistence) {
             $this->saveColumnPreferences();
         }
@@ -305,11 +391,11 @@ class DatatableTrait extends Component
     {
         $this->filters = [];
         $this->resetPage();
-        
+
         if ($this->enableSessionPersistence) {
             $this->autoSaveState();
         }
-        
+
         $this->emit('filtersCleared');
     }
 
@@ -320,11 +406,11 @@ class DatatableTrait extends Component
     {
         $this->search = '';
         $this->resetPage();
-        
+
         if ($this->enableSessionPersistence) {
             $this->autoSaveState();
         }
-        
+
         $this->emit('searchCleared');
     }
 
@@ -335,7 +421,7 @@ class DatatableTrait extends Component
     {
         try {
             $stats = $this->getExportStats();
-            
+
             if ($stats['total_records'] > 10000) {
                 return $this->exportWithChunking($format, $filename);
             } else {
@@ -352,7 +438,8 @@ class DatatableTrait extends Component
             }
         } catch (\Exception $e) {
             $this->triggerErrorEvent($e, ['method' => 'handleExport', 'format' => $format]);
-            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            session()->flash('error', 'Export failed: '.$e->getMessage());
+
             return null;
         }
     }
@@ -364,7 +451,7 @@ class DatatableTrait extends Component
     {
         try {
             $result = $this->executeBulkAction($actionKey);
-            
+
             if ($result['success']) {
                 session()->flash('success', $result['message']);
                 $this->clearSelection();
@@ -372,11 +459,12 @@ class DatatableTrait extends Component
             } else {
                 session()->flash('error', $result['message']);
             }
-            
+
             return $result;
         } catch (\Exception $e) {
             $this->triggerErrorEvent($e, ['method' => 'handleBulkAction', 'action' => $actionKey]);
-            session()->flash('error', 'Bulk action failed: ' . $e->getMessage());
+            session()->flash('error', 'Bulk action failed: '.$e->getMessage());
+
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }
@@ -406,7 +494,7 @@ class DatatableTrait extends Component
         if (method_exists($this, 'clearAllCaches')) {
             $this->clearAllCaches();
         }
-        
+
         $this->emit('datatableRefreshed');
     }
 
@@ -425,7 +513,7 @@ class DatatableTrait extends Component
             'json_stats' => $this->getJsonColumnStats(),
             'action_stats' => $this->getActionStats(),
             'session_stats' => $this->getSessionStats(),
-            'event_stats' => $this->getEventListenerStats()
+            'event_stats' => $this->getEventListenerStats(),
         ];
     }
 
@@ -434,7 +522,7 @@ class DatatableTrait extends Component
      */
     public function getQueryString()
     {
-        if (!$this->enableQueryStringSupport) {
+        if (! $this->enableQueryStringSupport) {
             return [];
         }
 
@@ -456,10 +544,10 @@ class DatatableTrait extends Component
         $errors = [];
 
         // Validate model
-        if (!$this->model) {
+        if (! $this->model) {
             $errors[] = 'Model is required';
-        } elseif (!class_exists($this->model)) {
-            $errors[] = 'Model class does not exist: ' . $this->model;
+        } elseif (! class_exists($this->model)) {
+            $errors[] = 'Model class does not exist: '.$this->model;
         }
 
         // Validate columns
@@ -467,21 +555,21 @@ class DatatableTrait extends Component
             $errors[] = 'Columns configuration is required';
         } else {
             $columnValidation = $this->validateColumns();
-            if (!empty($columnValidation['errors'])) {
+            if (! empty($columnValidation['errors'])) {
                 $errors = array_merge($errors, $columnValidation['errors']);
             }
         }
 
         // Validate relations
         $relationValidation = $this->validateRelationColumns();
-        if (!empty($relationValidation['invalid'])) {
+        if (! empty($relationValidation['invalid'])) {
             foreach ($relationValidation['invalid'] as $column => $error) {
                 $errors[] = "Column {$column}: {$error}";
             }
         }
 
-        if (!empty($errors)) {
-            throw new \InvalidArgumentException('Datatable configuration errors: ' . implode(', ', $errors));
+        if (! empty($errors)) {
+            throw new \InvalidArgumentException('Datatable configuration errors: '.implode(', ', $errors));
         }
     }
 
@@ -496,28 +584,28 @@ class DatatableTrait extends Component
                 'model' => $this->model,
                 'columns_count' => count($this->columns),
                 'visible_columns_count' => count(array_filter($this->visibleColumns)),
-                'has_search' => !empty($this->search),
-                'has_filters' => !empty($this->filters),
-                'has_sorting' => !empty($this->sortColumn),
+                'has_search' => ! empty($this->search),
+                'has_filters' => ! empty($this->filters),
+                'has_sorting' => ! empty($this->sortColumn),
                 'selected_records_count' => count($this->selectedRecords),
                 'per_page' => $this->perPage,
-                'current_page' => $this->page ?? 1
+                'current_page' => $this->page ?? 1,
             ],
             'configuration' => [
                 'session_persistence' => $this->enableSessionPersistence,
                 'query_string_support' => $this->enableQueryStringSupport,
                 'cache_time' => $this->distinctValuesCacheTime,
-                'max_distinct_values' => $this->maxDistinctValues
+                'max_distinct_values' => $this->maxDistinctValues,
             ],
             'statistics' => $this->getComponentStats(),
             'validation' => [
                 'columns' => $this->validateColumns(),
-                'relations' => $this->validateRelationColumns()
-            ]
+                'relations' => $this->validateRelationColumns(),
+            ],
         ];
     }
 
-    //*----------- Missing Methods from Datatable.php -----------*//
+    // *----------- Missing Methods from Datatable.php -----------*//
 
     /**
      * Render raw HTML content
@@ -540,6 +628,7 @@ class DatatableTrait extends Component
                 }
             }
         }
+
         return implode(' ', $classes);
     }
 
@@ -553,22 +642,22 @@ class DatatableTrait extends Component
             if (is_string($jsonData)) {
                 $jsonData = json_decode($jsonData, true);
             }
-            
-            if (!is_array($jsonData)) {
+
+            if (! is_array($jsonData)) {
                 return null;
             }
-            
+
             // Navigate through dot notation
             $keys = explode('.', $jsonPath);
             $value = $jsonData;
-            
+
             foreach ($keys as $key) {
-                if (!is_array($value) || !array_key_exists($key, $value)) {
+                if (! is_array($value) || ! array_key_exists($key, $value)) {
                     return null;
                 }
                 $value = $value[$key];
             }
-            
+
             return $value;
         } catch (\Exception $e) {
             return null;
@@ -581,16 +670,16 @@ class DatatableTrait extends Component
     public function toggleColumnVisibility($columnKey)
     {
         // Ensure the column exists in the visibility array with proper default
-        if (!array_key_exists($columnKey, $this->visibleColumns)) {
-            $this->visibleColumns[$columnKey] = !($this->columns[$columnKey]['hide'] ?? false);
+        if (! array_key_exists($columnKey, $this->visibleColumns)) {
+            $this->visibleColumns[$columnKey] = ! ($this->columns[$columnKey]['hide'] ?? false);
         }
 
         // Toggle the visibility
-        $this->visibleColumns[$columnKey] = !$this->visibleColumns[$columnKey];
-        
+        $this->visibleColumns[$columnKey] = ! $this->visibleColumns[$columnKey];
+
         // Save to session
         \Illuminate\Support\Facades\Session::put($this->getColumnVisibilitySessionKey(), $this->visibleColumns);
-        
+
         // Force component re-render
         $this->dispatch('$refresh');
     }
@@ -604,7 +693,7 @@ class DatatableTrait extends Component
         // The visibleColumns array is automatically updated by Livewire
         // We just need to save it to the session
         \Illuminate\Support\Facades\Session::put($this->getColumnVisibilitySessionKey(), $this->visibleColumns);
-        
+
         // Force component re-render to ensure table updates
         $this->dispatch('$refresh');
     }
@@ -635,7 +724,8 @@ class DatatableTrait extends Component
         } else {
             $modelName = 'datatable';
         }
-        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId);
+
+        return 'datatable_visible_columns_'.md5($modelName.'_'.static::class.'_'.$this->tableId);
     }
 
     /**
@@ -645,7 +735,8 @@ class DatatableTrait extends Component
     {
         return collect($this->columns)->mapWithKeys(function ($column, $identifier) {
             // Default to visible unless explicitly hidden
-            $isVisible = !isset($column['hide']) || !$column['hide'];
+            $isVisible = ! isset($column['hide']) || ! $column['hide'];
+
             return [$identifier => $isVisible];
         })->toArray();
     }
@@ -660,9 +751,10 @@ class DatatableTrait extends Component
             if (array_key_exists($columnKey, $sessionVisibility)) {
                 $validSessionVisibility[$columnKey] = $sessionVisibility[$columnKey];
             } else {
-                $validSessionVisibility[$columnKey] = !($columnConfig['hide'] ?? false);
+                $validSessionVisibility[$columnKey] = ! ($columnConfig['hide'] ?? false);
             }
         }
+
         return $validSessionVisibility;
     }
 
@@ -688,10 +780,10 @@ class DatatableTrait extends Component
      */
     public function toggleSort($column)
     {
-        if (!$this->isAllowedColumn($column)) {
+        if (! $this->isAllowedColumn($column)) {
             return; // Ignore or handle invalid column
         }
-        
+
         // If clicking the same column, toggle direction
         if ($this->sortColumn === $column) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
@@ -700,7 +792,7 @@ class DatatableTrait extends Component
             $this->sortColumn = $column;
             $this->sortDirection = 'asc';
         }
-        
+
         $this->resetPage();
     }
 
@@ -709,7 +801,7 @@ class DatatableTrait extends Component
      */
     public function updatedSelectedColumn($column)
     {
-        if (!$this->isAllowedColumn($column)) {
+        if (! $this->isAllowedColumn($column)) {
             return;
         }
         $filterDetails = $this->filters[$column] ?? null;
@@ -745,10 +837,11 @@ class DatatableTrait extends Component
 
         // Sort values alphabetically (case-insensitive)
         if (is_array($values)) {
-            usort($values, function($a, $b) {
+            usort($values, function ($a, $b) {
                 return strcasecmp($a, $b);
             });
         }
+
         return $values;
     }
 
@@ -757,18 +850,33 @@ class DatatableTrait extends Component
      */
     public function export($format)
     {
-        if ($format === 'pdf') {
-            return $this->exportPdfChunked();
-        }
+        // Use the new consolidated export functionality from HasAdvancedExport trait
+        // The parent export method already handles all formats including PDF
+        return parent::export($format);
+    }
 
-        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\DataTableExport(
-            $this->model,
-            $this->columns,
-            $this->search,
-            $this->filters,
-            $this->sortColumn,
-            $this->sortDirection
-        ), "export.{$format}");
+    /**
+     * Export to CSV format
+     */
+    public function exportToCsv()
+    {
+        return $this->export('csv');
+    }
+
+    /**
+     * Export to JSON format
+     */
+    public function exportToJson()
+    {
+        return $this->export('json');
+    }
+
+    /**
+     * Export to Excel format
+     */
+    public function exportToExcel()
+    {
+        return $this->export('xlsx');
     }
 
     /**
@@ -776,23 +884,8 @@ class DatatableTrait extends Component
      */
     public function exportPdfChunked()
     {
-        // Use chunked processing for large datasets
-        $chunkSize = 1000;
-        $data = collect();
-
-        $this->query()->chunk($chunkSize, function ($chunk) use ($data) {
-            $data->push(...$chunk);
-        });
-
-        $pdf = \Barryvdh\Snappy\Facades\SnappyPdf::loadView('exports.pdf.datatable', [
-            'data' => $data,
-            'columns' => $this->columns,
-            'visibleColumns' => $this->visibleColumns,
-        ]);
-
-        return response()->streamDownload(function () use ($pdf) {
-            echo $pdf->output();
-        }, 'export.pdf');
+        // Use the new consolidated export functionality
+        return $this->export('pdf');
     }
 
     /**
@@ -845,7 +938,7 @@ class DatatableTrait extends Component
         $this->resetPage();
     }
 
-    //*----------- Protected Helper Methods -----------*//
+    // *----------- Protected Helper Methods -----------*//
 
     /**
      * Initialize column configuration for performance
@@ -866,19 +959,34 @@ class DatatableTrait extends Component
 
         foreach ($columns as $columnKey => $column) {
             // Skip if column is not visible to avoid loading unnecessary relations
-            if (isset($this->visibleColumns) && !($this->visibleColumns[$columnKey] ?? true)) {
+            if (isset($this->visibleColumns) && ! ($this->visibleColumns[$columnKey] ?? true)) {
                 continue;
             }
 
             if (isset($column['relation'])) {
+                // For relations like 'flight.airline:name', we need to load 'flight.airline'
                 $relationName = explode(':', $column['relation'])[0];
                 $relations[] = $relationName;
+                
+                // Also add intermediate relations for nested paths
+                // e.g., for 'flight.airline' also add 'flight'
+                if (str_contains($relationName, '.')) {
+                    $parts = explode('.', $relationName);
+                    $currentPath = '';
+                    foreach ($parts as $part) {
+                        if ($currentPath) {
+                            $currentPath .= '.';
+                        }
+                        $currentPath .= $part;
+                        $relations[] = $currentPath;
+                    }
+                }
             }
 
             // Scan raw templates for relation references (improved parsing)
             if (isset($column['raw']) && is_string($column['raw'])) {
                 preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)->/', $column['raw'], $matches);
-                if (!empty($matches[1])) {
+                if (! empty($matches[1])) {
                     $relations = array_merge($relations, $matches[1]);
                 }
             }
@@ -901,7 +1009,7 @@ class DatatableTrait extends Component
     protected function calculateSelectColumns($columns): array
     {
         $selects = ['id']; // Always include ID
-        
+
         // Always include updated_at for index sorting if it exists
         if ($this->isValidColumn('updated_at')) {
             $selects[] = 'updated_at';
@@ -909,7 +1017,7 @@ class DatatableTrait extends Component
 
         foreach ($columns as $columnKey => $column) {
             // Skip non-visible columns for performance
-            if (isset($this->visibleColumns) && !($this->visibleColumns[$columnKey] ?? true)) {
+            if (isset($this->visibleColumns) && ! ($this->visibleColumns[$columnKey] ?? true)) {
                 continue;
             }
 
@@ -925,14 +1033,15 @@ class DatatableTrait extends Component
 
             // Handle JSON columns - always include the base JSON column when json is specified
             if (isset($column['json']) && isset($column['key'])) {
-                if (!in_array($column['key'], $selects)) {
+                if (! in_array($column['key'], $selects)) {
                     $selects[] = $column['key'];
                 }
+
                 continue;
             }
 
             // Only add database columns if they have a valid key
-            if (isset($column['key']) && !in_array($column['key'], $selects)) {
+            if (isset($column['key']) && ! in_array($column['key'], $selects)) {
                 $selects[] = $column['key'];
             }
         }
@@ -952,13 +1061,13 @@ class DatatableTrait extends Component
 
         // Ensure action columns are always included, even if not in $this->columns
         foreach ($validActionColumns as $col) {
-            if (!in_array($col, $selects)) {
+            if (! in_array($col, $selects)) {
                 $selects[] = $col;
             }
         }
         // Same for raw template columns
         foreach ($validRawTemplateColumns as $col) {
-            if (!in_array($col, $selects)) {
+            if (! in_array($col, $selects)) {
                 $selects[] = $col;
             }
         }
@@ -975,12 +1084,12 @@ class DatatableTrait extends Component
         if ($this->index && $this->isValidColumn('updated_at')) {
             return 'updated_at';
         }
-        
+
         // Find first indexed column for better sort performance
         $indexedColumns = ['id', 'created_at', 'updated_at']; // Common indexed columns
 
         foreach ($this->columns as $column) {
-            if (isset($column['key']) && !isset($column['function'])) {
+            if (isset($column['key']) && ! isset($column['function'])) {
                 if (in_array($column['key'], $indexedColumns)) {
                     return $column['key'];
                 }
@@ -989,7 +1098,7 @@ class DatatableTrait extends Component
 
         // Fallback to first sortable column
         foreach ($this->columns as $column) {
-            if (isset($column['key']) && !isset($column['function'])) {
+            if (isset($column['key']) && ! isset($column['function'])) {
                 return $column['key'];
             }
         }
@@ -1024,7 +1133,7 @@ class DatatableTrait extends Component
         $relationObj = $modelInstance->$relationName();
         $relatedModel = $relationObj->getRelated();
         $relatedTable = $relatedModel->getTable();
-        $relatedColumnFull = $relatedTable . '.' . $relatedColumn;
+        $relatedColumnFull = $relatedTable.'.'.$relatedColumn;
 
         // Determine join keys
         if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
@@ -1033,7 +1142,7 @@ class DatatableTrait extends Component
             $ownerKey = $relationObj->getOwnerKeyName();
 
             return $this->model::query()
-                ->join($relatedTable, $parentTable . '.' . $foreignKey, '=', $relatedTable . '.' . $ownerKey)
+                ->join($relatedTable, $parentTable.'.'.$foreignKey, '=', $relatedTable.'.'.$ownerKey)
                 ->select($relatedColumnFull)
                 ->distinct()
                 ->whereNotNull($relatedColumnFull)
@@ -1047,7 +1156,7 @@ class DatatableTrait extends Component
             $localKey = $relationObj->getLocalKeyName();
 
             return $this->model::query()
-                ->join($relatedTable, $parentTable . '.' . $localKey, '=', $relatedTable . '.' . $foreignKey)
+                ->join($relatedTable, $parentTable.'.'.$localKey, '=', $relatedTable.'.'.$foreignKey)
                 ->select($relatedColumnFull)
                 ->distinct()
                 ->whereNotNull($relatedColumnFull)
@@ -1088,7 +1197,7 @@ class DatatableTrait extends Component
                 [$relationName, $relationColumn] = explode(':', $this->columns[$this->filterColumn]['relation']);
                 $query->whereHas($relationName, function ($q) use ($relationColumn, $operator, $value) {
                     if ($operator === 'like') {
-                        $q->where($relationColumn, 'like', '%' . $value . '%');
+                        $q->where($relationColumn, 'like', '%'.$value.'%');
                     } else {
                         $q->where($relationColumn, $operator, $value);
                     }
@@ -1096,7 +1205,7 @@ class DatatableTrait extends Component
             } else {
                 // Handle regular column filtering
                 if ($operator === 'like') {
-                    $query->where($this->filterColumn, 'like', '%' . $value . '%');
+                    $query->where($this->filterColumn, 'like', '%'.$value.'%');
                 } else {
                     $query->where($this->filterColumn, $operator, $value);
                 }
@@ -1117,13 +1226,13 @@ class DatatableTrait extends Component
         }
 
         // Use cached relations for better performance
-        if (!empty($this->cachedRelations)) {
+        if (! empty($this->cachedRelations)) {
             $query->with($this->cachedRelations);
         }
 
         // Use cached select columns - but recalculate based on current visibility
         $selectColumns = $this->getValidSelectColumns();
-        if (!empty($selectColumns)) {
+        if (! empty($selectColumns)) {
             $query->select($selectColumns);
         }
 
@@ -1155,16 +1264,19 @@ class DatatableTrait extends Component
      */
     protected function getValidSelectColumns(): array
     {
-        $selects = ['id']; // Always include ID
-        
+        $modelInstance = new ($this->model);
+        $parentTable = $modelInstance->getTable();
+
+        $selects = [$parentTable.'.id']; // Always include ID with table qualifier
+
         // Always include updated_at for index sorting if it exists
         if ($this->isValidColumn('updated_at')) {
-            $selects[] = 'updated_at';
+            $selects[] = $parentTable.'.updated_at';
         }
 
         foreach ($this->columns as $columnKey => $column) {
             // Skip non-visible columns for performance
-            if (isset($this->visibleColumns) && !($this->visibleColumns[$columnKey] ?? true)) {
+            if (isset($this->visibleColumns) && ! ($this->visibleColumns[$columnKey] ?? true)) {
                 continue;
             }
 
@@ -1174,21 +1286,43 @@ class DatatableTrait extends Component
             }
 
             if (isset($column['relation'])) {
-                // For relations, we don't need to select the column from main table
+                [$relationName] = explode(':', $column['relation']);
+                $relationParts = explode('.', $relationName);
+
+                // For single-level relations like 'booking:unique_id'
+                if (count($relationParts) === 1 && $this->isValidColumn($relationParts[0].'_id')) {
+                    $foreignKey = $parentTable.'.'.$relationParts[0].'_id';
+                    if (! in_array($foreignKey, $selects)) {
+                        $selects[] = $foreignKey;
+                    }
+                }
+                // For nested relations like 'flight.airline:name', we need the base relation foreign key
+                elseif (count($relationParts) > 1 && $this->isValidColumn($relationParts[0].'_id')) {
+                    $foreignKey = $parentTable.'.'.$relationParts[0].'_id';
+                    if (! in_array($foreignKey, $selects)) {
+                        $selects[] = $foreignKey;
+                    }
+                }
+
                 continue;
             }
 
             // Handle JSON columns - always include the base JSON column when json is specified
             if (isset($column['json']) && isset($column['key'])) {
-                if (!in_array($column['key'], $selects)) {
-                    $selects[] = $column['key'];
+                $qualifiedColumn = $parentTable.'.'.$column['key'];
+                if (! in_array($qualifiedColumn, $selects)) {
+                    $selects[] = $qualifiedColumn;
                 }
+
                 continue;
             }
 
-            // Only add database columns if they have a valid key
-            if (isset($column['key']) && !in_array($column['key'], $selects)) {
-                $selects[] = $column['key'];
+            // Only add database columns if they have a valid key - with table qualifier
+            if (isset($column['key']) && $this->isValidColumn($column['key'])) {
+                $qualifiedColumn = $parentTable.'.'.$column['key'];
+                if (! in_array($qualifiedColumn, $selects)) {
+                    $selects[] = $qualifiedColumn;
+                }
             }
         }
 
@@ -1205,16 +1339,18 @@ class DatatableTrait extends Component
             return $this->isValidColumn($col);
         });
 
-        // Ensure action columns are always included, even if not in $this->columns
+        // Ensure action columns are always included, even if not in $this->columns - with table qualifier
         foreach ($validActionColumns as $col) {
-            if (!in_array($col, $selects)) {
-                $selects[] = $col;
+            $qualifiedColumn = $parentTable.'.'.$col;
+            if (! in_array($qualifiedColumn, $selects)) {
+                $selects[] = $qualifiedColumn;
             }
         }
-        // Same for raw template columns
+        // Same for raw template columns - with table qualifier
         foreach ($validRawTemplateColumns as $col) {
-            if (!in_array($col, $selects)) {
-                $selects[] = $col;
+            $qualifiedColumn = $parentTable.'.'.$col;
+            if (! in_array($qualifiedColumn, $selects)) {
+                $selects[] = $qualifiedColumn;
             }
         }
 
@@ -1266,6 +1402,7 @@ class DatatableTrait extends Component
             $modelInstance = new ($this->model);
             $table = $modelInstance->getTable();
             $columns = \Illuminate\Support\Facades\Schema::getColumnListing($table);
+
             return in_array($column, $columns);
         } catch (\Exception $e) {
             return false;
@@ -1281,7 +1418,7 @@ class DatatableTrait extends Component
         if ($column === 'updated_at') {
             return true;
         }
-        
+
         return array_key_exists($column, $this->columns);
     }
 
@@ -1294,10 +1431,10 @@ class DatatableTrait extends Component
 
         $query->where(function ($query) use ($search) {
             foreach ($this->columns as $columnKey => $column) {
-                if (!($this->visibleColumns[$columnKey] ?? true)) {
+                if (! ($this->visibleColumns[$columnKey] ?? true)) {
                     continue; // Skip non-visible columns
                 }
-                
+
                 $this->applyColumnSearch($query, $columnKey, $search);
             }
         });
@@ -1309,7 +1446,9 @@ class DatatableTrait extends Component
     protected function applyColumnSearch(\Illuminate\Database\Eloquent\Builder $query, $columnKey, $search)
     {
         $column = $this->columns[$columnKey] ?? null;
-        if (!$column) return;
+        if (! $column) {
+            return;
+        }
 
         $search = $this->sanitizeSearch($search);
 
@@ -1323,11 +1462,11 @@ class DatatableTrait extends Component
                 // Search in related table
                 [$relationName, $relationColumn] = explode(':', $column['relation']);
                 $q->orWhereHas($relationName, function ($relationQuery) use ($relationColumn, $search) {
-                    $relationQuery->where($relationColumn, 'like', '%' . $search . '%');
+                    $relationQuery->where($relationColumn, 'like', '%'.$search.'%');
                 });
             } elseif (isset($column['key']) && $this->isValidColumn($column['key'])) {
                 // Search in regular column
-                $q->orWhere($column['key'], 'like', '%' . $search . '%');
+                $q->orWhere($column['key'], 'like', '%'.$search.'%');
             }
         });
     }
@@ -1343,21 +1482,38 @@ class DatatableTrait extends Component
         });
 
         // If not found by key, try to find by the full column identifier (for JSON columns)
-        if (!$sortColumnConfig) {
+        if (! $sortColumnConfig) {
             $sortColumnConfig = $this->columns[$this->sortColumn] ?? null;
         }
 
         // Validate sort direction
         $direction = strtolower($this->sortDirection);
-        if (!in_array($direction, ['asc', 'desc'])) {
+        if (! in_array($direction, ['asc', 'desc'])) {
             $direction = 'asc';
         }
 
         if ($sortColumnConfig && isset($sortColumnConfig['relation'])) {
-            [$relationName, $relationColumn] = explode(':', $sortColumnConfig['relation']);
-            $modelInstance = new ($this->model);
-            $relationObj = $modelInstance->$relationName();
-            $this->applyJoinSorting($query, $relationObj, $relationColumn, $direction);
+            try {
+                [$relationName, $relationColumn] = explode(':', $sortColumnConfig['relation']);
+
+                // Handle nested relations (e.g., "user.profile:name")
+                if (strpos($relationName, '.') !== false) {
+                    // For nested relations, use subquery sorting to avoid complex joins
+                    $this->applySubquerySorting($query, $relationName, $relationColumn, $direction);
+                } else {
+                    // Simple relation - use join sorting
+                    $modelInstance = new ($this->model);
+                    if (method_exists($modelInstance, $relationName)) {
+                        $relationObj = $modelInstance->$relationName();
+                        $this->applyJoinSorting($query, $relationObj, $relationColumn, $direction);
+                    }
+                }
+            } catch (\Exception $e) {
+                // If relation sorting fails, fallback to basic sorting if possible
+                if ($sortColumnConfig && isset($sortColumnConfig['key']) && $this->isValidColumn($sortColumnConfig['key'])) {
+                    $query->orderBy($sortColumnConfig['key'], $direction);
+                }
+            }
         } elseif ($sortColumnConfig && isset($sortColumnConfig['key']) && $this->isValidColumn($sortColumnConfig['key'])) {
             $query->orderBy($sortColumnConfig['key'], $direction);
         } elseif ($this->sortColumn === 'updated_at' && $this->isValidColumn('updated_at')) {
@@ -1372,38 +1528,152 @@ class DatatableTrait extends Component
     {
         $modelInstance = new ($this->model);
         $relationTable = $relationObj->getRelated()->getTable();
+        $parentTable = $modelInstance->getTable();
 
-        // Always eager load the relation for performance
-        $relationName = method_exists($relationObj, 'getRelationName') ? $relationObj->getRelationName() : null;
-        if ($relationName) {
-            $query->with($relationName);
+        // Create unique table alias to prevent join conflicts
+        $tableAlias = $relationTable.'_sort_'.uniqid();
+
+        // Get relation name for eager loading (extract from relation object)
+        $relationName = null;
+        if (method_exists($relationObj, 'getRelationName')) {
+            $relationName = $relationObj->getRelationName();
+        } else {
+            // Fallback: get relation name from the relation object
+            $relationClass = get_class($relationObj);
+            if (property_exists($relationObj, 'relationName')) {
+                $relationName = $relationObj->relationName;
+            }
         }
 
-        if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
-            $foreignKey = $relationObj->getForeignKeyName();
-            $ownerKey = $relationObj->getOwnerKeyName();
-            $parentTable = $modelInstance->getTable();
-            
-            $query->leftJoin($relationTable, $parentTable . '.' . $foreignKey, '=', $relationTable . '.' . $ownerKey);
-        } elseif (
-            $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasMany ||
-            $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne
-        ) {
-            $foreignKey = $relationObj->getForeignKeyName();
-            $localKey = $relationObj->getLocalKeyName();
-            $parentTable = $modelInstance->getTable();
-            
-            $query->leftJoin($relationTable, $parentTable . '.' . $localKey, '=', $relationTable . '.' . $foreignKey);
+        // Check if this join already exists to prevent duplicates
+        $joinExists = false;
+        $existingJoins = $query->getQuery()->joins ?? [];
+        foreach ($existingJoins as $join) {
+            if ($join->table === $relationTable || strpos($join->table, $relationTable.'_sort_') === 0) {
+                $joinExists = true;
+                $tableAlias = $join->table;
+                break;
+            }
         }
 
-        // Validate sort direction - use passed parameter instead of instance variable
+        if (! $joinExists) {
+            if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                $foreignKey = $relationObj->getForeignKeyName();
+                $ownerKey = $relationObj->getOwnerKeyName();
+
+                $query->leftJoin($relationTable.' as '.$tableAlias,
+                    $parentTable.'.'.$foreignKey, '=', $tableAlias.'.'.$ownerKey);
+            } elseif (
+                $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasMany ||
+                $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne
+            ) {
+                $foreignKey = $relationObj->getForeignKeyName();
+                $localKey = $relationObj->getLocalKeyName();
+
+                $query->leftJoin($relationTable.' as '.$tableAlias,
+                    $parentTable.'.'.$localKey, '=', $tableAlias.'.'.$foreignKey);
+            }
+        }
+
+        // Validate sort direction
         $direction = strtolower($direction);
-        if (!in_array($direction, ['asc', 'desc'])) {
+        if (! in_array($direction, ['asc', 'desc'])) {
             $direction = 'asc';
         }
 
-        $query->orderBy($relationTable . '.' . $attribute, $direction)
-              ->select($modelInstance->getTable() . '.*'); // Ensure we select main table columns
+        // Apply sorting with table alias
+        $query->orderBy($tableAlias.'.'.$attribute, $direction);
+
+        // Only modify select if no columns are currently selected
+        // This prevents overriding the carefully constructed select columns
+        if (empty($query->getQuery()->columns)) {
+            $query->select($parentTable.'.*');
+        }
+
+        // Add group by to prevent duplicate results from joins
+        // Include all selected columns in GROUP BY to satisfy MySQL strict mode
+        $selectedColumns = $query->getQuery()->columns;
+        if (! empty($selectedColumns)) {
+            // Group by all selected columns
+            $query->groupBy($selectedColumns);
+        } else {
+            // Fallback to grouping by primary key when selecting all columns
+            $query->groupBy($parentTable.'.id');
+        }
+    }
+
+    /**
+     * Apply subquery sorting for nested relations
+     */
+    protected function applySubquerySorting(\Illuminate\Database\Eloquent\Builder $query, $relationPath, $attribute, $direction = 'asc'): void
+    {
+        try {
+            $modelInstance = new ($this->model);
+            $parentTable = $modelInstance->getTable();
+
+            // Split the nested relation path (e.g., "user.profile" -> ["user", "profile"])
+            $relationParts = explode('.', $relationPath);
+
+            // Build the subquery step by step
+            $currentModel = $modelInstance;
+            $subquery = null;
+            $previousTable = $parentTable;
+
+            foreach ($relationParts as $index => $relationName) {
+                if (! method_exists($currentModel, $relationName)) {
+                    throw new \Exception("Relation {$relationName} does not exist on model ".get_class($currentModel));
+                }
+
+                $relationObj = $currentModel->$relationName();
+                $relatedModel = $relationObj->getRelated();
+                $relatedTable = $relatedModel->getTable();
+
+                if ($index === 0) {
+                    // First relation - start the subquery
+                    $subquery = $relatedModel::query();
+
+                    if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                        $foreignKey = $relationObj->getForeignKeyName();
+                        $ownerKey = $relationObj->getOwnerKeyName();
+                        $subquery->whereColumn($relatedTable.'.'.$ownerKey, $parentTable.'.'.$foreignKey);
+                    } elseif ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasMany ||
+                             $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne) {
+                        $foreignKey = $relationObj->getForeignKeyName();
+                        $localKey = $relationObj->getLocalKeyName();
+                        $subquery->whereColumn($relatedTable.'.'.$foreignKey, $parentTable.'.'.$localKey);
+                    }
+                } else {
+                    // Subsequent relations - join to the existing subquery
+                    if ($subquery && $relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                        $foreignKey = $relationObj->getForeignKeyName();
+                        $ownerKey = $relationObj->getOwnerKeyName();
+                        $subquery->join($relatedTable, $previousTable.'.'.$foreignKey, '=', $relatedTable.'.'.$ownerKey);
+                    } elseif ($subquery && ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasMany ||
+                             $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne)) {
+                        $foreignKey = $relationObj->getForeignKeyName();
+                        $localKey = $relationObj->getLocalKeyName();
+                        $subquery->join($relatedTable, $previousTable.'.'.$localKey, '=', $relatedTable.'.'.$foreignKey);
+                    }
+                }
+
+                $currentModel = $relatedModel;
+                $previousTable = $relatedTable;
+            }
+
+            if ($subquery) {
+                // Add the sort column to the subquery
+                $finalTable = $currentModel->getTable();
+                $subquery->select($finalTable.'.'.$attribute);
+                $subquery->limit(1);
+
+                // Order the main query by the subquery result
+                $query->orderByRaw("({$subquery->toSql()}) {$direction}", $subquery->getBindings());
+            }
+
+        } catch (\Exception $e) {
+            // Log the error and fall back to no sorting for this column
+            Log::warning("Failed to apply subquery sorting for relation path: {$relationPath}. Error: ".$e->getMessage());
+        }
     }
 
     /**
@@ -1417,7 +1687,7 @@ class DatatableTrait extends Component
             $template = is_array($action) && isset($action['raw']) ? $action['raw'] : $action;
             if (is_string($template)) {
                 preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $template, $matches);
-                if (!empty($matches[1])) {
+                if (! empty($matches[1])) {
                     $neededColumns = array_merge($neededColumns, $matches[1]);
                 }
             }
@@ -1436,7 +1706,7 @@ class DatatableTrait extends Component
         foreach ($this->columns as $column) {
             if (isset($column['raw']) && is_string($column['raw'])) {
                 preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $column['raw'], $matches);
-                if (!empty($matches[1])) {
+                if (! empty($matches[1])) {
                     $neededColumns = array_merge($neededColumns, $matches[1]);
                 }
             }
@@ -1451,6 +1721,7 @@ class DatatableTrait extends Component
     protected function sanitizeSearch($search)
     {
         $search = trim($search);
+
         // Limit length to prevent abuse
         return mb_substr($search, 0, 100);
     }
@@ -1463,6 +1734,7 @@ class DatatableTrait extends Component
         if (is_string($value)) {
             return trim($value);
         }
+
         return $value;
     }
 
@@ -1471,12 +1743,13 @@ class DatatableTrait extends Component
      */
     protected function sanitizeHtmlContent($content): string
     {
-        if (!is_string($content)) {
+        if (! is_string($content)) {
             return '';
         }
 
         // Allow basic HTML tags but escape dangerous ones
         $allowedTags = '<p><br><strong><em><span><div><a><img><ul><ol><li>';
+
         return strip_tags($content, $allowedTags);
     }
 
@@ -1485,7 +1758,7 @@ class DatatableTrait extends Component
      */
     protected function validateJsonPath($jsonPath): bool
     {
-        if (!is_string($jsonPath)) {
+        if (! is_string($jsonPath)) {
             return false;
         }
 
@@ -1498,18 +1771,18 @@ class DatatableTrait extends Component
      */
     protected function validateRelationString($relationString): bool
     {
-        if (empty($relationString) || !is_string($relationString)) {
+        if (empty($relationString) || ! is_string($relationString)) {
             return false;
         }
 
         // Should contain at least relation:column format
-        if (!str_contains($relationString, ':')) {
+        if (! str_contains($relationString, ':')) {
             return false;
         }
 
         [$relationName, $column] = explode(':', $relationString, 2);
 
-        return !empty($relationName) && !empty($column);
+        return ! empty($relationName) && ! empty($column);
     }
 
     /**
@@ -1518,6 +1791,7 @@ class DatatableTrait extends Component
     protected function validateExportFormat($format): string
     {
         $validFormats = ['csv', 'xlsx', 'pdf'];
+
         return in_array(strtolower($format), $validFormats) ? strtolower($format) : 'csv';
     }
 
@@ -1547,5 +1821,108 @@ class DatatableTrait extends Component
     {
         // For text, we now always use the raw value (LIKE %value%)
         return $value;
+    }
+
+    // *----------- Trait Conflict Resolution -----------*//
+
+    /**
+     * Clear selection - resolves conflict between HasActions and HasBulkActions
+     * Uses bulk actions version for enhanced functionality
+     */
+    public function clearSelection()
+    {
+        // Use the bulk actions version which has more features
+        $this->clearBulkSelection();
+
+        // Also clear the actions selection for compatibility
+        $this->clearActionSelection();
+
+        // Dispatch event for both contexts
+        $this->dispatch('selectionCleared');
+    }
+
+    /**
+     * Get selected count - resolves conflict between HasActions and HasBulkActions
+     * Uses bulk actions version for enhanced functionality
+     */
+    public function getSelectedCount(): int
+    {
+        // Use the bulk actions version which typically has more features
+        $bulkCount = $this->getBulkSelectedCount();
+        $actionCount = $this->getActionSelectedCount();
+
+        // Return the maximum count (they should be the same if synced properly)
+        return max($bulkCount, $actionCount);
+    }
+
+    // ============================================================================
+    // CONSOLIDATED TRAIT PUBLIC METHOD WRAPPERS
+    // ============================================================================
+
+    /**
+     * Advanced Caching Public Methods
+     */
+    public function getCacheStrategy(): string
+    {
+        return $this->determineCacheStrategy();
+    }
+
+    public function getCacheStatistics(): array 
+    {
+        return $this->getCacheStats();
+    }
+
+    public function warmCache(): void
+    {
+        $this->warmSpecificCache();
+    }
+
+    public function generateIntelligentCacheKey(string $suffix = ''): string
+    {
+        return $this->generateAdvancedCacheKey($suffix);
+    }
+
+    /**
+     * Advanced Filtering Public Methods  
+     */
+    public function getFilterOperators(): array
+    {
+        return $this->getAvailableFilterOperators();
+    }
+
+    public function applyDateFilters($query, string $column, string $operator, $value)
+    {
+        return $this->applyDateFilter($query, $column, $operator, $value);
+    }
+
+    public function validateFilterValue($value, string $type): bool
+    {
+        return $this->isValidFilterValue($value, $type);
+    }
+
+    /**
+     * Advanced Export Public Methods
+     */
+    public function exportWithChunking(string $format = 'csv', int $chunkSize = 1000): \Illuminate\Http\Response
+    {
+        return $this->exportInChunks($format, $chunkSize);
+    }
+
+    /**
+     * Column Optimization Public Methods
+     */
+    public function analyzeColumnTypes(): array
+    {
+        return $this->getColumnTypeAnalysis();
+    }
+
+    public function optimizeColumnSelection(): array
+    {
+        return $this->getOptimizedColumns();
+    }
+
+    public function detectHeavyColumns(): array
+    {
+        return $this->getHeavyColumns();
     }
 }

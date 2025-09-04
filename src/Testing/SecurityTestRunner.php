@@ -116,7 +116,10 @@ class SecurityTestRunner extends BaseTestRunner
         ];
 
         foreach ($xssInputs as $input) {
-            $sanitized = $table->sanitizeHtmlContent($input);
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('sanitizeHtmlContent');
+            $method->setAccessible(true);
+            $sanitized = $method->invoke($table, $input);
             
             $this->assertFalse(
                 strpos(strtolower($sanitized), 'script') !== false ||
@@ -147,7 +150,10 @@ class SecurityTestRunner extends BaseTestRunner
 
         // Test filter value validation
         $dangerousFilter = '<script>alert("xss")</script>';
-        $sanitizedFilter = $table->sanitizeFilterValue($dangerousFilter);
+        $reflection = new \ReflectionClass($table);
+        $method = $reflection->getMethod('sanitizeFilterValue');
+        $method->setAccessible(true);
+        $sanitizedFilter = $method->invoke($table, $dangerousFilter);
 
         $this->assertFalse(
             strpos($sanitizedFilter, '<script>') !== false,
@@ -167,10 +173,13 @@ class SecurityTestRunner extends BaseTestRunner
         ];
 
         // Test access to non-existent column
-        $this->assertFalse($table->isAllowedColumn('password'), 'Access allowed to non-configured column');
+        $reflection = new \ReflectionClass($table);
+        $method = $reflection->getMethod('isAllowedColumn');
+        $method->setAccessible(true);
+        $this->assertFalse($method->invoke($table, 'password'), 'Access allowed to non-configured column');
 
         // Test access to configured column
-        $this->assertTrue($table->isAllowedColumn('name'), 'Access denied to configured column');
+        $this->assertTrue($method->invoke($table, 'name'), 'Access denied to configured column');
 
         return true;
     }
@@ -187,7 +196,10 @@ class SecurityTestRunner extends BaseTestRunner
         ];
 
         foreach ($testCases as $case) {
-            $sanitized = $table->sanitizeSearch($case['input']);
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('sanitizeSearch');
+            $method->setAccessible(true);
+            $sanitized = $method->invoke($table, $case['input']);
             
             if (isset($case['maxLength'])) {
                 $this->assertLessThan($case['maxLength'] + 1, strlen($sanitized), "Search not limited to {$case['maxLength']} characters");
@@ -217,7 +229,10 @@ class SecurityTestRunner extends BaseTestRunner
         ];
 
         foreach ($testCases as $input) {
-            $sanitized = $table->sanitizeFilterValue($input);
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('sanitizeFilterValue');
+            $method->setAccessible(true);
+            $sanitized = $method->invoke($table, $input);
             
             // Should not contain dangerous patterns
             $dangerousPatterns = ['<script', '<img', 'onerror', 'SELECT', 'DROP', 'DELETE'];
@@ -240,7 +255,10 @@ class SecurityTestRunner extends BaseTestRunner
         $table = new Datatable();
         
         $input = '<p>Valid content</p><script>alert("xss")</script>';
-        $sanitized = $table->sanitizeHtmlContent($input);
+        $reflection = new \ReflectionClass($table);
+        $method = $reflection->getMethod('sanitizeHtmlContent');
+        $method->setAccessible(true);
+        $sanitized = $method->invoke($table, $input);
         
         // Should contain allowed tags
         $this->assertStringContains('<p>', $sanitized, 'Allowed HTML tags were incorrectly stripped');
@@ -272,11 +290,17 @@ class SecurityTestRunner extends BaseTestRunner
         ];
 
         foreach ($validPaths as $path) {
-            $this->assertTrue($table->validateJsonPath($path), "Valid JSON path '{$path}' rejected");
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('validateJsonPath');
+            $method->setAccessible(true);
+            $this->assertTrue($method->invoke($table, $path), "Valid JSON path '{$path}' rejected");
         }
 
         foreach ($invalidPaths as $path) {
-            $this->assertFalse($table->validateJsonPath($path), "Invalid JSON path '{$path}' accepted");
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('validateJsonPath');
+            $method->setAccessible(true);
+            $this->assertFalse($method->invoke($table, $path), "Invalid JSON path '{$path}' accepted");
         }
 
         return true;
@@ -300,11 +324,17 @@ class SecurityTestRunner extends BaseTestRunner
         ];
 
         foreach ($validRelations as $relation) {
-            $this->assertTrue($table->validateRelationString($relation), "Valid relation string '{$relation}' rejected");
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('validateRelationString');
+            $method->setAccessible(true);
+            $this->assertTrue($method->invoke($table, $relation), "Valid relation string '{$relation}' rejected");
         }
 
         foreach ($invalidRelations as $relation) {
-            $this->assertFalse($table->validateRelationString($relation), "Invalid relation string '{$relation}' accepted");
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('validateRelationString');
+            $method->setAccessible(true);
+            $this->assertFalse($method->invoke($table, $relation), "Invalid relation string '{$relation}' accepted");
         }
 
         return true;
@@ -323,12 +353,18 @@ class SecurityTestRunner extends BaseTestRunner
         $invalidFormats = ['exe', 'php', '<script>'];
 
         foreach ($validFormats as $format) {
-            $validated = $table->validateExportFormat($format);
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('validateExportFormat');
+            $method->setAccessible(true);
+            $validated = $method->invoke($table, $format);
             $this->assertContains($validated, $validFormats, "Valid export format '{$format}' not accepted");
         }
 
         foreach ($invalidFormats as $format) {
-            $validated = $table->validateExportFormat($format);
+            $reflection = new \ReflectionClass($table);
+            $method = $reflection->getMethod('validateExportFormat');
+            $method->setAccessible(true);
+            $validated = $method->invoke($table, $format);
             $this->assertContains($validated, $validFormats, "Invalid export format '{$format}' should default to safe format");
         }
 
