@@ -95,9 +95,18 @@ trait HasAdvancedFiltering
      */
     public function updateAdvancedFilter($key, $value, $operator = null)
     {
+        // For text filters, only process if minimum 3 characters or empty
+        $filterConfig = $this->advancedFilters[$key] ?? [];
+        $filterType = $filterConfig['type'] ?? 'text';
+        
+        if ($filterType === 'text' && !empty($value) && strlen(trim($value)) < 3) {
+            // Don't update filter for text with less than 3 characters
+            return;
+        }
+        
         $this->advancedFilterValues[$key] = [
             'value' => $value,
-            'operator' => $operator ?? $this->advancedFilters[$key]['operator'] ?? 'equals'
+            'operator' => $operator ?? $this->advancedFilters[$key]['operator'] ?? 'contains' // Default to contains for text
         ];
         
         $this->resetPage();
@@ -138,7 +147,14 @@ trait HasAdvancedFiltering
             $value = $filter['value'];
             $operator = $filter['operator'];
             
+            // Skip empty values for most operators
             if (empty($value) && !in_array($operator, ['is_null', 'is_not_null'])) {
+                continue;
+            }
+            
+            // For text filters, enforce minimum 3 characters
+            $filterType = $config['type'] ?? 'text';
+            if ($filterType === 'text' && !empty($value) && strlen(trim($value)) < 3) {
                 continue;
             }
             

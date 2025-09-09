@@ -11,8 +11,8 @@ class TableServiceProvider extends ServiceProvider
     public function boot()
     {
         // Explicitly register the Livewire components
-        Livewire::component('aftable', \ArtflowStudio\Table\Http\Livewire\Datatable::class);
-        Livewire::component('aftable-trait', \ArtflowStudio\Table\Http\Livewire\DatatableTrait::class);
+        Livewire::component('aftable-simple', \ArtflowStudio\Table\Http\Livewire\Datatable::class);
+        Livewire::component('aftable', \ArtflowStudio\Table\Http\Livewire\DatatableTrait::class);
 
         // Register the custom Blade directives
         Blade::directive('AFtable', function ($expression) {

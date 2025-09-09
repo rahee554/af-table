@@ -18,11 +18,11 @@
 
 <div>
     @if (!empty($filters))
-
-        <div class="row">
-            <div class="col-12 col-sm-4 col-md-3 col-lg-2">
-                <select wire:model.live="filterColumn" class="form-select form-select-sm">
-                    <option value="">Filter by Column</option>
+        <div class="row g-2 mb-3 align-items-end">
+            <div class="col-12 col-sm-6 col-md-3">
+                <label class="form-label small text-muted">Filter Column</label>
+                <select wire:model.live="filterColumn" class="form-select form-select-sm filter-indicator {{ $filterColumn ? 'active' : '' }}">
+                    <option value="">Select Column</option>
                     @foreach ($filters as $filterKey => $filterConfig)
                         @php
                             $columnLabel = isset($columns[$filterKey])
@@ -38,11 +38,12 @@
                     $filterType = isset($filters[$filterColumn]['type']) ? $filters[$filterColumn]['type'] : 'text';
                 @endphp
                 @if (in_array($filterType, ['integer', 'number', 'date']))
-                    <div class="col-12 col-sm-4 col-md-3 col-lg-2">
+                    <div class="col-12 col-sm-6 col-md-2">
+                        <label class="form-label small text-muted">Operator</label>
                         <select wire:model.live="filterOperator" class="form-select form-select-sm">
                             <option value="=">Equal (=)</option>
                             <option value="!=">Not Equal (≠)</option>
-                            <option value="<">Less Than (<)< /option>
+                            <option value="<">Less Than (<)</option>
                             <option value=">">Greater Than (>)</option>
                             <option value="<=">Less or Equal (≤)</option>
                             <option value=">=">Greater or Equal (≥)</option>
@@ -59,8 +60,9 @@
                             : null;
                 @endphp
                 @if ($selectedColumn)
+                    <label class="form-label small text-muted">Value</label>
                     @if ($filterType === 'select' || $filterType === 'distinct')
-                        <select wire:model.live="filterValue" class="form-control form-control-sm">
+                        <select wire:model.live="filterValue" class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
                             <option value="">Select Value</option>
                             @foreach ($this->getDistinctValues($selectedColumn) as $val)
                                 <option value="{{ $val }}">{{ $val }}</option>
@@ -68,15 +70,16 @@
                         </select>
                     @elseif($filterType === 'date')
                         <input type="date" wire:model.live.debounce.500ms="filterValue"
-                            class="form-control form-control-sm">
+                            class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
                     @elseif(in_array($filterType, ['integer', 'number']))
                         <input type="number" wire:model.live.debounce.500ms="filterValue" placeholder="Enter number..."
-                            class="form-control form-control-sm">
+                            class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
                     @else
-                        <input type="text" wire:model.live.debounce.500ms="filterValue" placeholder="Enter value..."
-                            class="form-control form-control-sm">
+                        <input type="text" wire:model.live.debounce.500ms="filterValue" placeholder="Enter at least 3 characters..."
+                            class="form-control form-control-sm filter-indicator {{ $filterValue && strlen($filterValue) >= 3 ? 'active' : '' }}" minlength="3">
                     @endif
                 @else
+                    <label class="form-label small text-muted">Value</label>
                     <input type="text" placeholder="Select a column first" class="form-control form-control-sm"
                         disabled>
                 @endif
@@ -84,19 +87,19 @@
             <div class="col-auto">
                 <button type="button"
                     wire:click="$set('filterColumn', null); $set('filterValue', null); $set('filterOperator', '=')"
-                    class="btn btn-sm btn-light">Clear</button>
+                    class="btn btn-sm btn-outline-secondary" title="Clear filters">
+                    <i class="fas fa-times"></i> Clear
+                </button>
             </div>
         </div>
-
-
     @endif
     <div class="row mb-2">
         <div class="col">
             <div class="w-100px">
               @if ($searchable)
                 <div class="position-relative w-md-250px me-2">
-                    <input type="text" wire:model.lazy="search" placeholder="Search..."
-                        class="form-control form-control-sm border-0 p-2 pe-4">
+                    <input type="text" wire:model.live.debounce.500ms="search" placeholder="Search (min 3 chars)..."
+                        class="form-control form-control-sm border-0 p-2 pe-4" minlength="3">
 
                     @if (!empty($search))
                         <span class="position-absolute top-50 end-0 translate-middle-y me-2 cursor-pointer text-muted"
@@ -133,9 +136,11 @@
                                         {{ $isCurrentlyVisible ? 'checked' : '' }}>
                                     <label class="form-check-label" for="column-{{ $columnKey }}">
                                         {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
+                                        {{-- //** Key of the Field **//
+                                        
                                         @if(!isset($column['json']))
                                             <small class="text-muted">({{ $columnKey }})</small>
-                                        @endif
+                                        @endif --}}
                                     </label>
                                 </div>
                             </li>
@@ -461,10 +466,11 @@
     </div>
 
     <div>
+
         @if(isset($data))
             {{ $data->links('artflow-table::livewire.pagination') }}
         @endif
-        @if ($records > 10)
+        @if(isset($data) && $data->total() > 10)
             <div class="w-100px">
                 <select wire:model.change="records" id="records" class="form-select form-select-sm">
                     <option value="10">10</option>
@@ -475,6 +481,9 @@
                 </select>
             </div>
         @endif
+
+        
+
     </div>
 </div>
 
@@ -510,6 +519,7 @@
 
             cb(start, end);
 
+            // Enhanced animation handling
             document.addEventListener('DOMContentLoaded', function () {
             // Livewire event listener for table updates
             window.addEventListener('livewire:update', function () {

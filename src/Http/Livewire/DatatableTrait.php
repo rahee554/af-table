@@ -935,7 +935,21 @@ class DatatableTrait extends Component
      */
     public function updatedFilterValue()
     {
+        // Get the filter type for the current filter column
+        $filterType = isset($this->filters[$this->filterColumn]['type']) 
+            ? $this->filters[$this->filterColumn]['type'] 
+            : 'text';
+        
+        // For text filters, only process if minimum 3 characters or empty
+        if ($filterType === 'text' && !empty($this->filterValue) && strlen(trim($this->filterValue)) < 3) {
+            // Don't reset page or trigger search for text with less than 3 characters
+            return;
+        }
+        
         $this->resetPage();
+        
+        // Emit event for frontend handling
+        $this->dispatch('filterValueUpdated', $this->filterColumn, $this->filterValue);
     }
 
     // *----------- Protected Helper Methods -----------*//
@@ -1191,21 +1205,31 @@ class DatatableTrait extends Component
         if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
             $operator = $this->filterOperator ?: '=';
             $value = $this->sanitizeFilterValue($this->filterValue);
+            
+            // Get filter type for determining search behavior
+            $filterType = isset($this->filters[$this->filterColumn]['type']) 
+                ? $this->filters[$this->filterColumn]['type'] 
+                : 'text';
+
+            // For text filters, default to LIKE search
+            if ($filterType === 'text' && $operator === '=') {
+                $operator = 'LIKE';
+            }
 
             if (isset($this->columns[$this->filterColumn]['relation'])) {
                 // Handle relation filtering
                 [$relationName, $relationColumn] = explode(':', $this->columns[$this->filterColumn]['relation']);
                 $query->whereHas($relationName, function ($q) use ($relationColumn, $operator, $value) {
-                    if ($operator === 'like') {
-                        $q->where($relationColumn, 'like', '%'.$value.'%');
+                    if (strtoupper($operator) === 'LIKE') {
+                        $q->where($relationColumn, 'LIKE', '%'.$value.'%');
                     } else {
                         $q->where($relationColumn, $operator, $value);
                     }
                 });
             } else {
                 // Handle regular column filtering
-                if ($operator === 'like') {
-                    $query->where($this->filterColumn, 'like', '%'.$value.'%');
+                if (strtoupper($operator) === 'LIKE') {
+                    $query->where($this->filterColumn, 'LIKE', '%'.$value.'%');
                 } else {
                     $query->where($this->filterColumn, $operator, $value);
                 }
@@ -1236,14 +1260,27 @@ class DatatableTrait extends Component
             $query->select($selectColumns);
         }
 
-        // Optimized search with indexed queries
-        if ($this->searchable && $this->search) {
+        // Optimized search with indexed queries - only if search has 3+ characters
+        if ($this->searchable && $this->search && strlen(trim($this->search)) >= 3) {
             $this->applyOptimizedSearch($query);
         }
 
-        // Apply filters
-        if ($this->filterColumn && $this->filterValue) {
-            $this->applyFilters($query);
+        // Apply filters - improved logic for text filters
+        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
+            // Get filter type for the current filter column
+            $filterType = isset($this->filters[$this->filterColumn]['type']) 
+                ? $this->filters[$this->filterColumn]['type'] 
+                : 'text';
+            
+            // For text filters, only apply if 3+ characters
+            if ($filterType === 'text') {
+                if (strlen(trim($this->filterValue)) >= 3) {
+                    $this->applyFilters($query);
+                }
+            } else {
+                // For non-text filters, apply immediately
+                $this->applyFilters($query);
+            }
         }
 
         // Date range filter
@@ -1853,6 +1890,39 @@ class DatatableTrait extends Component
 
         // Return the maximum count (they should be the same if synced properly)
         return max($bulkCount, $actionCount);
+    }
+
+    /**
+     * Check if a column is searchable
+     */
+    protected function isColumnSearchable($column): bool
+    {
+        // Skip if explicitly marked as non-searchable
+        if (isset($column['searchable']) && !$column['searchable']) {
+            return false;
+        }
+        
+        // Skip function columns (computed values)
+        if (isset($column['function'])) {
+            return false;
+        }
+        
+        // Skip JSON columns that don't have a searchable path
+        if (isset($column['json']) && !isset($column['searchable_json_path'])) {
+            return false;
+        }
+        
+        // Allow relation columns if they have valid relation string
+        if (isset($column['relation'])) {
+            return $this->validateRelationString($column['relation']);
+        }
+        
+        // Allow regular columns with valid keys
+        if (isset($column['key'])) {
+            return $this->isValidColumn($column['key']);
+        }
+        
+        return false;
     }
 
     // ============================================================================

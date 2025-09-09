@@ -31,7 +31,17 @@ trait HasSearch
     public function updatedSearch()
     {
         $this->search = $this->sanitizeSearch($this->search);
+        
+        // Only search if minimum 3 characters are entered
+        if (strlen($this->search) < 3 && !empty($this->search)) {
+            // Don't reset page or trigger search for less than 3 characters
+            return;
+        }
+        
         $this->resetPage();
+        
+        // Emit event for frontend handling
+        $this->dispatch('searchUpdated', $this->search);
     }
 
     /**
@@ -40,6 +50,11 @@ trait HasSearch
     protected function applyOptimizedSearch($query): void
     {
         $search = $this->sanitizeSearch($this->search);
+
+        // Only apply search if minimum 3 characters are entered
+        if (strlen($search) < 3) {
+            return;
+        }
 
         $query->where(function ($query) use ($search) {
             foreach ($this->columns as $columnKey => $column) {
