@@ -234,7 +234,7 @@
                         <td colspan="{{ 
                             ($checkbox ? 1 : 0) +
                             ((!isset($index) || $index) ? 1 : 0) +
-                            collect($columns)->filter(fn($col, $key) => $visibleColumns[$key] ?? false)->count() +
+                            {{ $this->getVisibleColumnsCount($columns, $visibleColumns) }} +
                             (!empty($actions) ? 1 : 0)
                         }}" class="text-center align-middle py-5">
                             <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 200px;">
@@ -462,7 +462,7 @@
 
     <div>
         {{ $data->links('artflow-table::livewire.pagination') }}
-        @if ($records > 10)
+        @if ($perPage > 10)
             <div class="w-100px">
                 <select wire:model.change="records" id="records" class="form-select form-select-sm">
                     <option value="10">10</option>

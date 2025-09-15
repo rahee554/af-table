@@ -9,8 +9,29 @@ trait HasSessionManagement
      */
     protected function getSessionKey($key = null): string
     {
-        $baseKey = 'datatable_' . $this->tableId;
+        // Include user ID for session isolation - prevents data leakage between users
+        $userId = $this->getUserIdentifierForSession();
+        $baseKey = 'datatable_' . $this->tableId . '_' . $userId;
         return $key ? $baseKey . '_' . $key : $baseKey;
+    }
+
+    /**
+     * Get user identifier for session isolation
+     */
+    protected function getUserIdentifierForSession()
+    {
+        // Try different auth methods in order of preference
+        if (function_exists('auth') && auth()->check()) {
+            return 'user_' . auth()->id();
+        }
+        
+        if (function_exists('request') && request()->ip()) {
+            // Fallback to session ID + IP for guest users
+            return 'guest_' . md5(session()->getId() . '_' . request()->ip());
+        }
+        
+        // Final fallback to session ID only
+        return 'session_' . session()->getId();
     }
 
     /**

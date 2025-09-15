@@ -24,7 +24,27 @@ trait HasApiEndpoint
         'retry_delay' => 1000, // milliseconds
         'cache_duration' => 300, // 5 minutes
         'cache_enabled' => true,
-        'rate_limit' => [
+        'rate_    /**
+     * Clear API-related cache
+     */
+    public function clearApiCache(): self
+    {
+        $pattern = 'api_datatable_*';
+        
+        // Use targeted cache clearing instead of flushing all cache
+        if (method_exists($this, 'clearCacheByPattern')) {
+            $this->clearCacheByPattern($pattern);
+        } else {
+            // Fallback: only flush in development/testing environments
+            if (app()->environment(['testing', 'local'])) {
+                Cache::flush();
+            } else {
+                \Log::warning("Unable to clear API cache pattern: {$pattern}. clearCacheByPattern method not available.");
+            }
+        }
+        
+        return $this;
+    }
             'enabled' => false,
             'max_requests' => 60,
             'per_minutes' => 1,
@@ -383,15 +403,18 @@ trait HasApiEndpoint
             return $data;
         }
         
-        return collect($data)->map(function ($item) {
+        $transformed = [];
+        foreach ($data as $item) {
             // Convert objects to arrays for consistent handling
             if (is_object($item)) {
                 $item = (array) $item;
             }
             
             // Add any custom transformations here
-            return $this->transformApiItem($item);
-        })->all();
+            $transformed[] = $this->transformApiItem($item);
+        }
+        
+        return $transformed;
     }
 
     /**

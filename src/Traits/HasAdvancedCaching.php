@@ -268,16 +268,53 @@ trait HasAdvancedCaching
      */
     protected function clearCacheByPattern(string $pattern): void
     {
-        // For Redis cache driver
-        if (config('cache.default') === 'redis') {
-            $keys = Cache::getRedis()->keys($pattern);
-            if (!empty($keys)) {
-                Cache::getRedis()->del($keys);
+        try {
+            $driver = config('cache.default');
+            
+            if ($driver === 'redis') {
+                // For Redis, use pattern-based clearing
+                $redis = Cache::getStore()->getRedis();
+                $prefix = Cache::getStore()->getPrefix();
+                $fullPattern = $prefix . $pattern;
+                
+                $keys = $redis->keys($fullPattern);
+                if (!empty($keys)) {
+                    $keysToDelete = array_map(function($key) use ($prefix) {
+                        return str_replace($prefix, '', $key);
+                    }, $keys);
+                    Cache::deleteMultiple($keysToDelete);
+                }
+            } elseif ($driver === 'file') {
+                // For file cache, scan and delete matching files
+                $cacheDir = storage_path('framework/cache/data');
+                if (is_dir($cacheDir)) {
+                    $pattern = str_replace(['*', ':'], ['.*', '\:'], $pattern);
+                    $iterator = new \RecursiveIteratorIterator(
+                        new \RecursiveDirectoryIterator($cacheDir)
+                    );
+                    
+                    foreach ($iterator as $file) {
+                        if ($file->isFile() && preg_match("/{$pattern}/", $file->getFilename())) {
+                            unlink($file->getPathname());
+                        }
+                    }
+                }
+            } elseif ($driver === 'database') {
+                // For database cache, use LIKE query
+                $table = config('cache.stores.database.table', 'cache');
+                $dbPattern = str_replace('*', '%', $pattern);
+                \DB::table($table)->where('key', 'LIKE', $dbPattern)->delete();
+            } else {
+                // For other drivers (array, null), we can safely flush in testing
+                if (app()->environment(['testing', 'local'])) {
+                    Cache::flush();
+                } else {
+                    // In production, log warning and skip aggressive cache clearing
+                    \Log::warning("Cache pattern clearing not supported for driver: {$driver}. Skipping cache clear for pattern: {$pattern}");
+                }
             }
-        } else {
-            // For other cache drivers, we'll flush all cache (less efficient but safer)
-            // In production, consider implementing driver-specific pattern clearing
-            Cache::flush();
+        } catch (\Exception $e) {
+            \Log::warning('Cache clearing failed: ' . $e->getMessage());
         }
     }
 

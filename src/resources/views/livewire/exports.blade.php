@@ -72,7 +72,7 @@
                     @foreach ($columns as $column)
                         <td>
                             @if (isset($column['raw']))
-                                {!! strip_tags(\Illuminate\Support\Facades\Blade::render($column['raw'], compact('row'))) !!}
+                                {!! strip_tags($this->renderRawHtml($column['raw'], $row)) !!}
                             @elseif (isset($column['relation']))
                                 @php [$relation, $attribute] = explode(':', $column['relation']); @endphp
                                 {{ $row->$relation->$attribute ?? '' }}

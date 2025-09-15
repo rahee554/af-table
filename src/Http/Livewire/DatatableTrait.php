@@ -4,6 +4,7 @@ namespace ArtflowStudio\Table\Http\Livewire;
 
 use ArtflowStudio\Table\Traits\HasActions;
 use ArtflowStudio\Table\Traits\HasAdvancedCaching;
+use ArtflowStudio\Table\Traits\HasTargetedCaching;
 use ArtflowStudio\Table\Traits\HasAdvancedExport;
 use ArtflowStudio\Table\Traits\HasAdvancedFiltering;
 use ArtflowStudio\Table\Traits\HasApiEndpoint;
@@ -19,6 +20,10 @@ use ArtflowStudio\Table\Traits\HasEventListeners;
 use ArtflowStudio\Table\Traits\HasForEach;
 use ArtflowStudio\Table\Traits\HasJsonSupport;
 use ArtflowStudio\Table\Traits\HasMemoryManagement;
+use ArtflowStudio\Table\Traits\HasIntelligentCaching;
+use ArtflowStudio\Table\Traits\HasOptimizedCollections;
+use ArtflowStudio\Table\Traits\HasOptimizedMemory;
+use ArtflowStudio\Table\Traits\HasOptimizedRelationships;
 use ArtflowStudio\Table\Traits\HasPerformanceMonitoring;
 use ArtflowStudio\Table\Traits\HasQueryBuilder;
 use ArtflowStudio\Table\Traits\HasQueryOptimization;
@@ -42,6 +47,7 @@ class DatatableTrait extends Component
         HasAdvancedCaching::generateDistinctValuesCacheKey insteadof HasDistinctValues;
         HasDistinctValues::generateDistinctValuesCacheKey as generateBasicDistinctCacheKey;
     }
+    use HasTargetedCaching;
     use HasAdvancedExport;
     use HasAdvancedFiltering;
     use HasApiEndpoint;
@@ -59,6 +65,10 @@ class DatatableTrait extends Component
     use HasForEach;
     use HasJsonSupport;
     use HasMemoryManagement;
+    use HasOptimizedMemory;
+    use HasOptimizedCollections;
+    use HasOptimizedRelationships;
+    use HasIntelligentCaching;
     use HasPerformanceMonitoring;
     use HasQueryBuilder;
     use HasQueryOptimization;
@@ -79,7 +89,7 @@ class DatatableTrait extends Component
 
     public $checkbox = false;
 
-    public $records = 10;
+    // Removed $records property - use $perPage for unified pagination
 
     public $search = '';
 
@@ -179,23 +189,8 @@ class DatatableTrait extends Component
         // Pre-cache relations and select columns for performance
         $this->initializeColumnConfiguration($columns);
 
-        // Re-key columns by 'key' or 'function' with fallback
-        // For JSON columns, use a unique identifier that includes the JSON path
-        $this->columns = collect($columns)->mapWithKeys(function ($column, $index) {
-            // Priority: function > key+json > key > auto-generated
-            if (isset($column['function'])) {
-                $identifier = $column['function'];
-            } elseif (isset($column['key']) && isset($column['json'])) {
-                // For JSON columns, create unique identifier using key and json path
-                $identifier = $column['key'].'.'.$column['json'];
-            } elseif (isset($column['key'])) {
-                $identifier = $column['key'];
-            } else {
-                $identifier = 'col_'.$index; // Fallback for columns without key or function
-            }
-
-            return [$identifier => $column];
-        })->toArray();
+        // Use memory-optimized column initialization
+        $this->columns = $this->initializeColumnsOptimized($columns);
 
         // Session key for column visibility (unique per model/table and tableId)
         $sessionKey = $this->getColumnVisibilitySessionKey();
@@ -205,7 +200,8 @@ class DatatableTrait extends Component
         if (! empty($sessionVisibility)) {
             $this->visibleColumns = $this->getValidatedVisibleColumns($sessionVisibility);
         } else {
-            $this->visibleColumns = $this->getDefaultVisibleColumns();
+            // Use optimized default visible columns
+            $this->visibleColumns = $this->getDefaultVisibleColumnsOptimized();
         }
 
         // Ensure all columns have a visibility state
@@ -227,15 +223,99 @@ class DatatableTrait extends Component
     }
 
     /**
-     * Get data for the datatable
+     * Build the complete unified query (replaces both buildQuery and query methods)
+     */
+    protected function buildUnifiedQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        // Start with base model query
+        $query = $this->model::query();
+
+        // Apply custom query constraints with validation
+        if ($this->query) {
+            $this->applyCustomQueryConstraints($query);
+        }
+
+        // Apply column optimization for selective loading
+        $query = $this->applyColumnOptimization($query);
+
+        // Use optimized relation loading with selective column loading
+        $query = $this->applyOptimizedEagerLoading($query);
+
+        // Apply optimized column selection for reduced memory usage
+        $selectColumns = $this->getOptimizedSelectColumns();
+        if (! empty($selectColumns)) {
+            $query->select($selectColumns);
+        }
+
+        // Apply search - optimized with minimum character threshold
+        if ($this->searchable && $this->search && strlen(trim($this->search)) >= 3) {
+            $this->applyOptimizedSearch($query);
+        }
+
+        // Apply filters with improved logic
+        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
+            // Get filter type for the current filter column
+            $filterType = isset($this->filters[$this->filterColumn]['type']) 
+                ? $this->filters[$this->filterColumn]['type'] 
+                : 'text';
+            
+            // For text filters, only apply if 3+ characters
+            if ($filterType === 'text') {
+                if (strlen(trim($this->filterValue)) >= 3) {
+                    $this->applyFilters($query);
+                }
+            } else {
+                // For non-text filters, apply immediately
+                $this->applyFilters($query);
+            }
+        }
+
+        // Apply additional filters from $this->filters array
+        if (! empty($this->filters)) {
+            $this->applyFilters($query);
+        }
+
+        // Date range filter
+        if ($this->dateColumn && $this->startDate && $this->endDate) {
+            $query->whereBetween($this->dateColumn, [$this->startDate, $this->endDate]);
+        }
+
+        // Apply sorting with optimization
+        if ($this->sortColumn) {
+            $this->applyOptimizedSorting($query);
+        }
+
+        // Use memory-optimized query building instead
+        return $this->buildQueryOptimized();
+    }
+
+    /**
+     * Get the per-page value for pagination (unified)
+     */
+    protected function getPerPageValue(): int
+    {
+        return $this->perPage ?? 10;
+    }
+
+    /**
+     * Build the complete query (DEPRECATED - use buildUnifiedQuery)
+     * @deprecated Use buildUnifiedQuery() instead for better performance
+     */
+    protected function buildQuery()
+    {
+        return $this->buildUnifiedQuery();
+    }
+
+    /**
+     * Get data using the unified query
      */
     public function getData()
     {
         $this->triggerBeforeQuery(null);
 
         try {
-            $query = $this->buildQuery();
-            $results = $query->paginate($this->perPage);
+            $query = $this->buildUnifiedQuery();
+            $results = $query->paginate($this->getPerPageValue());
 
             $this->triggerAfterQuery($query, $results);
 
@@ -247,48 +327,11 @@ class DatatableTrait extends Component
     }
 
     /**
-     * Build the complete query
-     */
-    protected function buildQuery()
-    {
-        $query = $this->getQuery();
-
-        // Apply column optimization for selective loading
-        $query = $this->applyColumnOptimization($query);
-
-        // Apply search
-        if (! empty($this->search)) {
-            $this->applyOptimizedSearch($query);
-        }
-
-        // Apply filters
-        if (! empty($this->filters)) {
-            $this->applyFilters($query);
-        }
-
-        // Apply sorting
-        if (! empty($this->sortColumn)) {
-            $this->applyOptimizedSorting($query);
-        }
-
-        // Apply eager loading with optimization
-        $query = $this->applyLoadingStrategy($query);
-        $query = $this->optimizeRelationLoading($query);
-
-        // Optimize for memory if needed
-        if ($this->isMemoryThresholdExceeded()) {
-            $query = $this->optimizeQueryForMemory($query);
-        }
-
-        return $query;
-    }
-
-    /**
      * Render the component
      */
     public function render()
     {
-        $data = $this->query()->paginate($this->records);
+        $data = $this->buildUnifiedQuery()->paginate($this->getPerPageValue());
 
         return view('artflow-table::livewire.datatable-trait', [
             'data' => $data,
@@ -608,11 +651,55 @@ class DatatableTrait extends Component
     // *----------- Missing Methods from Datatable.php -----------*//
 
     /**
-     * Render raw HTML content
+     * Render raw HTML content (SECURED)
      */
     public function renderRawHtml($rawTemplate, $row)
     {
-        return \Illuminate\Support\Facades\Blade::render($rawTemplate, compact('row'));
+        // Use the secure template system instead of direct Blade::render
+        if (method_exists($this, 'renderTemplateWithFunctions')) {
+            return $this->renderTemplateWithFunctions($row, $rawTemplate);
+        }
+        
+        // Fallback: sanitize and render with basic placeholder replacement
+        return $this->renderSecureTemplate($rawTemplate, $row);
+    }
+
+    /**
+     * Secure template rendering with sanitization
+     */
+    protected function renderSecureTemplate($template, $row): string
+    {
+        if (empty($template)) {
+            return '';
+        }
+
+        // Only allow basic placeholder syntax {column_name} - no PHP code execution
+        $processedTemplate = $template;
+        
+        // Find all placeholders in the format {column_name}
+        preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $template, $matches);
+        
+        if (!empty($matches[1])) {
+            foreach ($matches[1] as $placeholder) {
+                $value = '';
+                
+                // Safely get the value from the row object/array
+                if (is_object($row) && isset($row->$placeholder)) {
+                    $value = $row->$placeholder;
+                } elseif (is_array($row) && isset($row[$placeholder])) {
+                    $value = $row[$placeholder];
+                }
+                
+                // Sanitize the value to prevent XSS
+                $safeValue = htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+                $processedTemplate = str_replace('{' . $placeholder . '}', $safeValue, $processedTemplate);
+            }
+        }
+        
+        // Remove any remaining unmatched placeholders for security
+        $processedTemplate = preg_replace('/\{[^}]*\}/', '', $processedTemplate);
+        
+        return $processedTemplate;
     }
 
     /**
@@ -725,7 +812,29 @@ class DatatableTrait extends Component
             $modelName = 'datatable';
         }
 
-        return 'datatable_visible_columns_'.md5($modelName.'_'.static::class.'_'.$this->tableId);
+        // Include user ID for session isolation - prevents data leakage between users
+        $userId = $this->getUserIdentifierForSession();
+
+        return 'datatable_visible_columns_'.md5($modelName.'_'.static::class.'_'.$this->tableId.'_'.$userId);
+    }
+
+    /**
+     * Get user identifier for session isolation
+     */
+    protected function getUserIdentifierForSession()
+    {
+        // Try different auth methods in order of preference
+        if (function_exists('auth') && auth()->check()) {
+            return 'user_' . auth()->id();
+        }
+        
+        if (function_exists('request') && request()->ip()) {
+            // Fallback to session ID + IP for guest users
+            return 'guest_' . md5(session()->getId() . '_' . request()->ip());
+        }
+        
+        // Final fallback to session ID only
+        return 'session_' . session()->getId();
     }
 
     /**
@@ -733,12 +842,12 @@ class DatatableTrait extends Component
      */
     protected function getDefaultVisibleColumns()
     {
-        return collect($this->columns)->mapWithKeys(function ($column, $identifier) {
+        return $this->optimizedMapWithKeys($this->columns, function ($column, $identifier) {
             // Default to visible unless explicitly hidden
             $isVisible = ! isset($column['hide']) || ! $column['hide'];
 
             return [$identifier => $isVisible];
-        })->toArray();
+        });
     }
 
     /**
@@ -894,7 +1003,7 @@ class DatatableTrait extends Component
     public function getDataForExport()
     {
         // Use chunked processing to avoid memory issues
-        return $this->query()->lazy(1000); // Use lazy collection for memory efficiency
+        return $this->buildUnifiedQuery()->lazy(1000); // Use lazy collection for memory efficiency
     }
 
     /**
@@ -903,8 +1012,18 @@ class DatatableTrait extends Component
     public function clearDistinctValuesCache()
     {
         $cachePattern = "datatable_distinct_{$this->tableId}_*";
-        // Clear related cache entries (implementation depends on cache driver)
-        \Illuminate\Support\Facades\Cache::flush(); // Consider more targeted cache clearing in production
+        
+        // Use targeted cache clearing instead of flushing all cache
+        if (method_exists($this, 'clearCacheByPattern')) {
+            $this->clearCacheByPattern($cachePattern);
+        } else {
+            // Fallback: only flush in development/testing environments
+            if (app()->environment(['testing', 'local'])) {
+                \Illuminate\Support\Facades\Cache::flush();
+            } else {
+                \Log::warning("Unable to clear cache pattern: {$cachePattern}. clearCacheByPattern method not available.");
+            }
+        }
     }
 
     /**
@@ -1238,62 +1357,12 @@ class DatatableTrait extends Component
     }
 
     /**
-     * Get query builder instance
+     * Get query builder instance (DEPRECATED - use buildUnifiedQuery)
+     * @deprecated Use buildUnifiedQuery() instead for better performance
      */
     protected function query(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = $this->model::query();
-
-        // Apply custom query constraints with validation
-        if ($this->query) {
-            $this->applyCustomQueryConstraints($query);
-        }
-
-        // Use cached relations for better performance
-        if (! empty($this->cachedRelations)) {
-            $query->with($this->cachedRelations);
-        }
-
-        // Use cached select columns - but recalculate based on current visibility
-        $selectColumns = $this->getValidSelectColumns();
-        if (! empty($selectColumns)) {
-            $query->select($selectColumns);
-        }
-
-        // Optimized search with indexed queries - only if search has 3+ characters
-        if ($this->searchable && $this->search && strlen(trim($this->search)) >= 3) {
-            $this->applyOptimizedSearch($query);
-        }
-
-        // Apply filters - improved logic for text filters
-        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
-            // Get filter type for the current filter column
-            $filterType = isset($this->filters[$this->filterColumn]['type']) 
-                ? $this->filters[$this->filterColumn]['type'] 
-                : 'text';
-            
-            // For text filters, only apply if 3+ characters
-            if ($filterType === 'text') {
-                if (strlen(trim($this->filterValue)) >= 3) {
-                    $this->applyFilters($query);
-                }
-            } else {
-                // For non-text filters, apply immediately
-                $this->applyFilters($query);
-            }
-        }
-
-        // Date range filter
-        if ($this->dateColumn && $this->startDate && $this->endDate) {
-            $query->whereBetween($this->dateColumn, [$this->startDate, $this->endDate]);
-        }
-
-        // Optimized sorting
-        if ($this->sortColumn) {
-            $this->applyOptimizedSorting($query);
-        }
-
-        return $query;
+        return $this->buildUnifiedQuery();
     }
 
     /**
@@ -1514,9 +1583,13 @@ class DatatableTrait extends Component
     protected function applyOptimizedSorting(\Illuminate\Database\Eloquent\Builder $query): void
     {
         // First try to find by key (backward compatibility)
-        $sortColumnConfig = collect($this->columns)->first(function ($col) {
-            return isset($col['key']) && $col['key'] === $this->sortColumn;
-        });
+        $sortColumnConfig = null;
+        foreach ($this->columns as $col) {
+            if (isset($col['key']) && $col['key'] === $this->sortColumn) {
+                $sortColumnConfig = $col;
+                break;
+            }
+        }
 
         // If not found by key, try to find by the full column identifier (for JSON columns)
         if (! $sortColumnConfig) {

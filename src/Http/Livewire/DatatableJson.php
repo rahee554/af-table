@@ -14,7 +14,7 @@ class DatatableJson extends Component
 
     //*----------- Properties -----------*//
     public $jsonUrl, $columns, $visibleColumns = [],
-        $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
+        $checkbox = false, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
         $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
         $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null,
         $actions = [];
@@ -117,7 +117,30 @@ class DatatableJson extends Component
     {
         // Use model class name and tableId for uniqueness
         $modelName = is_string($this->model) ? $this->model : (is_object($this->model) ? get_class($this->model) : 'datatable');
-        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId);
+        
+        // Include user ID for session isolation - prevents data leakage between users
+        $userId = $this->getUserIdentifierForSession();
+        
+        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId . '_' . $userId);
+    }
+
+    /**
+     * Get user identifier for session isolation
+     */
+    protected function getUserIdentifierForSession()
+    {
+        // Try different auth methods in order of preference
+        if (function_exists('auth') && auth()->check()) {
+            return 'user_' . auth()->id();
+        }
+        
+        if (function_exists('request') && request()->ip()) {
+            // Fallback to session ID + IP for guest users
+            return 'guest_' . md5(session()->getId() . '_' . request()->ip());
+        }
+        
+        // Final fallback to session ID only
+        return 'session_' . session()->getId();
     }
 
     public function clearColumnVisibilitySession()
@@ -137,7 +160,7 @@ class DatatableJson extends Component
             // Build query parameters for the API request
             $params = array_merge($this->queryParams, [
                 'page' => $this->getPage(),
-                'per_page' => $this->records,
+                'per_page' => $this->perPage ?? 10,
                 'search' => $this->search,
                 'sort_column' => $this->sortColumn,
                 'sort_direction' => $this->sortDirection,
@@ -412,7 +435,7 @@ class DatatableJson extends Component
     //*----------- Utility Methods -----------*//
     public function renderRawHtml($rawTemplate, $row)
     {
-        return Blade::render($rawTemplate, compact('row'));
+        return $this->renderRawHtml($rawTemplate, $row); // Use secure method
     }
 
     public function getDynamicClass($column, $row)

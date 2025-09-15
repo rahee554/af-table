@@ -204,10 +204,12 @@ trait HasColumnConfiguration
      */
     protected function configureColumns($columns): array
     {
-        return collect($columns)->mapWithKeys(function ($column, $index) {
+        $configured = [];
+        
+        foreach ($columns as $index => $column) {
             // Validate column configuration
             if (!$this->validateColumnConfiguration($column)) {
-                return [];
+                continue;
             }
 
             // Priority: function > key+json > key > auto-generated
@@ -221,8 +223,10 @@ trait HasColumnConfiguration
                 $identifier = 'col_' . $index;
             }
 
-            return [$identifier => $column];
-        })->toArray();
+            $configured[$identifier] = $column;
+        }
+        
+        return $configured;
     }
 
     /**

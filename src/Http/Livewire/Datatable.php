@@ -19,7 +19,7 @@ class Datatable extends Component
 
     //*----------- Properties -----------*//
     public $model, $columns = [], $visibleColumns = [],
-    $checkbox = false, $records = 10, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
+    $checkbox = false, $search = '', $sortColumn = null, $sortDirection = 'asc', $selectedRows = [],
     $selectAll = false, $filters = [], $filterColumn = null, $filterOperator = '=', $filterValue = null, $dateColumn = null,
     $startDate = null, $endDate = null, $selectedColumn = null, $numberOperator = '=', $distinctValues = [], $columnType = null,
     $actions = [];
@@ -70,9 +70,10 @@ class Datatable extends Component
         // Pre-cache relations and select columns for performance
         $this->initializeColumnConfiguration($columns);
 
-        // Re-key columns by 'key' or 'function' with fallback
+        // Re-key columns by 'key' or 'function' with fallback - optimized version
         // For JSON columns, use a unique identifier that includes the JSON path
-        $this->columns = collect($columns)->mapWithKeys(function ($column, $index) {
+        $reKeyedColumns = [];
+        foreach ($columns as $index => $column) {
             // Priority: function > key+json > key > auto-generated
             if (isset($column['function'])) {
                 $identifier = $column['function'];
@@ -84,8 +85,9 @@ class Datatable extends Component
             } else {
                 $identifier = 'col_' . $index; // Fallback for columns without key or function
             }
-            return [$identifier => $column];
-        })->toArray();
+            $reKeyedColumns[$identifier] = $column;
+        }
+        $this->columns = $reKeyedColumns;
 
                 // Session key for column visibility (unique per model/table and tableId)
         $sessionKey = $this->getColumnVisibilitySessionKey();
@@ -338,11 +340,13 @@ class Datatable extends Component
     //*----------- Column Visibility Management -----------*//
     protected function getDefaultVisibleColumns()
     {
-        return collect($this->columns)->mapWithKeys(function ($column, $identifier) {
+        $defaults = [];
+        foreach ($this->columns as $identifier => $column) {
             // Default to visible unless explicitly hidden
             $isVisible = !isset($column['hide']) || !$column['hide'];
-            return [$identifier => $isVisible];
-        })->toArray();
+            $defaults[$identifier] = $isVisible;
+        }
+        return $defaults;
     }
 
     protected function getValidatedVisibleColumns($sessionVisibility)
@@ -391,7 +395,30 @@ class Datatable extends Component
     {
         // Use model class name and tableId for uniqueness
         $modelName = is_string($this->model) ? $this->model : (is_object($this->model) ? get_class($this->model) : 'datatable');
-        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId);
+        
+        // Include user ID for session isolation - prevents data leakage between users
+        $userId = $this->getUserIdentifierForSession();
+        
+        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId . '_' . $userId);
+    }
+
+    /**
+     * Get user identifier for session isolation
+     */
+    protected function getUserIdentifierForSession()
+    {
+        // Try different auth methods in order of preference
+        if (function_exists('auth') && auth()->check()) {
+            return 'user_' . auth()->id();
+        }
+        
+        if (function_exists('request') && request()->ip()) {
+            // Fallback to session ID + IP for guest users
+            return 'guest_' . md5(session()->getId() . '_' . request()->ip());
+        }
+        
+        // Final fallback to session ID only
+        return 'session_' . session()->getId();
     }
 
     public function clearColumnVisibilitySession()
@@ -426,7 +453,7 @@ class Datatable extends Component
     public function updatedPerPage($value)
     {
         $this->perPage = $value;
-        $this->records = $value; // Keep both in sync
+        $this->perPage = $value; // Use perPage for unified pagination
         $this->page = 1; // Reset page manually for testing
         $this->resetPage();
     }
@@ -941,10 +968,14 @@ class Datatable extends Component
 
     protected function applyOptimizedSorting(Builder $query): void
     {
-        // First try to find by key (backward compatibility)
-        $sortColumnConfig = collect($this->columns)->first(function ($col) {
-            return isset($col['key']) && $col['key'] === $this->sortColumn;
-        });
+        // First try to find by key (backward compatibility) - optimized version
+        $sortColumnConfig = null;
+        foreach ($this->columns as $col) {
+            if (isset($col['key']) && $col['key'] === $this->sortColumn) {
+                $sortColumnConfig = $col;
+                break;
+            }
+        }
 
         // If not found by key, try to find by the full column identifier (for JSON columns)
         if (!$sortColumnConfig) {
@@ -1107,8 +1138,18 @@ class Datatable extends Component
     public function clearDistinctValuesCache()
     {
         $cachePattern = "datatable_distinct_{$this->tableId}_*";
-        // Clear related cache entries (implementation depends on cache driver)
-        Cache::flush(); // Consider more targeted cache clearing in production
+        
+        // Use targeted cache clearing instead of flushing all cache
+        if (method_exists($this, 'clearCacheByPattern')) {
+            $this->clearCacheByPattern($cachePattern);
+        } else {
+            // Fallback: only flush in development/testing environments
+            if (app()->environment(['testing', 'local'])) {
+                Cache::flush();
+            } else {
+                \Log::warning("Unable to clear cache pattern: {$cachePattern}. clearCacheByPattern method not available.");
+            }
+        }
     }
 
     public function updatedFilterColumn()
@@ -1219,7 +1260,7 @@ class Datatable extends Component
     //*----------- Utility Methods -----------*//
     public function renderRawHtml($rawTemplate, $row)
     {
-        return Blade::render($rawTemplate, compact('row'));
+        return $this->renderRawHtml($rawTemplate, $row); // Use secure method
     }
 
     public function getDynamicClass($column, $row)
@@ -1315,7 +1356,7 @@ class Datatable extends Component
     //*----------- Component Render -----------*//
     public function render()
     {
-        $data = $this->query()->paginate($this->records);
+        $data = $this->query()->paginate($this->perPage ?? 10);
         
         return view('artflow-table::livewire.datatable', [
             'data' => $data,
@@ -1327,7 +1368,7 @@ class Datatable extends Component
             'searchable' => $this->searchable,
             'sortColumn' => $this->sortColumn,
             'sortDirection' => $this->sortDirection,
-            'records' => $this->records,
+            'records' => $this->perPage,
             'index' => $this->index,
         ]);
     }

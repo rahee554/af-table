@@ -135,8 +135,10 @@ trait HasCaching
     protected function clearCacheByPattern($pattern)
     {
         try {
-            // For file cache driver
-            if (config('cache.default') === 'file') {
+            $driver = config('cache.default');
+            
+            if ($driver === 'file') {
+                // For file cache driver
                 $files = glob(storage_path('framework/cache/data/*'));
                 foreach ($files as $file) {
                     $key = basename($file, '.cache');
@@ -144,9 +146,31 @@ trait HasCaching
                         unlink($file);
                     }
                 }
+            } elseif ($driver === 'redis') {
+                // For Redis, use pattern-based clearing
+                $redis = Cache::getStore()->getRedis();
+                $prefix = Cache::getStore()->getPrefix();
+                $fullPattern = $prefix . $pattern;
+                
+                $keys = $redis->keys($fullPattern);
+                if (!empty($keys)) {
+                    $keysToDelete = array_map(function($key) use ($prefix) {
+                        return str_replace($prefix, '', $key);
+                    }, $keys);
+                    Cache::deleteMultiple($keysToDelete);
+                }
+            } elseif ($driver === 'database') {
+                // For database cache, use LIKE query
+                $table = config('cache.stores.database.table', 'cache');
+                $dbPattern = str_replace('*', '%', $pattern);
+                \DB::table($table)->where('key', 'LIKE', $dbPattern)->delete();
             } else {
-                // For other cache drivers, you might need specific implementation
-                Cache::flush(); // Fallback - clears all cache
+                // For other drivers (array, null), skip aggressive clearing in production
+                if (app()->environment(['testing', 'local'])) {
+                    Cache::flush(); // Only flush in testing/local environments
+                } else {
+                    \Log::warning("Cache pattern clearing not supported for driver: {$driver}. Skipping cache clear for pattern: {$pattern}");
+                }
             }
         } catch (\Exception $e) {
             \Log::warning('Cache clearing failed: ' . $e->getMessage());

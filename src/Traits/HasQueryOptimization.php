@@ -13,10 +13,14 @@ trait HasQueryOptimization
      */
     protected function applyOptimizedSorting(Builder $query): void
     {
-        // Find sort column configuration
-        $sortColumnConfig = collect($this->columns)->first(function ($col) {
-            return isset($col['key']) && $col['key'] === $this->sortColumn;
-        });
+        // Find sort column configuration - optimized version
+        $sortColumnConfig = null;
+        foreach ($this->columns as $col) {
+            if (isset($col['key']) && $col['key'] === $this->sortColumn) {
+                $sortColumnConfig = $col;
+                break;
+            }
+        }
 
         if (!$sortColumnConfig) {
             $sortColumnConfig = $this->columns[$this->sortColumn] ?? null;
@@ -167,12 +171,14 @@ trait HasQueryOptimization
     protected function isColumnIndexed(string $table, string $column): bool
     {
         try {
-            $indexes = collect(DB::select("SHOW INDEX FROM {$table}"))
-                ->pluck('Column_name')
-                ->map(fn($col) => strtolower($col))
-                ->toArray();
+            $indexResults = DB::select("SHOW INDEX FROM {$table}");
+            $columnNames = [];
+            
+            foreach ($indexResults as $index) {
+                $columnNames[] = strtolower($index->Column_name);
+            }
 
-            return in_array(strtolower($column), $indexes);
+            return in_array(strtolower($column), $columnNames);
         } catch (\Exception $e) {
             return false; // Assume not indexed if we can't check
         }
@@ -237,12 +243,19 @@ trait HasQueryOptimization
             $indexes = DB::select("SHOW INDEX FROM {$table} WHERE Column_name = ?", [$column]);
             
             if (!empty($indexes)) {
-                // Prefer unique indexes, then regular indexes
-                $sortedIndexes = collect($indexes)->sortBy(function($index) {
-                    return $index->Non_unique === 0 ? 0 : 1; // Unique indexes first
-                });
+                // Prefer unique indexes, then regular indexes - optimized version
+                $bestIndex = null;
+                $bestScore = 999;
+                
+                foreach ($indexes as $index) {
+                    $score = $index->Non_unique === 0 ? 0 : 1; // Unique indexes first
+                    if ($score < $bestScore) {
+                        $bestScore = $score;
+                        $bestIndex = $index;
+                    }
+                }
 
-                return $sortedIndexes->first()->Key_name ?? null;
+                return $bestIndex->Key_name ?? null;
             }
         } catch (\Exception $e) {
             // Ignore index lookup errors

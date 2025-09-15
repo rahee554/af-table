@@ -3,6 +3,7 @@
 namespace ArtflowStudio\Table\Traits;
 
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Auth;
 
 trait HasColumnVisibility
 {
@@ -77,7 +78,30 @@ trait HasColumnVisibility
     {
         // Use model class name and tableId for uniqueness
         $modelName = is_string($this->model) ? $this->model : (is_object($this->model) ? get_class($this->model) : 'datatable');
-        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId);
+        
+        // Include user ID for session isolation - prevents data leakage between users
+        $userId = $this->getUserIdentifierForSession();
+        
+        return 'datatable_visible_columns_' . md5($modelName . '_' . static::class . '_' . $this->tableId . '_' . $userId);
+    }
+
+    /**
+     * Get user identifier for session isolation
+     */
+    protected function getUserIdentifierForSession()
+    {
+        // Try different auth methods in order of preference
+        if (Auth::check()) {
+            return 'user_' . Auth::id();
+        }
+        
+        if (app('request')->ip()) {
+            // Fallback to session ID + IP for guest users
+            return 'guest_' . md5(session()->getId() . '_' . app('request')->ip());
+        }
+        
+        // Final fallback to session ID only
+        return 'session_' . session()->getId();
     }
 
     /**
