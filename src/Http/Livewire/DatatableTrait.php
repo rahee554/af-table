@@ -3,29 +3,18 @@
 namespace ArtflowStudio\Table\Http\Livewire;
 
 use ArtflowStudio\Table\Traits\HasActions;
-use ArtflowStudio\Table\Traits\HasAdvancedCaching;
-use ArtflowStudio\Table\Traits\HasTargetedCaching;
-use ArtflowStudio\Table\Traits\HasAdvancedExport;
+use ArtflowStudio\Table\Traits\HasUnifiedCaching;   
+use ArtflowStudio\Table\Traits\HasUnifiedOptimization;
+use ArtflowStudio\Table\Traits\HasBasicFeatures;
 use ArtflowStudio\Table\Traits\HasAdvancedFiltering;
 use ArtflowStudio\Table\Traits\HasApiEndpoint;
 use ArtflowStudio\Table\Traits\HasJsonFile;
 use ArtflowStudio\Table\Traits\HasBulkActions;
 use ArtflowStudio\Table\Traits\HasColumnConfiguration;
-use ArtflowStudio\Table\Traits\HasColumnOptimization;
 use ArtflowStudio\Table\Traits\HasColumnVisibility;
 use ArtflowStudio\Table\Traits\HasDataValidation;
-use ArtflowStudio\Table\Traits\HasDistinctValues;
-use ArtflowStudio\Table\Traits\HasEagerLoading;
 use ArtflowStudio\Table\Traits\HasEventListeners;
-use ArtflowStudio\Table\Traits\HasForEach;
 use ArtflowStudio\Table\Traits\HasJsonSupport;
-use ArtflowStudio\Table\Traits\HasMemoryManagement;
-use ArtflowStudio\Table\Traits\HasIntelligentCaching;
-use ArtflowStudio\Table\Traits\HasOptimizedCollections;
-use ArtflowStudio\Table\Traits\HasOptimizedMemory;
-use ArtflowStudio\Table\Traits\HasOptimizedRelationships;
-use ArtflowStudio\Table\Traits\HasPerformanceMonitoring;
-use ArtflowStudio\Table\Traits\HasQueryBuilder;
 use ArtflowStudio\Table\Traits\HasQueryOptimization;
 use ArtflowStudio\Table\Traits\HasQueryStringSupport;
 use ArtflowStudio\Table\Traits\HasRawTemplates;
@@ -33,7 +22,10 @@ use ArtflowStudio\Table\Traits\HasRelationships;
 use ArtflowStudio\Table\Traits\HasSearch;
 use ArtflowStudio\Table\Traits\HasSessionManagement;
 use ArtflowStudio\Table\Traits\HasSorting;
+use ArtflowStudio\Table\Traits\HasPerformanceMonitoring;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\HtmlString;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -43,41 +35,42 @@ class DatatableTrait extends Component
         HasActions::clearSelection as clearActionSelection;
         HasActions::getSelectedCount as getActionSelectedCount;
     }
-    use HasAdvancedCaching, HasDistinctValues {
-        HasAdvancedCaching::generateDistinctValuesCacheKey insteadof HasDistinctValues;
-        HasDistinctValues::generateDistinctValuesCacheKey as generateBasicDistinctCacheKey;
-    }
-    use HasTargetedCaching;
-    use HasAdvancedExport;
-    use HasAdvancedFiltering;
+    use HasUnifiedCaching;
+    use HasUnifiedOptimization;
+    use HasBasicFeatures;
     use HasApiEndpoint;
-    use HasJsonFile;
     use HasBulkActions {
         HasBulkActions::clearSelection as clearBulkSelection;
         HasBulkActions::getSelectedCount as getBulkSelectedCount;
     }
     use HasColumnConfiguration;
-    use HasColumnOptimization;
     use HasColumnVisibility;
     use HasDataValidation;
-    use HasEagerLoading;
     use HasEventListeners;
-    use HasForEach;
     use HasJsonSupport;
-    use HasMemoryManagement;
-    use HasOptimizedMemory;
-    use HasOptimizedCollections;
-    use HasOptimizedRelationships;
-    use HasIntelligentCaching;
-    use HasPerformanceMonitoring;
-    use HasQueryBuilder;
-    use HasQueryOptimization;
     use HasQueryStringSupport;
     use HasRawTemplates;
     use HasRelationships;
     use HasSearch;
     use HasSessionManagement;
     use HasSorting;
+    use HasAdvancedFiltering;
+    use HasQueryOptimization;
+    use HasPerformanceMonitoring;
+    use HasJsonFile;
+    // Removed conflicting traits - functionality consolidated in unified traits:
+    // - HasQueryBuilder - conflicts with HasUnifiedOptimization::getQuery
+    // - HasEagerLoading - conflicts with HasUnifiedOptimization::optimizeEagerLoading  
+    // - HasAdvancedCaching - conflicts with HasUnifiedCaching::determineCacheDuration
+    // - HasColumnOptimization - conflicts with HasBasicFeatures::applyColumnOptimization
+    // - HasDistinctValues - conflicts with HasUnifiedCaching::generateDistinctValuesCacheKey
+    // - HasMemoryManagement - functionality consolidated in HasUnifiedOptimization
+    // - HasTargetedCaching - functionality consolidated in HasUnifiedCaching
+    // - HasOptimizedMemory, HasOptimizedCollections, HasOptimizedRelationships - consolidated in HasUnifiedOptimization
+    // - HasIntelligentCaching - consolidated in HasUnifiedCaching
+    // - HasAdvancedExport - property conflict with HasBasicFeatures
+    // - HasForEach - conflicts with HasBasicFeatures::setForEachData (functionality included in HasBasicFeatures)
+    // Keeping potentially compatible traits for testing:
     use WithPagination;
 
     // *----------- Properties -----------*//
@@ -186,11 +179,11 @@ class DatatableTrait extends Component
         $this->tableId = $tableId ?? (is_string($model) ? $model : (is_object($model) ? get_class($model) : uniqid('datatable_')));
         $this->query = $query;
 
-        // Pre-cache relations and select columns for performance
-        $this->initializeColumnConfiguration($columns);
-
-        // Use memory-optimized column initialization
+        // Use memory-optimized column initialization FIRST
         $this->columns = $this->initializeColumnsOptimized($columns);
+
+        // THEN calculate relations and select columns using the optimized columns
+        $this->initializeColumnConfiguration($this->columns);
 
         // Session key for column visibility (unique per model/table and tableId)
         $sessionKey = $this->getColumnVisibilitySessionKey();
@@ -238,13 +231,28 @@ class DatatableTrait extends Component
         // Apply column optimization for selective loading
         $query = $this->applyColumnOptimization($query);
 
+        // Load relations using cached relations (like in working Datatable.php)
+        if (!empty($this->cachedRelations)) {
+            $query->with($this->cachedRelations);
+        }
+
         // Use optimized relation loading with selective column loading
         $query = $this->applyOptimizedEagerLoading($query);
 
         // Apply optimized column selection for reduced memory usage
-        $selectColumns = $this->getOptimizedSelectColumns();
+        $selectColumns = $this->calculateSelectColumns($this->columns);
         if (! empty($selectColumns)) {
-            $query->select($selectColumns);
+            // Qualify columns with table name to prevent ambiguous column errors
+            $tableName = $this->model::make()->getTable();
+            $qualifiedColumns = array_map(function($column) use ($tableName) {
+                // Don't qualify columns that already have table prefix or are functions
+                if (strpos($column, '.') !== false || strpos($column, '(') !== false) {
+                    return $column;
+                }
+                return $tableName . '.' . $column;
+            }, $selectColumns);
+            
+            $query->select($qualifiedColumns);
         }
 
         // Apply search - optimized with minimum character threshold
@@ -285,14 +293,14 @@ class DatatableTrait extends Component
             $this->applyOptimizedSorting($query);
         }
 
-        // Use memory-optimized query building instead
-        return $this->buildQueryOptimized();
+        // Return the built query
+        return $query;
     }
 
     /**
      * Get the per-page value for pagination (unified)
      */
-    protected function getPerPageValue(): int
+    public function getPerPageValue(): int
     {
         return $this->perPage ?? 10;
     }
@@ -651,21 +659,50 @@ class DatatableTrait extends Component
     // *----------- Missing Methods from Datatable.php -----------*//
 
     /**
-     * Render raw HTML content (SECURED)
+     * Render raw HTML content (SECURED) - Enhanced to support both Blade and simple syntax
      */
     public function renderRawHtml($rawTemplate, $row)
     {
-        // Use the secure template system instead of direct Blade::render
-        if (method_exists($this, 'renderTemplateWithFunctions')) {
-            return $this->renderTemplateWithFunctions($row, $rawTemplate);
+        if (empty($rawTemplate)) {
+            return new HtmlString('');
         }
-        
-        // Fallback: sanitize and render with basic placeholder replacement
-        return $this->renderSecureTemplate($rawTemplate, $row);
+
+        // 1) Prefer Blade engine to support full Blade syntax (e.g., route(), asset(), conditionals)
+        try {
+            $rendered = Blade::render($rawTemplate, [
+                'row' => $row,
+                // Provide optional references if templates need them
+                'component' => $this,
+                'table' => $this,
+            ]);
+
+            return new HtmlString($rendered);
+        } catch (\Throwable $e) {
+            // Log at debug level to avoid noisy production logs; continue with fallbacks
+            Log::debug('Blade::render failed for DatatableTrait raw template', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // 2) If trait-based advanced renderer exists, use it
+        if (method_exists($this, 'renderTemplateWithFunctions')) {
+            try {
+                $html = $this->renderTemplateWithFunctions($row, $rawTemplate);
+                return new HtmlString($html);
+            } catch (\Throwable $e) {
+                Log::debug('renderTemplateWithFunctions failed for DatatableTrait', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // 3) Final fallback: our secure mini-renderer that supports {{ }} and {prop}
+        $html = $this->renderSecureTemplate($rawTemplate, $row);
+        return new HtmlString($html);
     }
 
     /**
-     * Secure template rendering with sanitization
+     * Secure template rendering with sanitization - Enhanced for complex expressions
      */
     protected function renderSecureTemplate($template, $row): string
     {
@@ -673,33 +710,82 @@ class DatatableTrait extends Component
             return '';
         }
 
-        // Only allow basic placeholder syntax {column_name} - no PHP code execution
         $processedTemplate = $template;
         
-        // Find all placeholders in the format {column_name}
-        preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $template, $matches);
+        // Enhanced processor using callback-based replacement for better control
+        $processedTemplate = preg_replace_callback('/\{\{\s*(.+?)\s*\}\}/', function($matches) use ($row) {
+            $expression = trim($matches[1]);
+            return $this->evaluateExpression($expression, $row);
+        }, $processedTemplate);
         
-        if (!empty($matches[1])) {
-            foreach ($matches[1] as $placeholder) {
-                $value = '';
-                
-                // Safely get the value from the row object/array
-                if (is_object($row) && isset($row->$placeholder)) {
-                    $value = $row->$placeholder;
-                } elseif (is_array($row) && isset($row[$placeholder])) {
-                    $value = $row[$placeholder];
+        // Handle simple placeholder syntax {column_name} - for backward compatibility
+        $processedTemplate = preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function($matches) use ($row) {
+            return $this->getRowPropertyValue($row, $matches[1]);
+        }, $processedTemplate);
+        
+        return $processedTemplate;
+    }
+    
+    /**
+     * Evaluate a complex expression safely
+     */
+    protected function evaluateExpression($expression, $row): string
+    {
+        // Handle ternary operators: $row->active == 1 ? "Active" : "Inactive"
+        if (preg_match('/\$row->([a-zA-Z0-9_]+)\s*==\s*(\d+)\s*\?\s*["\']([^"\']*)["\']?\s*:\s*["\']([^"\']*)["\']?/', $expression, $ternaryMatches)) {
+            $property = $ternaryMatches[1];
+            $checkValue = (int)$ternaryMatches[2];
+            $trueValue = $ternaryMatches[3];
+            $falseValue = $ternaryMatches[4];
+            
+            $actualValue = (int)$this->getRowPropertyValue($row, $property);
+            $result = ($actualValue == $checkValue) ? $trueValue : $falseValue;
+            return htmlspecialchars($result, ENT_QUOTES, 'UTF-8');
+        }
+        
+        // Handle simple property access: $row->property
+        if (preg_match('/^\$row->([a-zA-Z0-9_]+)$/', $expression, $propertyMatches)) {
+            return $this->getRowPropertyValue($row, $propertyMatches[1]);
+        }
+        
+        // Handle complex expressions with multiple parts
+        if (str_contains($expression, '$row->')) {
+            // Replace all $row->property references with actual values
+            $processedExpression = preg_replace_callback('/\$row->([a-zA-Z0-9_]+)/', function($matches) use ($row) {
+                $value = $this->getRowPropertyValue($row, $matches[1]);
+                // Return numeric values as-is for comparisons, strings wrapped in quotes
+                return is_numeric($value) ? $value : '"' . addslashes($value) . '"';
+            }, $expression);
+            
+            // Safely evaluate simple expressions (use safe evaluation instead of eval)
+            if (preg_match('/^[0-9"\'\s\?\:=<>!&|()]+$/', $processedExpression)) {
+                try {
+                    // Use safe expression evaluation instead of eval()
+                    $result = $this->evaluateExpressionSafely($processedExpression, $row);
+                    return htmlspecialchars((string)$result, ENT_QUOTES, 'UTF-8');
+                } catch (\Exception $e) {
+                    return '[Invalid Expression]';
                 }
-                
-                // Sanitize the value to prevent XSS
-                $safeValue = htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
-                $processedTemplate = str_replace('{' . $placeholder . '}', $safeValue, $processedTemplate);
             }
         }
         
-        // Remove any remaining unmatched placeholders for security
-        $processedTemplate = preg_replace('/\{[^}]*\}/', '', $processedTemplate);
+        return htmlspecialchars($expression, ENT_QUOTES, 'UTF-8');
+    }
+    
+    /**
+     * Safely get property value from row object or array
+     */
+    protected function getRowPropertyValue($row, $property): string
+    {
+        $value = '';
         
-        return $processedTemplate;
+        if (is_object($row) && isset($row->$property)) {
+            $value = $row->$property;
+        } elseif (is_array($row) && isset($row[$property])) {
+            $value = $row[$property];
+        }
+        
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
     }
 
     /**
@@ -710,13 +796,80 @@ class DatatableTrait extends Component
         $classes = [];
         if (isset($column['classCondition']) && is_array($column['classCondition'])) {
             foreach ($column['classCondition'] as $condition => $class) {
-                if (eval("return {$condition};")) {
+                // Use safe condition evaluation instead of eval()
+                if ($this->evaluateConditionSafely($condition, $row)) {
                     $classes[] = $class;
                 }
             }
         }
 
         return implode(' ', $classes);
+    }
+
+    /**
+     * Safely evaluate expressions without using eval()
+     * SECURITY: Replaces dangerous eval() usage with safe alternatives
+     */
+    protected function evaluateExpressionSafely($expression, $row)
+    {
+        // Remove return statement if present
+        $expression = preg_replace('/^return\s+/', '', trim($expression));
+        $expression = rtrim($expression, ';');
+        
+        // For simple ternary operations: condition ? value1 : value2
+        if (preg_match('/^(.+?)\s*\?\s*(.+?)\s*:\s*(.+)$/', $expression, $matches)) {
+            $condition = trim($matches[1]);
+            $trueValue = trim($matches[2], '"\'');
+            $falseValue = trim($matches[3], '"\'');
+            
+            if ($this->evaluateConditionSafely($condition, $row)) {
+                return $trueValue;
+            } else {
+                return $falseValue;
+            }
+        }
+        
+        // For simple comparisons that return boolean values
+        if ($this->evaluateConditionSafely($expression, $row)) {
+            return 'true';
+        }
+        
+        return 'false';
+    }
+
+    /**
+     * Safely evaluate boolean conditions without eval()
+     * SECURITY: Replaces dangerous eval() usage
+     */
+    protected function evaluateConditionSafely($condition, $row): bool
+    {
+        // Basic comparison patterns
+        if (preg_match('/^"?([^"]+)"?\s*(==|!=|>|<|>=|<=)\s*"?([^"]+)"?$/', $condition, $matches)) {
+            $left = trim($matches[1], '"\'');
+            $operator = $matches[2];
+            $right = trim($matches[3], '"\'');
+            
+            // Convert numeric strings to numbers for comparison
+            if (is_numeric($left)) $left = (float)$left;
+            if (is_numeric($right)) $right = (float)$right;
+            
+            switch ($operator) {
+                case '==': return $left == $right;
+                case '!=': return $left != $right;
+                case '>': return $left > $right;
+                case '<': return $left < $right;
+                case '>=': return $left >= $right;
+                case '<=': return $left <= $right;
+            }
+        }
+        
+        // Simple boolean checks like "active" or "1"
+        $condition = trim($condition, '"\'');
+        if ($condition === 'true' || $condition === '1') return true;
+        if ($condition === 'false' || $condition === '0' || $condition === '') return false;
+        
+        // Default to false for safety
+        return false;
     }
 
     /**
@@ -783,6 +936,40 @@ class DatatableTrait extends Component
 
         // Force component re-render to ensure table updates
         $this->dispatch('$refresh');
+    }
+
+    /**
+     * Clear phantom column cache and reset column configuration
+     */
+    public function clearPhantomColumnCache()
+    {
+        // Clear session-based column visibility
+        $this->clearColumnVisibilitySession();
+        
+        // Clear cached column selections
+        $this->cachedSelectColumns = null;
+        $this->cachedRelations = null;
+        
+        // Reset visible columns to default
+        $this->visibleColumns = $this->getDefaultVisibleColumns();
+        
+        // Clear any cache keys that might contain phantom columns
+        if (method_exists($this, 'clearCacheByPattern')) {
+            $this->clearCacheByPattern('datatable_columns_*');
+            $this->clearCacheByPattern('select_columns_*');
+            $this->clearCacheByPattern('visible_columns_*');
+        }
+        
+        // Force recalculation of select columns
+        if (!empty($this->columns)) {
+            $this->cachedSelectColumns = $this->calculateSelectColumns($this->columns);
+        }
+        
+        Log::info('Phantom column cache cleared', [
+            'component' => static::class,
+            'table_id' => $this->tableId,
+            'visible_columns' => $this->visibleColumns
+        ]);
     }
 
     /**
@@ -1021,7 +1208,7 @@ class DatatableTrait extends Component
             if (app()->environment(['testing', 'local'])) {
                 \Illuminate\Support\Facades\Cache::flush();
             } else {
-                \Log::warning("Unable to clear cache pattern: {$cachePattern}. clearCacheByPattern method not available.");
+                Log::warning("Unable to clear cache pattern: {$cachePattern}. clearCacheByPattern method not available.");
             }
         }
     }
@@ -1160,7 +1347,30 @@ class DatatableTrait extends Component
             }
 
             if (isset($column['relation'])) {
-                // For relations, we don't need to select the column from main table
+                // For relations, we need to ensure foreign key columns are selected
+                $relationParts = explode('.', explode(':', $column['relation'])[0]);
+                $relationName = $relationParts[0];
+                
+                // Get the foreign key for this relation from the model
+                try {
+                    $modelInstance = $this->model::make();
+                    $relation = $modelInstance->$relationName();
+                    
+                    if (method_exists($relation, 'getForeignKeyName')) {
+                        $foreignKey = $relation->getForeignKeyName();
+                        if (!in_array($foreignKey, $selects)) {
+                            $selects[] = $foreignKey;
+                        }
+                    } elseif (method_exists($relation, 'getQualifiedForeignKeyName')) {
+                        $foreignKey = basename($relation->getQualifiedForeignKeyName());
+                        if (!in_array($foreignKey, $selects)) {
+                            $selects[] = $foreignKey;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // If we can't determine the foreign key, skip silently
+                }
+                
                 continue;
             }
 
@@ -1704,8 +1914,17 @@ class DatatableTrait extends Component
         // Include all selected columns in GROUP BY to satisfy MySQL strict mode
         $selectedColumns = $query->getQuery()->columns;
         if (! empty($selectedColumns)) {
-            // Group by all selected columns
-            $query->groupBy($selectedColumns);
+            // Ensure columns are qualified for GROUP BY to prevent ambiguous errors
+            $tableName = $this->model::make()->getTable();
+            $qualifiedGroupBy = array_map(function($column) use ($tableName) {
+                // Skip already qualified columns or functions
+                if (strpos($column, '.') !== false || strpos($column, '(') !== false) {
+                    return $column;
+                }
+                return $tableName . '.' . $column;
+            }, $selectedColumns);
+            
+            $query->groupBy($qualifiedGroupBy);
         } else {
             // Fallback to grouping by primary key when selecting all columns
             $query->groupBy($parentTable.'.id');
@@ -1814,10 +2033,21 @@ class DatatableTrait extends Component
         $neededColumns = [];
 
         foreach ($this->columns as $column) {
+            // Skip function columns - they don't need database columns
+            if (isset($column['function'])) {
+                continue;
+            }
+            
             if (isset($column['raw']) && is_string($column['raw'])) {
-                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)/', $column['raw'], $matches);
+                // Match $row->property but exclude $row->method() calls
+                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\s*(?!\()/i', $column['raw'], $matches);
                 if (! empty($matches[1])) {
-                    $neededColumns = array_merge($neededColumns, $matches[1]);
+                    // Filter out method calls and only include actual properties/columns
+                    $filteredColumns = array_filter($matches[1], function ($columnName) {
+                        // Only include if it's a valid database column
+                        return $this->isValidColumn($columnName);
+                    });
+                    $neededColumns = array_merge($neededColumns, $filteredColumns);
                 }
             }
         }

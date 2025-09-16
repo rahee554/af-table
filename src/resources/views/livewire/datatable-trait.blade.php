@@ -342,22 +342,24 @@
                                                     $rawTemplate = '';
                                                 }
 
-                                                // Handle method calls in raw templates
-                                                if (!empty($rawTemplate)) {
+                                                // Skip PHP preprocessing for Blade-style templates and let renderRawHtml handle them
+                                                // Only do method call preprocessing for legacy templates without Blade syntax
+                                                $hasBladeSyntax = str_contains($rawTemplate, '{{ $row->') || str_contains($rawTemplate, '{{$row->');
+                                                
+                                                if (!$hasBladeSyntax && !empty($rawTemplate)) {
+                                                    // Handle method calls in raw templates (legacy support)
                                                     preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $rawTemplate, $methodMatches);
-                                                } else {
-                                                    $methodMatches = [[], []];
-                                                }
-
-                                                if (!empty($methodMatches[0])) {
-                                                    foreach ($methodMatches[0] as $index => $fullMatch) {
-                                                        $methodName = $methodMatches[1][$index];
-                                                        if (method_exists($row, $methodName)) {
-                                                            $methodResult = $row->$methodName();
-                                                            if (is_bool($methodResult)) {
-                                                                $methodResult = $methodResult ? 'true' : 'false';
+                                                    
+                                                    if (!empty($methodMatches[0])) {
+                                                        foreach ($methodMatches[0] as $index => $fullMatch) {
+                                                            $methodName = $methodMatches[1][$index];
+                                                            if (method_exists($row, $methodName)) {
+                                                                $methodResult = $row->$methodName();
+                                                                if (is_bool($methodResult)) {
+                                                                    $methodResult = $methodResult ? 'true' : 'false';
+                                                                }
+                                                                $rawTemplate = str_replace($fullMatch, $methodResult, $rawTemplate);
                                                             }
-                                                            $rawTemplate = str_replace($fullMatch, $methodResult, $rawTemplate);
                                                         }
                                                     }
                                                 }
@@ -434,22 +436,24 @@
                                                 $actionTemplate = '';
                                             }
 
-                                            // Handle method calls in actions
-                                            if (!empty($actionTemplate)) {
+                                            // Skip PHP preprocessing for Blade-style templates and let renderRawHtml handle them
+                                            // Only do method call preprocessing for legacy templates without Blade syntax
+                                            $hasBladeSyntax = str_contains($actionTemplate, '{{ $row->') || str_contains($actionTemplate, '{{$row->');
+                                            
+                                            if (!$hasBladeSyntax && !empty($actionTemplate)) {
+                                                // Handle method calls in actions (legacy support)
                                                 preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $actionTemplate, $methodMatches);
-                                            } else {
-                                                $methodMatches = [[], []];
-                                            }
-
-                                            if (!empty($methodMatches[0])) {
-                                                foreach ($methodMatches[0] as $index => $fullMatch) {
-                                                    $methodName = $methodMatches[1][$index];
-                                                    if (method_exists($row, $methodName)) {
-                                                        $methodResult = $row->$methodName();
-                                                        if (is_bool($methodResult)) {
-                                                            $methodResult = $methodResult ? 'true' : 'false';
+                                                
+                                                if (!empty($methodMatches[0])) {
+                                                    foreach ($methodMatches[0] as $index => $fullMatch) {
+                                                        $methodName = $methodMatches[1][$index];
+                                                        if (method_exists($row, $methodName)) {
+                                                            $methodResult = $row->$methodName();
+                                                            if (is_bool($methodResult)) {
+                                                                $methodResult = $methodResult ? 'true' : 'false';
+                                                            }
+                                                            $actionTemplate = str_replace($fullMatch, $methodResult, $actionTemplate);
                                                         }
-                                                        $actionTemplate = str_replace($fullMatch, $methodResult, $actionTemplate);
                                                     }
                                                 }
                                             }

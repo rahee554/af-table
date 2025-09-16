@@ -231,7 +231,7 @@
             <tbody id="datatable-tbody">
                 @if (count($data) === 0)
                     <tr>
-                        <td colspan="{{ 
+                        <td colspan="{{
                             ($checkbox ? 1 : 0) +
                             ((!isset($index) || $index) ? 1 : 0) +
                             {{ $this->getVisibleColumnsCount($columns, $visibleColumns) }} +

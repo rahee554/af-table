@@ -1260,7 +1260,93 @@ class Datatable extends Component
     //*----------- Utility Methods -----------*//
     public function renderRawHtml($rawTemplate, $row)
     {
-        return $this->renderRawHtml($rawTemplate, $row); // Use secure method
+        return $this->renderSecureTemplate($rawTemplate, $row); // Use secure method
+    }
+    
+    /**
+     * Secure template rendering with sanitization - Enhanced for complex expressions
+     */
+    protected function renderSecureTemplate($template, $row): string
+    {
+        if (empty($template)) {
+            return '';
+        }
+
+        $processedTemplate = $template;
+        
+        // Enhanced processor using callback-based replacement for better control
+        $processedTemplate = preg_replace_callback('/\{\{\s*(.+?)\s*\}\}/', function($matches) use ($row) {
+            $expression = trim($matches[1]);
+            return $this->evaluateExpression($expression, $row);
+        }, $processedTemplate);
+        
+        // Handle simple placeholder syntax {column_name} - for backward compatibility
+        $processedTemplate = preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function($matches) use ($row) {
+            return $this->getRowPropertyValue($row, $matches[1]);
+        }, $processedTemplate);
+        
+        return $processedTemplate;
+    }
+    
+    /**
+     * Evaluate a complex expression safely
+     */
+    protected function evaluateExpression($expression, $row): string
+    {
+        // Handle ternary operators: $row->active == 1 ? "Active" : "Inactive"
+        if (preg_match('/\$row->([a-zA-Z0-9_]+)\s*==\s*(\d+)\s*\?\s*["\']([^"\']*)["\']?\s*:\s*["\']([^"\']*)["\']?/', $expression, $ternaryMatches)) {
+            $property = $ternaryMatches[1];
+            $checkValue = (int)$ternaryMatches[2];
+            $trueValue = $ternaryMatches[3];
+            $falseValue = $ternaryMatches[4];
+            
+            $actualValue = (int)$this->getRowPropertyValue($row, $property);
+            $result = ($actualValue == $checkValue) ? $trueValue : $falseValue;
+            return htmlspecialchars($result, ENT_QUOTES, 'UTF-8');
+        }
+        
+        // Handle simple property access: $row->property
+        if (preg_match('/^\$row->([a-zA-Z0-9_]+)$/', $expression, $propertyMatches)) {
+            return $this->getRowPropertyValue($row, $propertyMatches[1]);
+        }
+        
+        // Handle complex expressions with multiple parts
+        if (str_contains($expression, '$row->')) {
+            // Replace all $row->property references with actual values
+            $processedExpression = preg_replace_callback('/\$row->([a-zA-Z0-9_]+)/', function($matches) use ($row) {
+                $value = $this->getRowPropertyValue($row, $matches[1]);
+                // Return numeric values as-is for comparisons, strings wrapped in quotes
+                return is_numeric($value) ? $value : '"' . addslashes($value) . '"';
+            }, $expression);
+            
+            // Safely evaluate simple expressions (only allow basic comparisons and ternary)
+            if (preg_match('/^[0-9"\'\s\?\:=<>!&|()]+$/', $processedExpression)) {
+                try {
+                    $result = eval("return $processedExpression;");
+                    return htmlspecialchars((string)$result, ENT_QUOTES, 'UTF-8');
+                } catch (\Exception $e) {
+                    return '[Invalid Expression]';
+                }
+            }
+        }
+        
+        return htmlspecialchars($expression, ENT_QUOTES, 'UTF-8');
+    }
+    
+    /**
+     * Safely get property value from row object or array
+     */
+    protected function getRowPropertyValue($row, $property): string
+    {
+        $value = '';
+        
+        if (is_object($row) && isset($row->$property)) {
+            $value = $row->$property;
+        } elseif (is_array($row) && isset($row[$property])) {
+            $value = $row[$property];
+        }
+        
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
     }
 
     public function getDynamicClass($column, $row)

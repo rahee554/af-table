@@ -24,27 +24,7 @@ trait HasApiEndpoint
         'retry_delay' => 1000, // milliseconds
         'cache_duration' => 300, // 5 minutes
         'cache_enabled' => true,
-        'rate_    /**
-     * Clear API-related cache
-     */
-    public function clearApiCache(): self
-    {
-        $pattern = 'api_datatable_*';
-        
-        // Use targeted cache clearing instead of flushing all cache
-        if (method_exists($this, 'clearCacheByPattern')) {
-            $this->clearCacheByPattern($pattern);
-        } else {
-            // Fallback: only flush in development/testing environments
-            if (app()->environment(['testing', 'local'])) {
-                Cache::flush();
-            } else {
-                \Log::warning("Unable to clear API cache pattern: {$pattern}. clearCacheByPattern method not available.");
-            }
-        }
-        
-        return $this;
-    }
+        'rate_limiting' => [
             'enabled' => false,
             'max_requests' => 60,
             'per_minutes' => 1,
@@ -74,6 +54,28 @@ trait HasApiEndpoint
         'transform_response' => true,
         'validate_response' => true,
     ];
+
+    /**
+     * Clear API-related cache
+     */
+    public function clearApiCache(): self
+    {
+        $pattern = 'api_datatable_*';
+        
+        // Use targeted cache clearing instead of flushing all cache
+        if (method_exists($this, 'clearCacheByPattern')) {
+            $this->clearCacheByPattern($pattern);
+        } else {
+            // Fallback: only flush in development/testing environments
+            if (app()->environment(['testing', 'local'])) {
+                Cache::flush();
+            } else {
+                Log::warning("Unable to clear API cache pattern: {$pattern}. clearCacheByPattern method not available.");
+            }
+        }
+        
+        return $this;
+    }
 
     /**
      * API endpoint properties
@@ -711,18 +713,6 @@ trait HasApiEndpoint
     protected function getCurrentApiPage(): int
     {
         return request()->get('page', 1);
-    }
-
-    /**
-     * Clear API cache
-     */
-    public function clearApiCache(): self
-    {
-        $pattern = 'api_datatable_*';
-        // In a real implementation, you'd want to clear cache by pattern
-        Cache::flush(); // This clears all cache - use a more targeted approach in production
-        
-        return $this;
     }
 
     /**

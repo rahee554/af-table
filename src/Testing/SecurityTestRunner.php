@@ -33,7 +33,9 @@ class SecurityTestRunner extends BaseTestRunner
             'HTML Content Sanitization' => [$this, 'testHtmlSanitization'],
             'JSON Path Validation' => [$this, 'testJsonPathValidation'],
             'Relation String Validation' => [$this, 'testRelationStringValidation'],
-            'Export Security' => [$this, 'testExportSecurity']
+            'Export Security' => [$this, 'testExportSecurity'],
+            'SQL Generation Safety' => [$this, 'testSqlGenerationSafety'],
+            'Eval Usage Prevention' => [$this, 'testEvalUsagePrevention']
         ];
 
         $passed = 0;
@@ -369,5 +371,106 @@ class SecurityTestRunner extends BaseTestRunner
         }
 
         return true;
+    }
+
+    /**
+     * Test SQL generation for safety issues
+     */
+    protected function testSqlGenerationSafety(): bool
+    {
+        try {
+            // Test for method existence and basic functionality
+            $reflection = new \ReflectionClass('ArtflowStudio\Table\Http\Livewire\Datatable');
+            
+            // Check for missing methods that cause SQL errors
+            $criticalMethods = [
+                'calculateSelectColumns',
+                'buildUnifiedQuery',
+                'applyOptimizedEagerLoading'
+            ];
+            
+            foreach ($criticalMethods as $method) {
+                $this->assertTrue(
+                    $reflection->hasMethod($method),
+                    "Critical method '{$method}' not found - may cause SQL errors"
+                );
+            }
+            
+            // Test that columns are properly qualified to prevent ambiguous column errors
+            $datatable = new \ArtflowStudio\Table\Http\Livewire\Datatable();
+            $testColumns = [
+                ['key' => 'id', 'label' => 'ID'],
+                ['key' => 'name', 'label' => 'Name'],
+                ['key' => 'email', 'label' => 'Email']
+            ];
+            
+            $selectMethod = $reflection->getMethod('calculateSelectColumns');
+            $selectMethod->setAccessible(true);
+            $selectedColumns = $selectMethod->invoke($datatable, $testColumns);
+            
+            // Ensure columns are returned as array
+            $this->assertTrue(
+                is_array($selectedColumns),
+                'calculateSelectColumns should return an array'
+            );
+            
+            // Ensure ID column is always included
+            $this->assertContains(
+                'id',
+                $selectedColumns,
+                'ID column should always be included in select'
+            );
+            
+            return true;
+        } catch (\Exception $e) {
+            $this->log("SQL Generation safety test failed: " . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Test for eval() usage which is a critical security vulnerability
+     */
+    protected function testEvalUsagePrevention(): bool
+    {
+        try {
+            $traitFile = file_get_contents(__DIR__ . '/../Http/Livewire/DatatableTrait.php');
+            
+            // Check for actual eval() usage (not in comments)
+            $lines = explode("\n", $traitFile);
+            $actualEvalUsage = false;
+            
+            foreach ($lines as $line) {
+                $trimmedLine = trim($line);
+                // Skip comment lines and docblock lines
+                if (strpos($trimmedLine, '//') === 0 || strpos($trimmedLine, '*') === 0 || strpos($trimmedLine, '/**') === 0) {
+                    continue;
+                }
+                
+                // Check for actual eval( function calls
+                if (preg_match('/[^\/\*]\s*eval\s*\(/', $line)) {
+                    $this->log("CRITICAL SECURITY ISSUE: eval() function call found: " . trim($line), 'error');
+                    $actualEvalUsage = true;
+                }
+            }
+            
+            if ($actualEvalUsage) {
+                return false;
+            }
+            
+            // Also check for other dangerous functions
+            $dangerousFunctions = ['exec', 'shell_exec', 'system', 'passthru'];
+            
+            foreach ($dangerousFunctions as $func) {
+                if (preg_match('/[^\/\*]\s*' . $func . '\s*\(/', $traitFile)) {
+                    $this->log("WARNING: Dangerous function '{$func}' found in DatatableTrait", 'warning');
+                }
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            $this->log("Eval usage prevention test failed: " . $e->getMessage(), 'error');
+            return false;
+        }
     }
 }

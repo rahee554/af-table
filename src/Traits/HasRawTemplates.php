@@ -5,7 +5,7 @@ namespace ArtflowStudio\Table\Traits;
 trait HasRawTemplates
 {
     /**
-     * Process raw template for a column
+     * Process raw template for a column - Enhanced to support Blade syntax
      */
     protected function processRawTemplate($record, $template): string
     {
@@ -13,11 +13,38 @@ trait HasRawTemplates
             return '';
         }
 
-        // Replace placeholders with actual values
         $processedTemplate = $template;
         
-        // Find all placeholders in the format {column_name} or {relation:column}
-        preg_match_all('/\{([^}]+)\}/', $template, $matches);
+        // FIRST: Handle Blade-style syntax {{ $row->property }}
+        preg_match_all('/\{\{\s*\$row->([a-zA-Z0-9_]+)\s*\}\}/', $template, $bladeMatches);
+        
+        if (!empty($bladeMatches[1])) {
+            foreach ($bladeMatches[1] as $index => $property) {
+                $value = $this->getRecordPropertyValue($record, $property);
+                $fullMatch = $bladeMatches[0][$index];
+                $processedTemplate = str_replace($fullMatch, (string)$value, $processedTemplate);
+            }
+        }
+        
+        // SECOND: Handle ternary operator syntax {{ $row->active == 1 ? "success" : "danger" }}
+        preg_match_all('/\{\{\s*\$row->([a-zA-Z0-9_]+)\s*==\s*(\d+)\s*\?\s*["\']([^"\']+)["\']\s*:\s*["\']([^"\']+)["\']\s*\}\}/', $template, $ternaryMatches);
+        
+        if (!empty($ternaryMatches[1])) {
+            foreach ($ternaryMatches[1] as $index => $property) {
+                $checkValue = (int)$ternaryMatches[2][$index];
+                $trueValue = $ternaryMatches[3][$index];
+                $falseValue = $ternaryMatches[4][$index];
+                
+                $actualValue = (int)$this->getRecordPropertyValue($record, $property);
+                $result = ($actualValue == $checkValue) ? $trueValue : $falseValue;
+                
+                $fullMatch = $ternaryMatches[0][$index];
+                $processedTemplate = str_replace($fullMatch, $result, $processedTemplate);
+            }
+        }
+        
+        // THIRD: Handle simple placeholder syntax {column_name} or {relation:column} - for backward compatibility
+        preg_match_all('/\{([^}]+)\}/', $processedTemplate, $matches);
         
         if (!empty($matches[1])) {
             foreach ($matches[1] as $placeholder) {
@@ -27,6 +54,20 @@ trait HasRawTemplates
         }
         
         return $processedTemplate;
+    }
+
+    /**
+     * Get property value from record
+     */
+    protected function getRecordPropertyValue($record, $property): string
+    {
+        if (is_object($record) && isset($record->$property)) {
+            return (string)$record->$property;
+        } elseif (is_array($record) && isset($record[$property])) {
+            return (string)$record[$property];
+        }
+        
+        return '';
     }
 
     /**
