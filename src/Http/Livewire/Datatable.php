@@ -1260,32 +1260,32 @@ class Datatable extends Component
     //*----------- Utility Methods -----------*//
     public function renderRawHtml($rawTemplate, $row)
     {
-        return $this->renderSecureTemplate($rawTemplate, $row); // Use secure method
+        return $this->renderSecureTemplate($rawTemplate, $row);
     }
     
     /**
-     * Secure template rendering with sanitization - Enhanced for complex expressions
+     * Secure template rendering using Laravel's native Blade engine
      */
     protected function renderSecureTemplate($template, $row): string
     {
-        if (empty($template)) {
+        if (empty($template) || !is_string($template)) { 
             return '';
         }
 
-        $processedTemplate = $template;
-        
-        // Enhanced processor using callback-based replacement for better control
-        $processedTemplate = preg_replace_callback('/\{\{\s*(.+?)\s*\}\}/', function($matches) use ($row) {
-            $expression = trim($matches[1]);
-            return $this->evaluateExpression($expression, $row);
-        }, $processedTemplate);
-        
-        // Handle simple placeholder syntax {column_name} - for backward compatibility
-        $processedTemplate = preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function($matches) use ($row) {
-            return $this->getRowPropertyValue($row, $matches[1]);
-        }, $processedTemplate);
-        
-        return $processedTemplate;
+        try {
+            // Use Laravel's native Blade engine for proper template rendering
+            // This is the same approach used in raw-render.blade.php
+            return \Illuminate\Support\Facades\Blade::render($template, compact('row'));
+        } catch (\Exception $e) {
+            // Log the error for debugging
+            \Illuminate\Support\Facades\Log::warning('Datatable raw template rendering error: ' . $e->getMessage(), [
+                'template' => $template,
+                'row_id' => $row->id ?? 'unknown'
+            ]);
+            
+            // Return safe fallback - show the literal template for debugging
+            return htmlspecialchars($template, ENT_QUOTES, 'UTF-8');
+        }
     }
     
     /**
@@ -1310,7 +1310,71 @@ class Datatable extends Component
             return $this->getRowPropertyValue($row, $propertyMatches[1]);
         }
         
-        // Handle complex expressions with multiple parts
+        // Handle nested property access: $row->customer->first_name
+        if (preg_match('/^\$row->([a-zA-Z0-9_]+)->([a-zA-Z0-9_]+)$/', $expression, $nestedMatches)) {
+            return $this->getNestedPropertyValue($row, $nestedMatches[1] . '.' . $nestedMatches[2]);
+        }
+        
+        // Handle method calls: $row->hasFlight()
+        if (preg_match('/^\$row->([a-zA-Z0-9_]+)\(\)$/', $expression, $methodMatches)) {
+            $methodName = $methodMatches[1];
+            if (is_object($row) && method_exists($row, $methodName)) {
+                try {
+                    $result = $row->$methodName();
+                    return htmlspecialchars((string)$result, ENT_QUOTES, 'UTF-8');
+                } catch (\Exception $e) {
+                    return '[Method Error]';
+                }
+            }
+            return '[Method Not Found]';
+        }
+        
+        // Handle static class calls: \Carbon\Carbon::parse($row->date)->format("d M Y")
+        if (preg_match('/\\\\([a-zA-Z0-9\\\\]+)::([a-zA-Z0-9_]+)\(\$row->([a-zA-Z0-9_]+)\)->([a-zA-Z0-9_]+)\("([^"]+)"\)/', $expression, $staticMatches)) {
+            $className = '\\' . $staticMatches[1];
+            $staticMethod = $staticMatches[2];
+            $property = $staticMatches[3];
+            $chainMethod = $staticMatches[4];
+            $formatString = $staticMatches[5];
+            
+            if (class_exists($className) && method_exists($className, $staticMethod)) {
+                try {
+                    $value = $this->getRowPropertyValue($row, $property);
+                    $result = $className::$staticMethod($value)->$chainMethod($formatString);
+                    return htmlspecialchars((string)$result, ENT_QUOTES, 'UTF-8');
+                } catch (\Exception $e) {
+                    return '[Static Call Error]';
+                }
+            }
+            return '[Class Not Found]';
+        }
+        
+        // Handle concatenation: $row->customer->first_name . " " . $row->customer->last_name
+        if (str_contains($expression, ' . ')) {
+            $parts = explode(' . ', $expression);
+            $result = '';
+            
+            foreach ($parts as $part) {
+                $part = trim($part);
+                
+                // String literal
+                if (preg_match('/^["\'](.+)["\']$/', $part, $stringMatches)) {
+                    $result .= $stringMatches[1];
+                }
+                // Nested property: $row->customer->first_name
+                elseif (preg_match('/^\$row->([a-zA-Z0-9_]+)->([a-zA-Z0-9_]+)$/', $part, $nestedMatches)) {
+                    $result .= $this->getNestedPropertyValue($row, $nestedMatches[1] . '.' . $nestedMatches[2]);
+                }
+                // Simple property: $row->property  
+                elseif (preg_match('/^\$row->([a-zA-Z0-9_]+)$/', $part, $propertyMatches)) {
+                    $result .= $this->getRowPropertyValue($row, $propertyMatches[1]);
+                }
+            }
+            
+            return htmlspecialchars($result, ENT_QUOTES, 'UTF-8');
+        }
+        
+        // Handle complex expressions with multiple parts (fallback for simple cases)
         if (str_contains($expression, '$row->')) {
             // Replace all $row->property references with actual values
             $processedExpression = preg_replace_callback('/\$row->([a-zA-Z0-9_]+)/', function($matches) use ($row) {
@@ -1334,6 +1398,27 @@ class Datatable extends Component
     }
     
     /**
+     * Get nested property value from row object using dot notation
+     */
+    protected function getNestedPropertyValue($row, $propertyPath): string
+    {
+        $parts = explode('.', $propertyPath);
+        $value = $row;
+        
+        foreach ($parts as $part) {
+            if (is_object($value) && isset($value->$part)) {
+                $value = $value->$part;
+            } elseif (is_array($value) && isset($value[$part])) {
+                $value = $value[$part];
+            } else {
+                return '';
+            }
+        }
+        
+        return (string)$value;
+    }
+    
+    /**
      * Safely get property value from row object or array
      */
     protected function getRowPropertyValue($row, $property): string
@@ -1346,7 +1431,7 @@ class Datatable extends Component
             $value = $row[$property];
         }
         
-        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+        return (string)$value;
     }
 
     public function getDynamicClass($column, $row)

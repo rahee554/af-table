@@ -155,8 +155,6 @@ class DatatableTrait extends Component
     public $filterColumn = null;
     public $filterOperator = '=';
     public $filterValue = null;
-    public $multipleFilters = [];
-    public $filterInstances = [];
     public $dateColumn = null;
     public $startDate = null;
     public $endDate = null;
@@ -169,7 +167,6 @@ class DatatableTrait extends Component
     public $query = null;
     public $colvisBtn = true;
     public $perPage = 10;
-    public $records = 10; // For template pagination dropdown wire:model
     public array $routeFallbacks = [];
     public $actions = [];
 
@@ -190,7 +187,6 @@ class DatatableTrait extends Component
     // *----------- Query String Parameters -----------*//
     public $queryString = [
         'records' => ['except' => 10],
-        'perPage' => ['except' => 10], // Keep both for compatibility
         'search' => ['except' => ''],
         'sortColumn' => ['except' => null],
         'sortDirection' => ['except' => 'asc'],
@@ -256,25 +252,14 @@ class DatatableTrait extends Component
         $query = $this->applyColumnOptimization($query);
         $query = $this->applyOptimizedEagerLoading($query);
 
-        // Delegate search to HasUnifiedSearch trait
+        // Delegate search to HasSearch trait
         if ($this->searchable && $this->search && strlen(trim($this->search)) >= 3) {
             $this->applyOptimizedSearch($query);
         }
 
         // Delegate filtering to HasAdvancedFiltering trait
         if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
-            // Check if this is a relation filter
-            if (isset($this->filters[$this->filterColumn]['relation'])) {
-                $this->applyRelationFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
-            } else {
-                // Apply regular column filter
-                $this->applyColumnFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
-            }
-        }
-
-        // Apply multiple filter instances
-        if (!empty($this->filterInstances)) {
-            $this->applyMultipleFilters($query);
+            $this->applyFilters($query);
         }
 
         // Delegate additional filters
@@ -300,8 +285,7 @@ class DatatableTrait extends Component
      */
     public function getPerPageValue(): int
     {
-        // Use records if set (from template), otherwise use perPage
-        return $this->records ?? $this->perPage ?? 10;
+        return $this->perPage ?? 10;
     }
 
     /**
@@ -407,16 +391,6 @@ class DatatableTrait extends Component
     }
 
     /**
-     * Handle records per page update (legacy method for template compatibility)
-     */
-    public function updatedrecords($value)
-    {
-        $this->perPage = $value;
-        $this->records = $value; // Keep both in sync
-        $this->resetPage();
-    }
-
-    /**
      * Toggle column visibility - Delegates to HasColumnVisibility
      */
     public function toggleColumn($columnKey)
@@ -425,139 +399,6 @@ class DatatableTrait extends Component
     }
 
     // *----------- USER ACTION DELEGATES -----------*//
-
-    /**
-     * Add a new filter instance
-     */
-    public function addFilterInstance()
-    {
-        $this->filterInstances[] = [
-            'id' => uniqid(),
-            'column' => null,
-            'operator' => '=',
-            'value' => null
-        ];
-    }
-
-    /**
-     * Remove a filter instance by ID
-     */
-    public function removeFilterInstance($instanceId)
-    {
-        $this->filterInstances = array_filter($this->filterInstances, function($instance) use ($instanceId) {
-            return $instance['id'] !== $instanceId;
-        });
-        $this->resetPage();
-    }
-
-    /**
-     * Update a filter instance
-     */
-    public function updateFilterInstance($instanceId, $field, $value)
-    {
-        foreach ($this->filterInstances as &$instance) {
-            if ($instance['id'] === $instanceId) {
-                $instance[$field] = $value;
-                break;
-            }
-        }
-        $this->resetPage();
-    }
-
-    /**
-     * Apply multiple filter instances to query
-     */
-    protected function applyMultipleFilters(\Illuminate\Database\Eloquent\Builder $query): void
-    {
-        foreach ($this->filterInstances as $filterInstance) {
-            if (!$filterInstance['column'] || $filterInstance['value'] === null || $filterInstance['value'] === '') {
-                continue;
-            }
-
-            $column = $filterInstance['column'];
-            $operator = $filterInstance['operator'] ?? '=';
-            $value = $filterInstance['value'];
-
-            // Check if this is a relation filter
-            if (isset($this->filters[$column]['relation'])) {
-                $this->applyRelationFilter($query, $column, $operator, $value);
-            } else {
-                // Apply regular column filter
-                $this->applyColumnFilter($query, $column, $operator, $value);
-            }
-        }
-    }
-
-    /**
-     * Apply relation filter for multiple filters
-     */
-    protected function applyRelationFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, string $operator, $value): void
-    {
-        $relationConfig = $this->filters[$column]['relation'];
-        [$relation, $attribute] = explode(':', $relationConfig);
-
-        // For select type filters on relation columns, the value is the foreign key ID
-        // So we should filter by the foreign key column directly rather than the relation
-        if (isset($this->filters[$column]['type']) && $this->filters[$column]['type'] === 'select') {
-            // Filter by the foreign key column directly
-            $this->applyOperatorCondition($query, $column, $operator, $value);
-        } else {
-            // For other filter types (like date, text), filter through the relation
-            $query->whereHas($relation, function ($q) use ($attribute, $operator, $value) {
-                $this->applyOperatorCondition($q, $attribute, $operator, $value);
-            });
-        }
-    }
-
-    /**
-     * Apply column filter for multiple filters
-     */
-    protected function applyColumnFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, string $operator, $value): void
-    {
-        $this->applyOperatorCondition($query, $column, $operator, $value);
-    }
-
-    /**
-     * Apply operator condition to query
-     */
-    protected function applyOperatorCondition(\Illuminate\Database\Eloquent\Builder $query, string $column, string $operator, $value): void
-    {
-        switch ($operator) {
-            case '=':
-                $query->where($column, $value);
-                break;
-            case '!=':
-                $query->where($column, '!=', $value);
-                break;
-            case '>':
-                $query->where($column, '>', $value);
-                break;
-            case '>=':
-                $query->where($column, '>=', $value);
-                break;
-            case '<':
-                $query->where($column, '<', $value);
-                break;
-            case '<=':
-                $query->where($column, '<=', $value);
-                break;
-            case 'like':
-                $query->where($column, 'LIKE', '%' . $value . '%');
-                break;
-            default:
-                $query->where($column, $value);
-                break;
-        }
-    }
-
-    /**
-     * Clear all filter instances
-     */
-    public function clearAllFilterInstances()
-    {
-        $this->filterInstances = [];
-        $this->resetPage();
-    }
 
     /**
      * Clear all filters - Delegates to HasUserActions
@@ -580,102 +421,7 @@ class DatatableTrait extends Component
      */
     public function handleExport($format = 'csv', $filename = null)
     {
-        try {
-            // Build query with current filters
-            $query = $this->buildUnifiedQuery();
-            
-            // Get all data without pagination
-            $data = $query->get();
-            
-            if ($data->isEmpty()) {
-                $this->dispatch('showAlert', [
-                    'type' => 'warning', 
-                    'message' => 'No data to export'
-                ]);
-                return;
-            }
-            
-            // Prepare filename
-            if (!$filename) {
-                $modelName = class_basename($this->model);
-                $filename = strtolower($modelName) . '_export_' . date('Y-m-d_H-i-s');
-            }
-            
-            // Export based on format
-            switch (strtolower($format)) {
-                case 'csv':
-                    return $this->exportToCsv($data, $filename);
-                case 'excel':
-                case 'xlsx':
-                    return $this->exportToExcel($data, $filename);
-                default:
-                    return $this->exportToCsv($data, $filename);
-            }
-            
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Export error: ' . $e->getMessage());
-            $this->dispatch('showAlert', [
-                'type' => 'error', 
-                'message' => 'Export failed: ' . $e->getMessage()
-            ]);
-        }
-    }
-    
-    /**
-     * Export data to CSV
-     */
-    protected function exportToCsv($data, $filename)
-    {
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '.csv"',
-        ];
-        
-        return response()->streamDownload(function () use ($data) {
-            $output = fopen('php://output', 'w');
-            
-            // Get headers from first row
-            if ($data->isNotEmpty()) {
-                $firstRow = $data->first();
-                $headers = [];
-                
-                // Extract headers from column configuration
-                foreach ($this->columns as $columnKey => $columnConfig) {
-                    if (is_string($columnConfig)) {
-                        $headers[] = ucfirst(str_replace('_', ' ', $columnKey));
-                    } elseif (is_array($columnConfig)) {
-                        $headers[] = $columnConfig['label'] ?? ucfirst(str_replace('_', ' ', $columnKey));
-                    }
-                }
-                
-                // Write headers
-                fputcsv($output, $headers);
-                
-                // Write data rows
-                foreach ($data as $row) {
-                    $rowData = [];
-                    foreach ($this->columns as $columnKey => $columnConfig) {
-                        if (is_string($columnConfig)) {
-                            $rowData[] = $row->{$columnKey} ?? '';
-                        } elseif (is_array($columnConfig)) {
-                            // For columns with keys, use the key value
-                            if (isset($columnConfig['key']) && !empty($columnConfig['key'])) {
-                                $value = data_get($row, $columnConfig['key']);
-                                $rowData[] = $value ?? '';
-                            } 
-                            // For raw columns without keys, try to extract meaningful data
-                            else {
-                                // Skip computed/raw columns for export
-                                $rowData[] = '';
-                            }
-                        }
-                    }
-                    fputcsv($output, $rowData);
-                }
-            }
-            
-            fclose($output);
-        }, $filename . '.csv', $headers);
+        return $this->export($format, $filename);
     }
 
     /**
@@ -740,32 +486,6 @@ class DatatableTrait extends Component
         return $this->getComponentDebugInfo();
     }
 
-    /**
-     * Get distinct values for a column (required by template for filter dropdowns)
-     */
-    public function getDistinctValues($columnKey)
-    {
-        // Check if column exists and has filter configuration
-        if (!isset($this->columns[$columnKey]) || !isset($this->filters[$columnKey])) {
-            return [];
-        }
-
-        try {
-            // For relation columns, get distinct from related table
-            if (isset($this->filters[$columnKey]['relation'])) {
-                return $this->getCachedRelationDistinctValues($columnKey);
-            }
-            
-            // For regular columns, get distinct from main table
-            return $this->getCachedColumnDistinctValues($columnKey);
-        } catch (\Exception $e) {
-            Log::warning('DatatableTrait getDistinctValues error: ' . $e->getMessage(), [
-                'column' => $columnKey
-            ]);
-            return [];
-        }
-    }
-
     // *----------- TRAIT CONFLICT RESOLUTION -----------*//
 
     /**
@@ -786,98 +506,6 @@ class DatatableTrait extends Component
         $bulkCount = $this->getBulkSelectedCount();
         $actionCount = $this->getActionSelectedCount();
         return max($bulkCount, $actionCount);
-    }
-
-    /**
-     * Check if a column is searchable (required by search traits)
-     */
-    protected function isColumnSearchable($column): bool
-    {
-        // Check if column is defined in our column configuration
-        if (!isset($this->columns[$column])) {
-            return false;
-        }
-        
-        $columnConfig = $this->columns[$column];
-        
-        // If it's a simple string definition, assume it's searchable
-        if (is_string($columnConfig)) {
-            return true;
-        }
-        
-        // If it's an array, check for explicit searchable flag
-        if (is_array($columnConfig)) {
-            // If explicitly marked as not searchable, return false
-            if (isset($columnConfig['searchable']) && $columnConfig['searchable'] === false) {
-                return false;
-            }
-            
-            // Check if this is a raw-only column (has raw but no actual database key)
-            $hasKey = isset($columnConfig['key']) && !empty($columnConfig['key']);
-            $hasFunction = isset($columnConfig['function']) && !empty($columnConfig['function']);
-            $hasRaw = isset($columnConfig['raw']) && !empty($columnConfig['raw']);
-
-            // New rule: if the column is function-based or raw-only and lacks a real 'key', skip searching.
-            // This prevents pseudo columns like 'function_8' from being injected into the WHERE clause.
-            if (!$hasKey && ($hasFunction || $hasRaw)) {
-                return false;
-            }
-            
-            // If it has raw but no key or function, it's a computed column and not searchable in database
-            if ($hasRaw && !$hasKey && !$hasFunction) {
-                return false;
-            }
-            
-            // If it has a key, check if the key exists in the actual database table
-            if ($hasKey) {
-                try {
-                    // Get the table name from the model
-                    $model = $this->model;
-                    $tableName = (new $model)->getTable();
-                    
-                    // Check if the column exists in the database
-                    $columns = \Illuminate\Support\Facades\Schema::getColumnListing($tableName);
-                    
-                    // Only search on columns that actually exist in the database
-                    return in_array($columnConfig['key'], $columns);
-                } catch (\Exception $e) {
-                    // If we can't check the database, default to false for safety
-                    \Illuminate\Support\Facades\Log::warning('Could not check column existence for search: ' . $e->getMessage());
-                    return false;
-                }
-            }
-            
-            // Default to true for basic columns unless explicitly disabled
-            return $columnConfig['searchable'] ?? true;
-        }
-        
-        return false;
-    }
-
-    /**
-     * Apply column optimization to query - Missing method implementation
-     */
-    protected function applyColumnOptimization(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
-    {
-        // Use cached select columns if available
-        if (!empty($this->cachedSelectColumns)) {
-            $query->select($this->cachedSelectColumns);
-        }
-        
-        return $query;
-    }
-
-    /**
-     * Apply optimized eager loading to query - Missing method implementation
-     */
-    protected function applyOptimizedEagerLoading(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
-    {
-        // Use cached relations if available
-        if (!empty($this->cachedRelations)) {
-            $query->with($this->cachedRelations);
-        }
-        
-        return $query;
     }
 
     // *----------- ABSTRACT METHOD IMPLEMENTATIONS -----------*//

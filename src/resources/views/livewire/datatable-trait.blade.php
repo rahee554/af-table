@@ -18,79 +18,212 @@
 
 <div>
     @if (!empty($filters))
-        <div class="row g-2 mb-3 align-items-end">
-            <div class="col-12 col-sm-6 col-md-3">
-                <label class="form-label small text-muted">Filter Column</label>
-                <select wire:model.live="filterColumn" class="form-select form-select-sm filter-indicator {{ $filterColumn ? 'active' : '' }}">
-                    <option value="">Select Column</option>
-                    @foreach ($filters as $filterKey => $filterConfig)
-                        @php
-                            $columnLabel = isset($columns[$filterKey])
-                                ? $columns[$filterKey]['label']
-                                : ucfirst(str_replace('_', ' ', $filterKey));
-                        @endphp
-                        <option value="{{ $filterKey }}">{{ $columnLabel }}</option>
-                    @endforeach
-                </select>
-            </div>
-            @if ($filterColumn)
-                @php
-                    $filterType = isset($filters[$filterColumn]['type']) ? $filters[$filterColumn]['type'] : 'text';
-                @endphp
-                @if (in_array($filterType, ['integer', 'number', 'date']))
-                    <div class="col-12 col-sm-6 col-md-2">
-                        <label class="form-label small text-muted">Operator</label>
-                        <select wire:model.live="filterOperator" class="form-select form-select-sm">
-                            <option value="=">Equal (=)</option>
-                            <option value="!=">Not Equal (≠)</option>
-                            <option value="<">Less Than (<)</option>
-                            <option value=">">Greater Than (>)</option>
-                            <option value="<=">Less or Equal (≤)</option>
-                            <option value=">=">Greater or Equal (≥)</option>
-                        </select>
-                    </div>
-                @endif
-            @endif
-            <div class="col-12 col-sm-4 col-md-3 col-lg-2">
-                @php
-                    $selectedColumn = $filterColumn ?? null;
-                    $filterType =
-                        $selectedColumn && isset($filters[$selectedColumn]['type'])
-                            ? $filters[$selectedColumn]['type']
-                            : null;
-                @endphp
-                @if ($selectedColumn)
-                    <label class="form-label small text-muted">Value</label>
-                    @if ($filterType === 'select' || $filterType === 'distinct')
-                        <select wire:model.live="filterValue" class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
-                            <option value="">Select Value</option>
-                            @foreach ($this->getDistinctValues($selectedColumn) as $val)
-                                <option value="{{ $val }}">{{ $val }}</option>
-                            @endforeach
-                        </select>
-                    @elseif($filterType === 'date')
-                        <input type="date" wire:model.live.debounce.500ms="filterValue"
-                            class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
-                    @elseif(in_array($filterType, ['integer', 'number']))
-                        <input type="number" wire:model.live.debounce.500ms="filterValue" placeholder="Enter number..."
-                            class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
-                    @else
-                        <input type="text" wire:model.live.debounce.500ms="filterValue" placeholder="Enter at least 3 characters..."
-                            class="form-control form-control-sm filter-indicator {{ $filterValue && strlen($filterValue) >= 3 ? 'active' : '' }}" minlength="3">
+        <div class="mb-3">
+            {{-- Main Filter Row --}}
+            <div class="row g-2 mb-2 align-items-end">
+                <div class="col-12 col-sm-6 col-md-3">
+                    <label class="form-label small text-muted">Filter Column</label>
+                    <select wire:model.live="filterColumn" class="form-select form-select-sm filter-indicator {{ $filterColumn ? 'active' : '' }}">
+                        <option value="">Select Column</option>
+                        @foreach ($filters as $filterKey => $filterConfig)
+                            @php
+                                $columnLabel = isset($columns[$filterKey])
+                                    ? $columns[$filterKey]['label']
+                                    : ucfirst(str_replace('_', ' ', $filterKey));
+                            @endphp
+                            <option value="{{ $filterKey }}">{{ $columnLabel }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @if ($filterColumn)
+                    @php
+                        $filterType = isset($filters[$filterColumn]['type']) ? $filters[$filterColumn]['type'] : 'text';
+                    @endphp
+                    @if (in_array($filterType, ['integer', 'number', 'date']))
+                        <div class="col-12 col-sm-6 col-md-2">
+                            <label class="form-label small text-muted">Operator</label>
+                            <select wire:model.live="filterOperator" class="form-select form-select-sm">
+                                <option value="=">Equal (=)</option>
+                                <option value="!=">Not Equal (≠)</option>
+                                <option value="<">Less Than (<)</option>
+                                <option value=">">Greater Than (>)</option>
+                                <option value="<=">Less or Equal (≤)</option>
+                                <option value=">=">Greater or Equal (≥)</option>
+                            </select>
+                        </div>
                     @endif
-                @else
-                    <label class="form-label small text-muted">Value</label>
-                    <input type="text" placeholder="Select a column first" class="form-control form-control-sm"
-                        disabled>
                 @endif
+                <div class="col-12 col-sm-4 col-md-3 col-lg-2">
+                    @php
+                        $selectedColumn = $filterColumn ?? null;
+                        $filterType =
+                            $selectedColumn && isset($filters[$selectedColumn]['type'])
+                                ? $filters[$selectedColumn]['type']
+                                : null;
+                    @endphp
+                    @if ($selectedColumn)
+                        <label class="form-label small text-muted">Value</label>
+                        @if ($filterType === 'select' || $filterType === 'distinct')
+                            <select wire:model.live="filterValue" class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
+                                <option value="">Select Value</option>
+                                @php
+                                    $distinctValues = $this->getDistinctValues($selectedColumn);
+                                @endphp
+                                @if (is_array($distinctValues) && count($distinctValues) > 0)
+                                    @if (array_keys($distinctValues) === range(0, count($distinctValues) - 1))
+                                        {{-- Simple indexed array - use value as both key and display --}}
+                                        @foreach ($distinctValues as $val)
+                                            <option value="{{ $val }}">{{ $val }}</option>
+                                        @endforeach
+                                    @else
+                                        {{-- Associative array - use key as value and value as display --}}
+                                        @foreach ($distinctValues as $key => $val)
+                                            <option value="{{ $key }}">{{ $val }}</option>
+                                        @endforeach
+                                    @endif
+                                @endif
+                            </select>
+                        @elseif($filterType === 'date')
+                            <input type="date" wire:model.live.debounce.500ms="filterValue"
+                                class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
+                        @elseif(in_array($filterType, ['integer', 'number']))
+                            <input type="number" wire:model.live.debounce.500ms="filterValue" placeholder="Enter number..."
+                                class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
+                        @else
+                            <input type="text" wire:model.live.debounce.500ms="filterValue" placeholder="Enter at least 3 characters..."
+                                class="form-control form-control-sm filter-indicator {{ $filterValue && strlen($filterValue) >= 3 ? 'active' : '' }}" minlength="3">
+                        @endif
+                    @else
+                        <label class="form-label small text-muted">Value</label>
+                        <input type="text" placeholder="Select a column first" class="form-control form-control-sm"
+                            disabled>
+                    @endif
+                </div>
+                <div class="col-auto">
+                    <button type="button"
+                        wire:click="$set('filterColumn', null); $set('filterValue', null); $set('filterOperator', '=')"
+                        class="btn btn-sm btn-outline-secondary" title="Clear filters">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+                <div class="col-auto">
+                    <button type="button" wire:click="addFilterInstance" class="btn btn-sm btn-outline-primary" title="Add another filter">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
             </div>
-            <div class="col-auto">
-                <button type="button"
-                    wire:click="$set('filterColumn', null); $set('filterValue', null); $set('filterOperator', '=')"
-                    class="btn btn-sm btn-outline-secondary" title="Clear filters">
-                    <i class="fas fa-times"></i> Clear
-                </button>
-            </div>
+
+            {{-- Additional Filter Instances --}}
+            @if (!empty($filterInstances))
+                @foreach ($filterInstances as $index => $filterInstance)
+                    <div class="row g-2 mb-2 align-items-end border-start border-3 border-primary ps-3" style="margin-left: 10px;">
+                        <div class="col-12 col-sm-6 col-md-3">
+                            <label class="form-label small text-muted">Filter Column</label>
+                            <select wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'column', $event.target.value)" 
+                                    class="form-select form-select-sm filter-indicator {{ $filterInstance['column'] ? 'active' : '' }}">
+                                <option value="">Select Column</option>
+                                @foreach ($filters as $filterKey => $filterConfig)
+                                    @php
+                                        $columnLabel = isset($columns[$filterKey])
+                                            ? $columns[$filterKey]['label']
+                                            : ucfirst(str_replace('_', ' ', $filterKey));
+                                    @endphp
+                                    <option value="{{ $filterKey }}" {{ $filterInstance['column'] === $filterKey ? 'selected' : '' }}>
+                                        {{ $columnLabel }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @if ($filterInstance['column'])
+                            @php
+                                $instanceFilterType = isset($filters[$filterInstance['column']]['type']) ? $filters[$filterInstance['column']]['type'] : 'text';
+                            @endphp
+                            @if (in_array($instanceFilterType, ['integer', 'number', 'date']))
+                                <div class="col-12 col-sm-6 col-md-2">
+                                    <label class="form-label small text-muted">Operator</label>
+                                    <select wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'operator', $event.target.value)" 
+                                            class="form-select form-select-sm">
+                                        <option value="=" {{ $filterInstance['operator'] === '=' ? 'selected' : '' }}>Equal (=)</option>
+                                        <option value="!=" {{ $filterInstance['operator'] === '!=' ? 'selected' : '' }}>Not Equal (≠)</option>
+                                        <option value="<" {{ $filterInstance['operator'] === '<' ? 'selected' : '' }}>Less Than (<)</option>
+                                        <option value=">" {{ $filterInstance['operator'] === '>' ? 'selected' : '' }}>Greater Than (>)</option>
+                                        <option value="<=" {{ $filterInstance['operator'] === '<=' ? 'selected' : '' }}>Less or Equal (≤)</option>
+                                        <option value=">=" {{ $filterInstance['operator'] === '>=' ? 'selected' : '' }}>Greater or Equal (≥)</option>
+                                    </select>
+                                </div>
+                            @endif
+                        @endif
+                        <div class="col-12 col-sm-4 col-md-3 col-lg-2">
+                            @if ($filterInstance['column'])
+                                <label class="form-label small text-muted">Value</label>
+                                @if ($instanceFilterType === 'select' || $instanceFilterType === 'distinct')
+                                    <select wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'value', $event.target.value)" 
+                                            class="form-control form-control-sm filter-indicator {{ $filterInstance['value'] ? 'active' : '' }}">
+                                        <option value="">Select Value</option>
+                                        @php
+                                            $distinctValues = $this->getDistinctValues($filterInstance['column']);
+                                        @endphp
+                                        @if (is_array($distinctValues) && count($distinctValues) > 0)
+                                            @if (array_keys($distinctValues) === range(0, count($distinctValues) - 1))
+                                                @foreach ($distinctValues as $val)
+                                                    <option value="{{ $val }}" {{ $filterInstance['value'] === $val ? 'selected' : '' }}>
+                                                        {{ $val }}
+                                                    </option>
+                                                @endforeach
+                                            @else
+                                                @foreach ($distinctValues as $key => $val)
+                                                    <option value="{{ $key }}" {{ $filterInstance['value'] === $key ? 'selected' : '' }}>
+                                                        {{ $val }}
+                                                    </option>
+                                                @endforeach
+                                            @endif
+                                        @endif
+                                    </select>
+                                @elseif($instanceFilterType === 'date')
+                                    <input type="date" 
+                                           wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'value', $event.target.value)"
+                                           value="{{ $filterInstance['value'] }}"
+                                           class="form-control form-control-sm filter-indicator {{ $filterInstance['value'] ? 'active' : '' }}">
+                                @elseif(in_array($instanceFilterType, ['integer', 'number']))
+                                    <input type="number" 
+                                           wire:input.debounce.500ms="updateFilterInstance('{{ $filterInstance['id'] }}', 'value', $event.target.value)"
+                                           value="{{ $filterInstance['value'] }}"
+                                           placeholder="Enter number..."
+                                           class="form-control form-control-sm filter-indicator {{ $filterInstance['value'] ? 'active' : '' }}">
+                                @else
+                                    <input type="text" 
+                                           wire:input.debounce.500ms="updateFilterInstance('{{ $filterInstance['id'] }}', 'value', $event.target.value)"
+                                           value="{{ $filterInstance['value'] }}"
+                                           placeholder="Enter at least 3 characters..."
+                                           class="form-control form-control-sm filter-indicator {{ $filterInstance['value'] && strlen($filterInstance['value']) >= 3 ? 'active' : '' }}" 
+                                           minlength="3">
+                                @endif
+                            @else
+                                <label class="form-label small text-muted">Value</label>
+                                <input type="text" placeholder="Select a column first" class="form-control form-control-sm" disabled>
+                            @endif
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" 
+                                    wire:click="removeFilterInstance('{{ $filterInstance['id'] }}')" 
+                                    class="btn btn-sm btn-outline-danger" 
+                                    title="Remove this filter">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                @endforeach
+                <div class="row">
+                    <div class="col-12">
+                        <button type="button" 
+                                wire:click="clearAllFilterInstances" 
+                                class="btn btn-sm btn-outline-warning" 
+                                title="Clear all additional filters">
+                            <i class="fas fa-broom"></i> Clear All Additional Filters
+                        </button>
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
     <div class="row mb-2">
@@ -148,13 +281,43 @@
                     </ul>
                 </div>
             @endif
-            @if ($refreshBtn == true)
-                <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
-             
+            
+            @if ($exportable)
+                <div class="dropdown me-2">
+                    <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" id="exportDropdown"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                        <li>
+                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('csv')">
+                                <i class="fas fa-file-csv"></i> Export as CSV
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('xlsx')">
+                                <i class="fas fa-file-excel"></i> Export as Excel
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('pdf')">
+                                <i class="fas fa-file-pdf"></i> Export as PDF
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             @endif
+            
+            @if ($refreshBtn == true)
+                <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
+                    <i class="fas fa-refresh"></i>
+                </button>
+            @endif
+            
             @if ($printable)
-                <button onclick="window.print()" class="btn btn-sm btn-secondary">Print</button>
+                <button onclick="window.print()" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-print"></i> Print
+                </button>
             @endif
         </div>
     </div>
@@ -305,21 +468,7 @@
                                             {{-- Handle function-based columns --}}
                                             @if (isset($column['raw']))
                                                 {{-- Function with custom raw template --}}
-                                                @php
-                                                    $rawTemplate = $column['raw'];
-                                                    $functionName = $column['function'];
-
-                                                    // Replace function calls in template
-                                                    if (method_exists($row, $functionName)) {
-                                                        $functionResult = $row->$functionName();
-                                                        $rawTemplate = str_replace(
-                                                            '$row->' . $functionName . '()', 
-                                                            is_bool($functionResult) ? ($functionResult ? 'true' : 'false') : $functionResult, 
-                                                            $rawTemplate
-                                                        );
-                                                    }
-                                                @endphp
-                                                {!! $this->renderRawHtml($rawTemplate, $row) !!}
+                                                {!! $this->renderRawHtml($column['raw'], $row) !!}
                                             @else
                                                 {{-- Function without raw template - display result directly --}}
                                                 @php
@@ -334,37 +483,7 @@
                                             @endif
                                         @elseif (isset($column['raw']))
                                             {{-- Handle regular raw templates --}}
-                                            @php
-                                                $rawTemplate = $column['raw'];
-                                                
-                                                // Ensure rawTemplate is a string
-                                                if (!is_string($rawTemplate)) {
-                                                    $rawTemplate = '';
-                                                }
-
-                                                // Skip PHP preprocessing for Blade-style templates and let renderRawHtml handle them
-                                                // Only do method call preprocessing for legacy templates without Blade syntax
-                                                $hasBladeSyntax = str_contains($rawTemplate, '{{ $row->') || str_contains($rawTemplate, '{{$row->');
-                                                
-                                                if (!$hasBladeSyntax && !empty($rawTemplate)) {
-                                                    // Handle method calls in raw templates (legacy support)
-                                                    preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $rawTemplate, $methodMatches);
-                                                    
-                                                    if (!empty($methodMatches[0])) {
-                                                        foreach ($methodMatches[0] as $index => $fullMatch) {
-                                                            $methodName = $methodMatches[1][$index];
-                                                            if (method_exists($row, $methodName)) {
-                                                                $methodResult = $row->$methodName();
-                                                                if (is_bool($methodResult)) {
-                                                                    $methodResult = $methodResult ? 'true' : 'false';
-                                                                }
-                                                                $rawTemplate = str_replace($fullMatch, $methodResult, $rawTemplate);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            @endphp
-                                            {!! $this->renderRawHtml($rawTemplate, $row) !!}
+                                            {!! $this->renderRawHtml($column['raw'], $row) !!}
                                         @elseif (isset($column['relation']))
                                             {{-- Handle relationship columns with multi-level nested support --}}
                                             @php 
@@ -434,28 +553,6 @@
                                             
                                             if (!is_string($actionTemplate)) {
                                                 $actionTemplate = '';
-                                            }
-
-                                            // Skip PHP preprocessing for Blade-style templates and let renderRawHtml handle them
-                                            // Only do method call preprocessing for legacy templates without Blade syntax
-                                            $hasBladeSyntax = str_contains($actionTemplate, '{{ $row->') || str_contains($actionTemplate, '{{$row->');
-                                            
-                                            if (!$hasBladeSyntax && !empty($actionTemplate)) {
-                                                // Handle method calls in actions (legacy support)
-                                                preg_match_all('/\$row->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $actionTemplate, $methodMatches);
-                                                
-                                                if (!empty($methodMatches[0])) {
-                                                    foreach ($methodMatches[0] as $index => $fullMatch) {
-                                                        $methodName = $methodMatches[1][$index];
-                                                        if (method_exists($row, $methodName)) {
-                                                            $methodResult = $row->$methodName();
-                                                            if (is_bool($methodResult)) {
-                                                                $methodResult = $methodResult ? 'true' : 'false';
-                                                            }
-                                                            $actionTemplate = str_replace($fullMatch, $methodResult, $actionTemplate);
-                                                        }
-                                                    }
-                                                }
                                             }
                                         @endphp
                                         {!! $this->renderRawHtml($actionTemplate, $row) !!}

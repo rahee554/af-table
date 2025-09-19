@@ -42,7 +42,7 @@
                         <select wire:model.live="filterOperator" class="form-select form-select-sm">
                             <option value="=">Equal (=)</option>
                             <option value="!=">Not Equal (≠)</option>
-                            <option value="<">Less Than (<)< /option>
+                            <option value="<">Less Than (<)</option>
                             <option value=">">Greater Than (>)</option>
                             <option value="<=">Less or Equal (≤)</option>
                             <option value=">=">Greater or Equal (≥)</option>
@@ -145,8 +145,8 @@
             @endif
             @if ($refreshBtn == true)
                 <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
-             
-                </div>
+                    Refresh
+                </button>
             @endif
             @if ($printable)
                 <button onclick="window.print()" class="btn btn-sm btn-secondary">Print</button>
@@ -231,10 +231,12 @@
             <tbody id="datatable-tbody">
                 @if (count($data) === 0)
                     <tr>
-                        <td colspan="{{
+                        <td colspan="{{ 
                             ($checkbox ? 1 : 0) +
                             ((!isset($index) || $index) ? 1 : 0) +
-                            {{ $this->getVisibleColumnsCount($columns, $visibleColumns) }} +
+                            collect($columns)->filter(function($column, $key) use($visibleColumns) {
+                                return isset($visibleColumns[$key]) ? (bool)$visibleColumns[$key] : !($column['hide'] ?? false);
+                            })->count() +
                             (!empty($actions) ? 1 : 0)
                         }}" class="text-center align-middle py-5">
                             <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 200px;">

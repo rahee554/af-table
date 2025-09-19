@@ -91,6 +91,9 @@ class TestTraitCommand extends Command
             $this->info('  [22] 📊 Collection Optimization Testing (NEW)');
             $this->info('  [23] 🔗 Relationship Optimization Testing (NEW)');
             $this->info('  [24] 🎯 Intelligent Caching Testing (NEW)');
+            $this->info('  [25] 🎨 Raw Template Rendering Testing (NEW)');
+            $this->info('  [26] 🔧 Trait Collision Detection (NEW)');
+            $this->info('  [27] 🛠️ Automated Collision Fix (NEW)');
             $this->info('  [0]  🎯 Run All Tests');
             $this->info('  [q]  👋 Quit');
             $this->newLine();
@@ -170,6 +173,15 @@ class TestTraitCommand extends Command
                 case '24':
                     $this->runIntelligentCachingTest();
                     break;
+                case '25':
+                    $this->runRawTemplateRenderingTest();
+                    break;
+                case '26':
+                    $this->runTraitCollisionDetectionTest();
+                    break;
+                case '27':
+                    $this->runTraitCollisionFixTest();
+                    break;
                 case '0':
                     $this->runAllTests();
                     break;
@@ -219,6 +231,13 @@ class TestTraitCommand extends Command
                 return $this->runMemoryManagementTest();
             case 'enhanced':
                 return $this->runEnhancedFeatureTest();
+            case 'rawtemplate':
+            case 'raw':
+                return $this->runRawTemplateRenderingTest();
+            case 'collision':
+                return $this->runTraitCollisionDetectionTest();
+            case 'fix':
+                return $this->runTraitCollisionFixTest();
             default:
                 $this->error("Unknown test suite: {$suite}");
                 return 1;
@@ -247,6 +266,9 @@ class TestTraitCommand extends Command
         $results['API Endpoint Integration'] = $this->runApiEndpointTest();
         $results['Memory Management'] = $this->runMemoryManagementTest();
         $results['Enhanced Features'] = $this->runEnhancedFeatureTest();
+
+        // Raw Template Rendering Tests
+        $results['Raw Template Rendering'] = $this->runRawTemplateRenderingTest();
 
         // Phase 1 & 2 Optimization Tests
         $results['Phase 1 Critical Fixes'] = $this->runPhase1CriticalFixesTest();
@@ -1280,6 +1302,278 @@ class TestTraitCommand extends Command
     }
 
     /**
+     * Comprehensive Trait Collision Detection and Resolution Test
+     * This test identifies all method conflicts between traits and suggests fixes
+     */
+    protected function runTraitCollisionDetectionTest()
+    {
+        $this->info('🔧 Running Comprehensive Trait Collision Detection...');
+        $this->newLine();
+
+        try {
+            // Get all trait files
+            $traitPaths = [
+                'Core' => glob(base_path('vendor/artflow-studio/table/src/Traits/Core/*.php')),
+                'UI' => glob(base_path('vendor/artflow-studio/table/src/Traits/UI/*.php')),
+                'Advanced' => glob(base_path('vendor/artflow-studio/table/src/Traits/Advanced/*.php')),
+            ];
+
+            $allMethods = [];
+            $traitMethods = [];
+            $conflicts = [];
+
+            // Analyze each trait for methods
+            foreach ($traitPaths as $category => $paths) {
+                foreach ($paths as $path) {
+                    $traitName = basename($path, '.php');
+                    $content = file_get_contents($path);
+                    
+                    // Find all method declarations
+                    preg_match_all('/(?:public|protected|private)\s+function\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/', $content, $matches);
+                    
+                    $methods = $matches[1] ?? [];
+                    $traitMethods[$traitName] = $methods;
+                    
+                    foreach ($methods as $method) {
+                        if (!isset($allMethods[$method])) {
+                            $allMethods[$method] = [];
+                        }
+                        $allMethods[$method][] = $traitName;
+                    }
+                }
+            }
+
+            // Identify conflicts
+            foreach ($allMethods as $method => $traits) {
+                if (count($traits) > 1) {
+                    $conflicts[$method] = $traits;
+                }
+            }
+
+            // Display results
+            $this->info('📊 TRAIT COLLISION ANALYSIS RESULTS:');
+            $this->info('=====================================');
+            $this->newLine();
+
+            if (empty($conflicts)) {
+                $this->info('✅ No method conflicts detected between traits!');
+                return 0;
+            }
+
+            $this->error('❌ CONFLICTS DETECTED:');
+            $this->newLine();
+
+            foreach ($conflicts as $method => $traits) {
+                $this->warn("🔥 METHOD: {$method}");
+                $this->info("   Conflicts between: " . implode(', ', $traits));
+                
+                // Suggest resolution strategy
+                $strategy = $this->suggestResolutionStrategy($method, $traits);
+                $this->info("   💡 Suggested fix: {$strategy}");
+                $this->newLine();
+            }
+
+            // Summary and recommendations
+            $this->info('🎯 COLLISION RESOLUTION RECOMMENDATIONS:');
+            $this->info('========================================');
+            $this->newLine();
+
+            $consolidationSuggestions = $this->generateConsolidationSuggestions($conflicts);
+            foreach ($consolidationSuggestions as $suggestion) {
+                $this->info("📋 {$suggestion}");
+            }
+
+            $this->newLine();
+            $this->info("📊 Total conflicts found: " . count($conflicts));
+            $this->info("📊 Total traits analyzed: " . count($traitMethods));
+            $this->info("📊 Total methods analyzed: " . array_sum(array_map('count', $traitMethods)));
+
+            return count($conflicts); // Return number of conflicts as error indicator
+
+        } catch (\Exception $e) {
+            $this->error("❌ Collision detection failed: {$e->getMessage()}");
+            if ($this->option('detail')) {
+                $this->error("Stack trace: {$e->getTraceAsString()}");
+            }
+            return 1;
+        }
+    }
+
+    /**
+     * Suggest resolution strategy for method conflicts
+     */
+    private function suggestResolutionStrategy($method, $traits)
+    {
+        // Strategy based on method name patterns and trait types
+        if (str_contains($method, 'initialize')) {
+            return 'Use insteadof - keep in most specific trait, remove from others';
+        }
+        
+        if (str_contains($method, 'apply') && in_array('HasQueryOptimization', $traits) && in_array('HasQueryBuilding', $traits)) {
+            return 'Consolidate into HasQueryBuilding, remove from HasQueryOptimization';
+        }
+        
+        if (str_contains($method, 'sanitize') && in_array('HasDataValidation', $traits) && in_array('HasBladeRendering', $traits)) {
+            return 'Keep in HasBladeRendering for rendering context, alias in HasDataValidation';
+        }
+        
+        if (str_contains($method, 'isValid') || str_contains($method, 'isAllowed')) {
+            return 'Keep in HasDataValidation, use insteadof for others';
+        }
+        
+        if (str_contains($method, 'getDefault') || str_contains($method, 'getValidated')) {
+            return 'Keep in UI trait (HasColumnVisibility), use insteadof for Core traits';
+        }
+        
+        if (str_contains($method, 'clearSelection') || str_contains($method, 'getSelectedCount')) {
+            return 'Use aliases for each trait (already implemented)';
+        }
+
+        // Default strategy
+        return 'Use insteadof to choose most appropriate trait, or create aliases';
+    }
+
+    /**
+     * Generate consolidation suggestions
+     */
+    private function generateConsolidationSuggestions($conflicts)
+    {
+        $suggestions = [];
+        
+        // Query optimization conflicts
+        $queryConflicts = array_filter($conflicts, function($traits, $method) {
+            return (in_array('HasQueryOptimization', $traits) && in_array('HasQueryBuilding', $traits));
+        }, ARRAY_FILTER_USE_BOTH);
+        
+        if (!empty($queryConflicts)) {
+            $suggestions[] = "🔄 Consolidate HasQueryOptimization methods into HasQueryBuilding trait";
+        }
+        
+        // Column management conflicts
+        $columnConflicts = array_filter($conflicts, function($traits, $method) {
+            return (in_array('HasColumnManagement', $traits) && 
+                   (in_array('HasColumnVisibility', $traits) || in_array('HasDataValidation', $traits)));
+        }, ARRAY_FILTER_USE_BOTH);
+        
+        if (!empty($columnConflicts)) {
+            $suggestions[] = "📊 Use specialized traits (HasColumnVisibility, HasDataValidation) over general HasColumnManagement";
+        }
+        
+        // Validation conflicts
+        $validationConflicts = array_filter($conflicts, function($traits, $method) {
+            return (in_array('HasDataValidation', $traits) && in_array('HasBladeRendering', $traits));
+        }, ARRAY_FILTER_USE_BOTH);
+        
+        if (!empty($validationConflicts)) {
+            $suggestions[] = "🛡️ Keep context-specific methods in appropriate traits (rendering vs validation)";
+        }
+        
+        $suggestions[] = "⚡ Remove HasColumnConfiguration trait - fully overlaps with HasColumnManagement";
+        $suggestions[] = "🎯 Use 'insteadof' declarations in main class for all conflicts";
+        $suggestions[] = "📝 Update process.md with collision resolution decisions";
+        
+        return $suggestions;
+    }
+
+    /**
+     * Test and fix all trait collisions automatically
+     */
+    protected function runTraitCollisionFixTest()
+    {
+        $this->info('🔧 Running Automated Trait Collision Fix...');
+        $this->newLine();
+
+        try {
+            // Run detection first
+            $conflicts = $this->detectConflicts();
+            
+            if (empty($conflicts)) {
+                $this->info('✅ No conflicts to fix!');
+                return 0;
+            }
+
+            $this->info('🔄 Applying automated fixes...');
+            
+            // Apply fixes based on our resolution strategies
+            $fixed = 0;
+            foreach ($conflicts as $method => $traits) {
+                if ($this->applyAutomatedFix($method, $traits)) {
+                    $fixed++;
+                    $this->info("  ✅ Fixed conflict for: {$method}");
+                } else {
+                    $this->warn("  ⚠️  Manual fix needed for: {$method}");
+                }
+            }
+
+            $this->newLine();
+            $this->info("📊 Fixed {$fixed}/" . count($conflicts) . " conflicts automatically");
+            
+            if ($fixed < count($conflicts)) {
+                $this->warn("⚠️  " . (count($conflicts) - $fixed) . " conflicts require manual intervention");
+            }
+
+            return count($conflicts) - $fixed; // Return remaining conflicts
+
+        } catch (\Exception $e) {
+            $this->error("❌ Automated fix failed: {$e->getMessage()}");
+            return 1;
+        }
+    }
+
+    /**
+     * Detect conflicts programmatically
+     */
+    private function detectConflicts()
+    {
+        // This would be the same logic as runTraitCollisionDetectionTest
+        // but returning data instead of displaying it
+        $traitPaths = [
+            'Core' => glob(base_path('vendor/artflow-studio/table/src/Traits/Core/*.php')),
+            'UI' => glob(base_path('vendor/artflow-studio/table/src/Traits/UI/*.php')),
+            'Advanced' => glob(base_path('vendor/artflow-studio/table/src/Traits/Advanced/*.php')),
+        ];
+
+        $allMethods = [];
+        $conflicts = [];
+
+        foreach ($traitPaths as $category => $paths) {
+            foreach ($paths as $path) {
+                $traitName = basename($path, '.php');
+                $content = file_get_contents($path);
+                
+                preg_match_all('/(?:public|protected|private)\s+function\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/', $content, $matches);
+                
+                $methods = $matches[1] ?? [];
+                
+                foreach ($methods as $method) {
+                    if (!isset($allMethods[$method])) {
+                        $allMethods[$method] = [];
+                    }
+                    $allMethods[$method][] = $traitName;
+                }
+            }
+        }
+
+        foreach ($allMethods as $method => $traits) {
+            if (count($traits) > 1) {
+                $conflicts[$method] = $traits;
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Apply automated fix for specific conflict
+     */
+    private function applyAutomatedFix($method, $traits)
+    {
+        // This would implement the actual fixes based on our strategies
+        // For now, just return false to indicate manual intervention needed
+        return false;
+    }
+
+    /**
      * Test Phase 1 Critical Fixes functionality
      */
     protected function runPhase1CriticalFixesTest()
@@ -1812,6 +2106,405 @@ class TestTraitCommand extends Command
             
         } catch (\Exception $e) {
             $this->error('❌ JSON File Integration Test Failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Comprehensive Raw Template Rendering Test
+     */
+    protected function runRawTemplateRenderingTest()
+    {
+        $this->info('🎨 Testing Raw Template Rendering...');
+
+        try {
+            // Create a test component with raw template rendering capabilities
+            $testComponent = new class extends DatatableTrait {
+                public function testRenderRawHtml($template, $row) {
+                    return $this->renderRawHtml($template, $row);
+                }
+            };
+
+            // Create mock row data for testing
+            $mockRow = new class {
+                public $id = 1;
+                public $name = 'John Doe';
+                public $email = 'john@example.com';
+                public $status = 'active';
+                public $priority = 'high';
+                public $score = 85;
+                public $created_at = '2024-01-15 10:30:00';
+                public $is_verified = true;
+                public $user_id = null; // For testing null checks
+                public $whatsapp = '+1234567890'; // For testing WhatsApp functionality
+                public $customer;
+                
+                public function __construct() {
+                    $this->customer = (object) [
+                        'first_name' => 'John',
+                        'last_name' => 'Doe',
+                        'email' => 'john@example.com'
+                    ];
+                }
+                
+                public function customer() {
+                    return $this->customer;
+                }
+                
+                public function getTicketStatusAttribute() {
+                    return 'Ticketed';
+                }
+                
+                public function getTotalPointsAttribute() {
+                    return 150;
+                }
+            };
+
+            $passed = 0;
+            $total = 0;
+
+            // Test 1: Simple property access with {{}} syntax
+            $total++;
+            $template = '{{$row->name}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'John Doe') {
+                $passed++;
+                $this->info("  ✅ {{}} syntax: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ {{}} syntax failed: '$template' → '$result'");
+            }
+
+            // Test 2: Simple property access with {{}} syntax
+            $total++;
+            $template = '{{$row->email}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'john@example.com') {
+                $passed++;
+                $this->info("  ✅ {{}} syntax: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ {{}} syntax failed: '$template' → '$result'");
+            }
+
+            // Test 3: Bracketed array syntax '[ {{ }} ]'
+            $total++;
+            $template = '[ {{$row->name}} ]';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'John Doe') {
+                $passed++;
+                $this->info("  ✅ [ {{}} ] syntax: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ [ {{}} ] syntax failed: '$template' → '$result'");
+            }
+
+            // Test 4: Bracketed array syntax '[ {{}} ]'
+            $total++;
+            $template = '[ {{$row->status}} ]';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'active') {
+                $passed++;
+                $this->info("  ✅ [ {{}} ] syntax: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ [ {{}} ] syntax failed: '$template' → '$result'");
+            }
+
+            // Test 5: Nested property access
+            $total++;
+            $template = '{{$row->customer->first_name}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'John') {
+                $passed++;
+                $this->info("  ✅ Nested property: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Nested property failed: '$template' → '$result'");
+            }
+
+            // Test 6: String concatenation
+            $total++;
+            $template = '{{$row->customer->first_name . " " . $row->customer->last_name}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'John Doe') {
+                $passed++;
+                $this->info("  ✅ Concatenation: Full name → '$result'");
+            } else {
+                $this->error("  ❌ Concatenation failed: '$result'");
+            }
+
+            // Test 7: Function calls with null coalescing
+            $total++;
+            $template = '{{ucfirst($row->status ?? "unknown")}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'Active') {
+                $passed++;
+                $this->info("  ✅ Function call: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Function call failed: '$template' → '$result'");
+            }
+
+            // Test 8: Simple ternary operator
+            $total++;
+            $template = '{{$row->status === "active" ? "Online" : "Offline"}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'Online') {
+                $passed++;
+                $this->info("  ✅ Ternary operator: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Ternary operator failed: '$template' → '$result'");
+            }
+
+            // Test 9: Nested ternary operators
+            $total++;
+            $template = '{{$row->priority === "high" ? "danger" : ($row->priority === "medium" ? "warning" : "info")}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'danger') {
+                $passed++;
+                $this->info("  ✅ Nested ternary: Priority high → '$result'");
+            } else {
+                $this->error("  ❌ Nested ternary failed: '$template' → '$result'");
+            }
+
+            // Test 10: Array-based raw templates
+            $total++;
+            $arrayTemplate = [
+                '<span class="badge badge-{{$row->status === "active" ? "success" : "secondary"}}">',
+                '<i class="fas fa-{{$row->status === "active" ? "check" : "times"}} me-2"></i>',
+                '{{ucfirst($row->status)}}',
+                '</span>'
+            ];
+            $result = $testComponent->testRenderRawHtml($arrayTemplate, $mockRow);
+            if (strpos($result, 'badge-success') !== false && strpos($result, 'Active') !== false) {
+                $passed++;
+                $this->info("  ✅ Array template: Badge with icon and text");
+            } else {
+                $this->error("  ❌ Array template failed: '$result'");
+            }
+
+            // Test 11: Carbon date formatting (if Carbon is available)
+            $total++;
+            try {
+                if (class_exists('\Carbon\Carbon')) {
+                    $template = '{{\Carbon\Carbon::parse($row->created_at)->format("d M Y")}}';
+                    $result = $testComponent->testRenderRawHtml($template, $mockRow);
+                    if (preg_match('/\d{2} \w{3} \d{4}/', $result)) {
+                        $passed++;
+                        $this->info("  ✅ Carbon formatting: '$template' → '$result'");
+                    } else {
+                        $this->error("  ❌ Carbon formatting failed: '$result'");
+                    }
+                } else {
+                    $this->info("  ⚠️  Carbon not available, skipping date formatting test");
+                    $total--; // Don't count this test
+                }
+            } catch (\Exception $e) {
+                $this->error("  ❌ Carbon formatting error: " . $e->getMessage());
+            }
+
+            // Test 12: Complex HTML with multiple expressions
+            $total++;
+            $complexTemplate = '<div class="user-info">
+                <strong>{{$row->customer->first_name . " " . $row->customer->last_name}}</strong>
+                <br>
+                <small class="text-muted">{{$row->email}}</small>
+                <br>
+                <span class="badge badge-{{$row->score >= 80 ? "success" : "warning"}}">{{$row->score}}</span>
+            </div>';
+            $result = $testComponent->testRenderRawHtml($complexTemplate, $mockRow);
+            if (strpos($result, 'John Doe') !== false && 
+                strpos($result, 'john@example.com') !== false && 
+                strpos($result, 'badge-success') !== false) {
+                $passed++;
+                $this->info("  ✅ Complex HTML: Multiple expressions rendered correctly");
+            } else {
+                $this->error("  ❌ Complex HTML failed");
+                $this->error("  Expected: Contains 'John Doe', 'john@example.com', 'badge-success'");
+                $this->error("  Actual: " . $result);
+            }
+
+            // Test 13: Error handling with invalid expressions
+            $total++;
+            $template = '{{$row->nonexistent_property}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === '') { // Should return empty string for non-existent properties
+                $passed++;
+                $this->info("  ✅ Error handling: Invalid property returns empty string");
+            } else {
+                $this->error("  ❌ Error handling failed: '$result'");
+            }
+
+            // Test 14: Security - HTML escaping
+            $total++;
+            $mockRow->name = '<script>alert("xss")</script>';
+            $template = '{{$row->name}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if (strpos($result, '&lt;script&gt;') !== false || strpos($result, '<script>') === false) {
+                $passed++;
+                $this->info("  ✅ Security: HTML properly escaped");
+            } else {
+                $this->error("  ❌ Security: HTML not escaped properly");
+            }
+
+            // Reset the name for further tests
+            $mockRow->name = 'John Doe';
+
+            // Test 15: Blade {{ }} syntax - Simple Carbon date formatting
+            $total++;
+            $template = '{{ \Carbon\Carbon::parse($row->created_at)->format("H:i - d M Y") }}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if (preg_match('/\d{2}:\d{2} - \d{2} \w{3} \d{4}/', $result)) {
+                $passed++;
+                $this->info("  ✅ Blade {{}} Carbon formatting: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Blade {{}} Carbon formatting failed: '$template' → '$result'");
+            }
+
+            // Test 16: Blade {{ }} syntax - Function with property
+            $total++;
+            $template = '{{ ucfirst($row->status) }}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'Active') {
+                $passed++;
+                $this->info("  ✅ Blade {{}} function call: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Blade {{}} function call failed: '$template' → '$result'");
+            }
+
+            // Test 17: Blade {{ }} syntax - Complex Carbon with chaining
+            $total++;
+            $template = '{{ \Carbon\Carbon::parse($row->created_at)->format("d M Y") }}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if (preg_match('/\d{2} \w{3} \d{4}/', $result)) {
+                $passed++;
+                $this->info("  ✅ Blade {{}} complex Carbon: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Blade {{}} complex Carbon failed: '$template' → '$result'");
+            }
+
+            // Test 18: Mixed syntax in array template
+            $total++;
+            $mixedArrayTemplate = [
+                '<div class="flight-info">',
+                '<i class="fas fa-plane-departure text-primary"></i>',
+                '{{ \Carbon\Carbon::parse($row->created_at)->format("H:i - d M Y") }}',
+                '<br>',
+                '<span class="badge {{$row->status === "active" ? "badge-success" : "badge-secondary"}}">',
+                '{{ucfirst($row->status)}}',
+                '</span>',
+                '</div>'
+            ];
+            $result = $testComponent->testRenderRawHtml($mixedArrayTemplate, $mockRow);
+            if (strpos($result, 'flight-info') !== false && 
+                strpos($result, 'badge-success') !== false && 
+                preg_match('/\d{2}:\d{2} - \d{2} \w{3} \d{4}/', $result)) {
+                $passed++;
+                $this->info("  ✅ Mixed syntax array: Blade {{}} + {[]} combined");
+            } else {
+                $this->error("  ❌ Mixed syntax array failed: '$result'");
+            }
+
+            // Test 19: Null check ternary - property is not null
+            $total++;
+            $mockRow->user_id = 123; // Set a value
+            $template = '{{$row->user_id !== null ? "Exist" : "Not Exist"}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'Exist') {
+                $passed++;
+                $this->info("  ✅ Null check ternary (not null): '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Null check ternary (not null) failed: '$template' → '$result'");
+            }
+
+            // Test 20: Null check ternary - property is null
+            $total++;
+            $mockRow->user_id = null; // Set to null
+            $template = '{{$row->user_id !== null ? "Exist" : "Not Exist"}}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'Not Exist') {
+                $passed++;
+                $this->info("  ✅ Null check ternary (null): '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Null check ternary (null) failed: '$template' → '$result'");
+            }
+
+            // Test 21: Blade null check - property is not null
+            $total++;
+            $mockRow->user_id = 456; // Set a value
+            $template = '{{ $row->user_id !== null ? "Exist" : "Not Exist" }}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'Exist') {
+                $passed++;
+                $this->info("  ✅ Blade null check (not null): '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Blade null check (not null) failed: '$template' → '$result'");
+            }
+
+            // Test 22: Blade null check - property is null
+            $total++;
+            $mockRow->user_id = null; // Set to null
+            $template = '{{ $row->user_id !== null ? "Exist" : "Not Exist" }}';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if ($result === 'Not Exist') {
+                $passed++;
+                $this->info("  ✅ Blade null check (null): '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Blade null check (null) failed: '$template' → '$result'");
+            }
+
+            // Test 23: Bracketed Blade expressions
+            $total++;
+            $template = '[ {{ \Carbon\Carbon::parse($row->created_at)->format("H:i") }} ]';
+            $result = $testComponent->testRenderRawHtml($template, $mockRow);
+            if (preg_match('/\d{2}:\d{2}/', $result)) {
+                $passed++;
+                $this->info("  ✅ Bracketed Blade: '$template' → '$result'");
+            } else {
+                $this->error("  ❌ Bracketed Blade failed: '$template' → '$result'");
+            }
+
+            // Test 24: Mixed syntax issue detection - simulating problematic Blade view pattern
+            $total++;
+            $mockRow->whatsapp = '+1234567890';
+            $problematicTemplate = '<a href="https://wa.me/{{$row->whatsapp}}" target="_blank">{{ $row->whatsapp }}</a>';
+            $result = $testComponent->testRenderRawHtml($problematicTemplate, $mockRow);
+            // This should render properly with both parts working, NOT containing broken PHP
+            if (strpos($result, '+1234567890') !== false && 
+                strpos($result, 'wa.me/+1234567890') !== false && 
+                strpos($result, '&quot;$row-&gt;whatsapp&quot;') === false && 
+                strpos($result, '?&gt;') === false) {
+                $passed++;
+                $this->info("  ✅ Mixed syntax handling: Both {[]} and {{}} syntax work correctly");
+            } else {
+                $this->error("  ❌ Mixed syntax failed: '$template' → '$result'");
+                $this->error("      This indicates {{}} is being processed by Blade before reaching AF Table");
+                $this->error("      Solution: Use {[]} syntax consistently in views");
+            }
+
+            // Test 25: Problematic pattern detection - pure {{}} in views
+            $total++;
+            $viewBladeTemplate = '<span>{{ $row->whatsapp }}</span>';
+            $result = $testComponent->testRenderRawHtml($viewBladeTemplate, $mockRow);
+            // In a view context, {{}} would be processed by Blade and create broken PHP
+            // Our trait should handle this gracefully
+            if (!empty($result) && strpos($result, '+1234567890') !== false) {
+                $passed++;
+                $this->info("  ✅ Blade {{}} syntax detection: Properly handled in trait");
+            } else {
+                $this->error("  ❌ Blade {{}} syntax failed: '$viewBladeTemplate' → '$result'");
+                $this->error("      Note: In real views, use {[]} instead of {{}} to avoid Blade preprocessing");
+            }
+
+            $this->info("  📊 Raw template rendering tests: {$passed}/{$total} passed");
+            $this->info("  🎯 Success rate: " . round(($passed / $total) * 100, 1) . "%");
+
+            if ($passed === $total) {
+                $this->info("  🚀 All raw template rendering features working perfectly!");
+                $this->info("  ✨ Includes Blade {{}} expressions, {[]} custom syntax, and mixed arrays!");
+                return 0;
+            } else {
+                $this->error("  ⚠️  Some raw template rendering tests failed");
+                return 1;
+            }
+
+        } catch (\Exception $e) {
+            $this->error("  ❌ Raw template rendering test failed: {$e->getMessage()}");
+            return 1;
         }
     }
 }

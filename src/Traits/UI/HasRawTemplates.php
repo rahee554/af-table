@@ -1,6 +1,6 @@
 <?php
 
-namespace ArtflowStudio\Table\Traits;
+namespace ArtflowStudio\Table\Traits\UI;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;

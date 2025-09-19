@@ -1,6 +1,6 @@
 <?php
 
-namespace ArtflowStudio\Table\Traits;
+namespace ArtflowStudio\Table\Traits\Advanced;
 
 use Illuminate\Support\Facades\Log;
 
