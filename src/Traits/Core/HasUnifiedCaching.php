@@ -458,8 +458,10 @@ trait HasUnifiedCaching
                 return [];
             }
 
+            // CRITICAL FIX: Do NOT apply filters when getting distinct values
+            // The dropdown should show ALL available values, not just filtered ones
             $query = $this->model::query();
-            $this->applyFilters($query);
+            // Removed: $this->applyFilters($query);
 
             if (isset($column['key'])) {
                 $columnName = $column['key'];
@@ -506,8 +508,10 @@ trait HasUnifiedCaching
             $relationPath = $relationParts[0];
             $attribute = $relationParts[1] ?? 'id';
 
+            // CRITICAL FIX: Do NOT apply filters when getting distinct values
+            // The dropdown should show ALL available values, not just filtered ones
             $query = $this->model::query();
-            $this->applyFilters($query);
+            // Removed: $this->applyFilters($query);
 
             // Get all records with their relations loaded
             $records = $query->with($relationPath)->get();

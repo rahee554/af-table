@@ -275,4 +275,124 @@ trait HasDataValidation
 
         return $result;
     }
+
+    /**
+     * Validate the complete datatable configuration
+     * Ensures all required fields are properly configured
+     */
+    protected function validateConfiguration(): array
+    {
+        $result = [
+            'valid' => [],
+            'invalid' => [],
+            'errors' => [],
+            'warnings' => []
+        ];
+
+        // Check if columns are configured
+        if (empty($this->columns)) {
+            $result['errors'][] = 'No columns configured';
+            $result['invalid']['columns'] = 'Columns array is empty';
+            return $result;
+        }
+
+        // Check each column has required fields
+        foreach ($this->columns as $columnKey => $column) {
+            if (empty($columnKey)) {
+                $result['errors'][] = 'Column key is empty';
+                $result['invalid'][$columnKey] = 'Column key cannot be empty';
+                continue;
+            }
+
+            // Check if column has either 'key' or 'relation'
+            if (!isset($column['key']) && !isset($column['relation'])) {
+                $result['errors'][] = "Column '{$columnKey}' has neither 'key' nor 'relation' defined";
+                $result['invalid'][$columnKey] = 'Missing key or relation';
+                continue;
+            }
+
+            // Check if column has a title
+            if (!isset($column['title'])) {
+                $result['warnings'][] = "Column '{$columnKey}' has no title";
+            }
+
+            $result['valid'][$columnKey] = $column;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Validate a filter value against column configuration
+     * Ensures the filter value is appropriate for the column type
+     */
+    protected function validateFilterValue($column, $value): array
+    {
+        $result = [
+            'valid' => false,
+            'errors' => [],
+            'column' => $column,
+            'value' => $value,
+            'type' => 'unknown'
+        ];
+
+        // Find column config
+        $columnConfig = $this->columns[$column] ?? null;
+        if (!$columnConfig) {
+            $result['errors'][] = "Column '{$column}' not found in configuration";
+            return $result;
+        }
+
+        // Get the filter type from column config
+        $filterType = $columnConfig['filter'] ?? 'text';
+        $result['type'] = $filterType;
+
+        // Validate empty value (allowed for most types)
+        if ($value === null || $value === '') {
+            $result['valid'] = true;
+            return $result;
+        }
+
+        // Type-specific validation
+        switch ($filterType) {
+            case 'number':
+                if (!is_numeric($value)) {
+                    $result['errors'][] = 'Value must be numeric';
+                } else {
+                    $result['valid'] = true;
+                }
+                break;
+
+            case 'date':
+                // Check if valid date format (Y-m-d)
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}/', $value)) {
+                    $result['errors'][] = 'Value must be in date format (YYYY-MM-DD)';
+                } else {
+                    $result['valid'] = true;
+                }
+                break;
+
+            case 'distinct':
+            case 'select':
+                // These require a value from a list, but value itself is a string/number
+                if (!is_string($value) && !is_numeric($value)) {
+                    $result['errors'][] = 'Value must be a string or numeric';
+                } else {
+                    $result['valid'] = true;
+                }
+                break;
+
+            case 'text':
+            default:
+                // Text values are always valid as strings
+                if (is_string($value) || is_numeric($value)) {
+                    $result['valid'] = true;
+                } else {
+                    $result['errors'][] = 'Value must be a string or numeric';
+                }
+                break;
+        }
+
+        return $result;
+    }
 }

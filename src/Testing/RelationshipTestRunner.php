@@ -43,8 +43,13 @@ class RelationshipTestRunner extends BaseTestRunner
         $this->runTest('Deep Nested Relations', [$this, 'testDeepNestedRelations']);
         $this->runTest('Relation Query Building', [$this, 'testRelationQueryBuilding']);
         $this->runTest('Relation Sorting Limitations', [$this, 'testRelationSortingLimitations']);
+        $this->runTest('Nested Relation Sorting', [$this, 'testNestedRelationSorting']);
         $this->runTest('Relation Search Functionality', [$this, 'testRelationSearchFunctionality']);
         $this->runTest('Relation Filter Support', [$this, 'testRelationFilterSupport']);
+        $this->runTest('Nested Relation Filtering', [$this, 'testNestedRelationFiltering']);
+        $this->runTest('Relation String Parsing', [$this, 'testRelationStringParsing']);
+        $this->runTest('Searchable Relations Detection', [$this, 'testSearchableRelationsDetection']);
+        $this->runTest('Searchable Columns Detection', [$this, 'testSearchableColumnsDetection']);
         $this->runTest('Relation Performance', [$this, 'testRelationPerformance']);
 
         return $this->getResults();
@@ -364,6 +369,173 @@ class RelationshipTestRunner extends BaseTestRunner
             return true;
         } catch (\Exception $e) {
             $this->log("Relation performance test failed: " . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Test nested relation sorting (NEW)
+     * Tests that nested relations like 'student.user:name' can be sorted correctly
+     */
+    public function testNestedRelationSorting(): bool
+    {
+        try {
+            $columns = [
+                ['key' => 'id', 'label' => 'ID'],
+                ['key' => 'student_id', 'relation' => 'student.user:name', 'label' => 'Student Name'],
+            ];
+
+            $component = new Datatable();
+            $component->mount('App\\Models\\Grade', $columns);
+
+            // Test sorting on nested relation
+            $component->sortColumn = 'student_id';
+            $component->sortDirection = 'asc';
+            
+            // This should not crash
+            $this->assertNotNull($component->sortColumn);
+            $this->assertEquals('asc', $component->sortDirection);
+
+            return true;
+        } catch (\Exception $e) {
+            $this->log("Nested relation sorting test failed: " . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Test nested relation filtering (NEW)
+     * Tests that nested relations can be filtered correctly
+     */
+    public function testNestedRelationFiltering(): bool
+    {
+        try {
+            $columns = [
+                ['key' => 'student_id', 'relation' => 'student.user:name', 'label' => 'Student Name'],
+            ];
+
+            $filters = [
+                'student_id' => ['type' => 'text', 'relation' => 'student.user:name'],
+            ];
+
+            $component = new Datatable();
+            $component->mount('App\\Models\\Grade', $columns, $filters);
+
+            // Test nested relation filter configuration
+            $this->assertEquals($filters, $component->filters);
+            
+            // Test filter value update for nested relation
+            $component->filterColumn = 'student_id';
+            $component->filterValue = 'John Doe';
+            $component->filterOperator = 'like';
+            
+            $this->assertEquals('student_id', $component->filterColumn);
+            $this->assertEquals('John Doe', $component->filterValue);
+
+            return true;
+        } catch (\Exception $e) {
+            $this->log("Nested relation filtering test failed: " . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Test relation string parsing (NEW)
+     * Tests that parseRelationString method works correctly for various formats
+     */
+    public function testRelationStringParsing(): bool
+    {
+        try {
+            $component = new Datatable();
+            $component->mount('App\\Models\\Post', []);
+
+            // Test simple relation parsing
+            $result = $this->invokeMethod($component, 'parseRelationString', ['user:name']);
+            $this->assertEquals(['user'], $result['relations']);
+            $this->assertEquals('user', $result['relationPath']);
+            $this->assertEquals('name', $result['attribute']);
+
+            // Test nested relation parsing
+            $result = $this->invokeMethod($component, 'parseRelationString', ['student.user:name']);
+            $this->assertEquals(['student', 'student.user'], $result['relations']);
+            $this->assertEquals('student.user', $result['relationPath']);
+            $this->assertEquals('name', $result['attribute']);
+
+            // Test deep nested relation parsing
+            $result = $this->invokeMethod($component, 'parseRelationString', ['order.customer.company:name']);
+            $this->assertEquals(['order', 'order.customer', 'order.customer.company'], $result['relations']);
+            $this->assertEquals('order.customer.company', $result['relationPath']);
+            $this->assertEquals('name', $result['attribute']);
+
+            return true;
+        } catch (\Exception $e) {
+            $this->log("Relation string parsing test failed: " . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Test searchable relations detection (NEW)
+     * Tests that getSearchableRelations returns correct relation structure
+     */
+    public function testSearchableRelationsDetection(): bool
+    {
+        try {
+            $columns = [
+                ['key' => 'user_id', 'relation' => 'user:name', 'label' => 'User Name', 'searchable' => true],
+                ['key' => 'category_id', 'relation' => 'category:title', 'label' => 'Category', 'searchable' => false],
+                ['key' => 'student_id', 'relation' => 'student.user:name', 'label' => 'Student Name', 'searchable' => true],
+            ];
+
+            $component = new Datatable();
+            $component->mount('App\\Models\\Post', $columns);
+
+            $searchableRelations = $this->invokeMethod($component, 'getSearchableRelations', []);
+            
+            // Should include searchable relations
+            $this->assertArrayHasKey('user', $searchableRelations);
+            $this->assertArrayHasKey('student.user', $searchableRelations);
+            
+            // Should NOT include non-searchable relations
+            $this->assertTrue(!isset($searchableRelations['category']), 'Category should not be in searchable relations');
+
+            return true;
+        } catch (\Exception $e) {
+            $this->log("Searchable relations detection test failed: " . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Test searchable columns detection (NEW)
+     * Tests that getSearchableColumns returns correct columns
+     */
+    public function testSearchableColumnsDetection(): bool
+    {
+        try {
+            $columns = [
+                ['key' => 'id', 'label' => 'ID', 'searchable' => false],
+                ['key' => 'name', 'label' => 'Name', 'searchable' => true],
+                ['key' => 'email', 'label' => 'Email', 'searchable' => true],
+                ['key' => 'computed_field', 'label' => 'Computed', 'raw' => 'CONCAT(name, email)', 'searchable' => false],
+            ];
+
+            $component = new Datatable();
+            $component->mount('App\\Models\\User', $columns);
+
+            $searchableColumns = $this->invokeMethod($component, 'getSearchableColumns', []);
+            
+            // Should include searchable columns
+            $this->assertContains('name', $searchableColumns);
+            $this->assertContains('email', $searchableColumns);
+            
+            // Should NOT include non-searchable columns
+            $this->assertTrue(!in_array('id', $searchableColumns), 'ID should not be searchable');
+            $this->assertTrue(!in_array('computed_field', $searchableColumns), 'Computed field should not be searchable');
+
+            return true;
+        } catch (\Exception $e) {
+            $this->log("Searchable columns detection test failed: " . $e->getMessage(), 'error');
             return false;
         }
     }

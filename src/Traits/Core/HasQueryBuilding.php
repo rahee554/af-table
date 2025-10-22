@@ -388,22 +388,14 @@ trait HasQueryBuilding
         // Apply sorting with table alias
         $query->orderBy($tableAlias . '.' . $attribute, $direction);
 
+        // Use DISTINCT to prevent duplicate results from joins instead of GROUP BY
+        // This is better for MySQL strict mode (ONLY_FULL_GROUP_BY)
+        $query->distinct();
+
         // Only modify select if no columns are currently selected
         // This prevents overriding the carefully constructed select columns
         if (empty($query->getQuery()->columns)) {
             $query->select($parentTable . '.*');
-        }
-
-        // Add group by to prevent duplicate results from joins
-        // Include all selected columns in GROUP BY to satisfy MySQL strict mode
-        $selectedColumns = $query->getQuery()->columns;
-        if (!empty($selectedColumns)) {
-            $qualifiedGroupBy = array_map(function ($col) use ($parentTable) {
-                return str_contains($col, '.') ? $col : $parentTable . '.' . $col;
-            }, $selectedColumns);
-            $query->groupBy($qualifiedGroupBy);
-        } else {
-            $query->groupBy($parentTable . '.id');
         }
     }
 

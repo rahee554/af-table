@@ -34,7 +34,14 @@ trait HasSorting
     public function toggleSort($column)
     {
         if (!$this->isAllowedColumn($column)) {
-            return; // Ignore invalid column
+            // Silently return - column not allowed
+            return;
+        }
+
+        // Check if this is actually sortable
+        if (!$this->isColumnSortable($column)) {
+            // Silently ignore - column is not sortable (nested relation, JSON, etc.)
+            return;
         }
         
         // If clicking the same column, toggle direction
@@ -47,6 +54,45 @@ trait HasSorting
         }
         
         $this->resetPage();
+    }
+
+    /**
+     * Check if a column is actually sortable
+     * Returns false for nested relations, JSON columns, and function columns
+     */
+    protected function isColumnSortable($column): bool
+    {
+        // Find the column configuration
+        $columnConfig = null;
+        foreach ($this->columns as $col) {
+            if ((isset($col['key']) && $col['key'] === $column) || (isset($col['relation']) && str_starts_with($col['relation'], $column))) {
+                $columnConfig = $col;
+                break;
+            }
+        }
+
+        if (!$columnConfig) {
+            // Column not found in configuration
+            return false;
+        }
+
+        // Nested relations are not sortable
+        if (isset($columnConfig['relation']) && strpos($columnConfig['relation'], '.') !== false && strpos($columnConfig['relation'], ':') !== false) {
+            return false;
+        }
+
+        // JSON columns are not sortable
+        if (isset($columnConfig['json'])) {
+            return false;
+        }
+
+        // Function columns are not sortable
+        if (isset($columnConfig['function'])) {
+            return false;
+        }
+
+        // Must have a key or relation to be sortable
+        return isset($columnConfig['key']) || isset($columnConfig['relation']);
     }
 
     /**
@@ -84,6 +130,7 @@ trait HasSorting
 
     /**
      * Apply sort by relation
+     * Now handles nested relations like 'student.user:name' properly
      */
     protected function applySortByRelation(Builder $query, string $relationString, string $direction)
     {
@@ -91,16 +138,85 @@ trait HasSorting
             return;
         }
 
-        [$relation, $attribute] = explode(':', $relationString);
+        [$relationPath, $attribute] = explode(':', $relationString);
 
         try {
             $modelInstance = new ($this->model);
-            $relationObj = $modelInstance->$relation();
-            $this->applyJoinSorting($query, $relationObj, $attribute, $direction);
+            
+            // Handle nested relations
+            if (strpos($relationPath, '.') !== false) {
+                // Nested relation like 'student.user:name'
+                $this->applyNestedJoinSorting($query, $relationPath, $attribute, $direction);
+            } else {
+                // Simple relation like 'user:name'
+                $relationObj = $modelInstance->$relationPath();
+                $this->applyJoinSorting($query, $relationObj, $attribute, $direction);
+            }
         } catch (\Exception $e) {
             // Fallback to basic sorting if relation fails
-            logger()->warning('Relation sorting failed: ' . $e->getMessage());
+            logger()->warning('Relation sorting failed for ' . $relationString . ': ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Apply nested join sorting for multi-level relations
+     * e.g., 'student.user:name' => JOIN student, JOIN user, ORDER BY user.name
+     * 
+     * Uses DISTINCT to avoid duplicates instead of GROUP BY to comply with ONLY_FULL_GROUP_BY
+     */
+    protected function applyNestedJoinSorting(Builder $query, string $relationPath, string $attribute, string $direction): void
+    {
+        $parts = explode('.', $relationPath);
+        $modelInstance = new ($this->model);
+        $currentModel = $modelInstance;
+        $previousTable = $modelInstance->getTable();
+        
+        // Build joins progressively
+        foreach ($parts as $index => $relationName) {
+            try {
+                $relationObj = $currentModel->$relationName();
+                $relatedModel = $relationObj->getRelated();
+                $currentTable = $relatedModel->getTable();
+                
+                // Determine the join condition based on relation type
+                if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                    $foreignKey = $relationObj->getForeignKeyName();
+                    $ownerKey = $relationObj->getOwnerKeyName();
+                    $query->leftJoin($currentTable, $previousTable . '.' . $foreignKey, '=', $currentTable . '.' . $ownerKey);
+                } elseif ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasMany || 
+                         $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne) {
+                    $foreignKey = $relationObj->getForeignKeyName();
+                    $localKey = $relationObj->getLocalKeyName();
+                    $query->leftJoin($currentTable, $previousTable . '.' . $localKey, '=', $currentTable . '.' . $foreignKey);
+                } elseif ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany) {
+                    // For many-to-many, join through the pivot table
+                    $pivotTable = $relationObj->getTable();
+                    $parentKey = $relationObj->getParentKeyName();
+                    $relatedKey = $relationObj->getRelatedKeyName();
+                    
+                    $query->leftJoin($pivotTable, $previousTable . '.' . $parentKey, '=', $pivotTable . '.' . $relationObj->getForeignPivotKeyName());
+                    $query->leftJoin($currentTable, $pivotTable . '.' . $relationObj->getRelatedPivotKeyName(), '=', $currentTable . '.' . $relatedKey);
+                }
+                
+                $previousTable = $currentTable;
+                $currentModel = $relatedModel;
+            } catch (\Exception $e) {
+                logger()->warning('Failed to build nested join for relation: ' . $relationName . ' - ' . $e->getMessage());
+                return;
+            }
+        }
+        
+        // Apply eager loading for performance
+        $query->with($relationPath);
+        
+        // Validate sort direction
+        $direction = $this->validateSortDirection($direction);
+        
+        // Use DISTINCT to avoid duplicates from joins
+        // This is better than GROUP BY when ONLY_FULL_GROUP_BY is enabled
+        $query->distinct()
+              ->orderBy($currentTable . '.' . $attribute, $direction)
+              ->select($previousTable . '.*');
     }
 
     /**
@@ -125,10 +241,14 @@ trait HasSorting
 
     /**
      * Apply join sorting for relations
+     * 
+     * Uses DISTINCT to avoid duplicates from joins instead of GROUP BY
+     * to comply with ONLY_FULL_GROUP_BY SQL mode
      */
     protected function applyJoinSorting(Builder $query, $relationObj, $attribute, $direction = 'asc'): void
     {
         $modelInstance = new ($this->model);
+        $parentTable = $modelInstance->getTable();
         $relationTable = $relationObj->getRelated()->getTable();
 
         // Always eager load the relation for performance
@@ -138,7 +258,6 @@ trait HasSorting
         }
 
         if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
-            $parentTable = $modelInstance->getTable();
             $foreignKey = $relationObj->getForeignKeyName();
             $ownerKey = $relationObj->getOwnerKeyName();
 
@@ -147,7 +266,6 @@ trait HasSorting
             $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasMany ||
             $relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne
         ) {
-            $parentTable = $modelInstance->getTable();
             $foreignKey = $relationObj->getForeignKeyName();
             $localKey = $relationObj->getLocalKeyName();
 
@@ -157,8 +275,11 @@ trait HasSorting
         // Validate sort direction
         $direction = $this->validateSortDirection($direction);
 
-        $query->orderBy($relationTable . '.' . $attribute, $direction)
-              ->select($modelInstance->getTable() . '.*'); // Ensure we select from main table
+        // Use DISTINCT to avoid duplicates from joins
+        // This is better than GROUP BY when ONLY_FULL_GROUP_BY is enabled
+        $query->distinct()
+              ->orderBy($relationTable . '.' . $attribute, $direction)
+              ->select($parentTable . '.*');
     }
 
     /**

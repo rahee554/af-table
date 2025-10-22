@@ -454,6 +454,103 @@ trait HasColumnManagement
     }
 
     /**
+     * Analyze column types and data characteristics
+     * Enhances column management by providing type information
+     * 
+     * @return array Array of column type analysis
+     */
+    public function analyzeColumnTypes(): array
+    {
+        $analysis = [];
+        $modelInstance = new ($this->model);
+        $schemaBuilder = \Illuminate\Support\Facades\Schema::connection($modelInstance->getConnectionName());
+        $tableName = $modelInstance->getTable();
+
+        try {
+            $columnDetails = $schemaBuilder->getColumns($tableName);
+        } catch (\Exception $e) {
+            Log::warning('Could not analyze column types', ['error' => $e->getMessage()]);
+            return [];
+        }
+
+        foreach ($this->columns as $columnKey => $column) {
+            if (isset($column['key'])) {
+                $columnName = $column['key'];
+                
+                // Find column details
+                $columnDetail = collect($columnDetails)->firstWhere('name', $columnName);
+                
+                if ($columnDetail) {
+                    $analysis[$columnKey] = [
+                        'name' => $columnName,
+                        'type' => $columnDetail['type'] ?? 'unknown',
+                        'nullable' => $columnDetail['nullable'] ?? false,
+                        'default' => $columnDetail['default'] ?? null,
+                        'sortable' => !in_array($columnDetail['type'] ?? '', ['json', 'text', 'longtext']),
+                        'filterable' => !in_array($columnDetail['type'] ?? '', ['json']),
+                        'searchable' => in_array($columnDetail['type'] ?? '', ['string', 'text', 'longtext']),
+                    ];
+                }
+            }
+        }
+
+        return $analysis;
+    }
+
+    /**
+     * Optimize column selection for query performance
+     * Suggests which columns to load based on usage patterns
+     * 
+     * @return array Optimization recommendations
+     */
+    public function optimizeColumnSelection(): array
+    {
+        $recommendations = [
+            'hidden_columns' => [],
+            'lazy_load_candidates' => [],
+            'eager_load_candidates' => [],
+            'index_recommendations' => [],
+        ];
+
+        // Find hidden columns that don't need to be loaded
+        foreach ($this->columns as $columnKey => $column) {
+            $isVisible = $this->visibleColumns[$columnKey] ?? true;
+            if (!$isVisible && isset($column['key'])) {
+                $recommendations['hidden_columns'][] = $column['key'];
+            }
+        }
+
+        // Find relation columns that could benefit from eager loading
+        foreach ($this->columns as $columnKey => $column) {
+            if (isset($column['relation'])) {
+                $relationString = $column['relation'];
+                if ($this->validateRelationString($relationString)) {
+                    $relationParts = explode(':', $relationString);
+                    $relationName = $relationParts[0];
+                    $recommendations['eager_load_candidates'][] = $relationName;
+                }
+            }
+        }
+
+        // Suggest indices for frequently filtered/sorted columns
+        foreach ($this->filters ?? [] as $filterKey => $filterConfig) {
+            if (isset($filterConfig['key'])) {
+                $recommendations['index_recommendations'][] = $filterKey;
+            }
+        }
+
+        if (!empty($this->sortColumn)) {
+            $recommendations['index_recommendations'][] = $this->sortColumn;
+        }
+
+        return [
+            'recommendations' => $recommendations,
+            'select_columns' => $this->cachedSelectColumns ?? $this->calculateSelectColumns($this->columns),
+            'required_relations' => $this->cachedRelations ?? $this->calculateRequiredRelations($this->columns),
+        ];
+    }
+
+    /**
      * Abstract methods that must be implemented in the main class or other traits
      */
     abstract protected function validateRelationString($relationString): bool;

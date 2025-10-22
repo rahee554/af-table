@@ -454,4 +454,71 @@ trait HasUnifiedSearch
         $history = $this->getSearchHistory();
         return array_slice(array_column($history, 'term'), 0, $limit);
     }
+
+    /**
+     * Get available filter operators for different column types
+     * Provides operator options for UI dropdowns and validation
+     * 
+     * @return array Array of operators grouped by column type
+     */
+    public function getFilterOperators(): array
+    {
+        return [
+            'text' => [
+                '=' => 'Equal',
+                'LIKE' => 'Contains',
+                'NOT LIKE' => 'Does not contain',
+                'starts_with' => 'Starts with',
+                'ends_with' => 'Ends with',
+            ],
+            'number' => [
+                '=' => 'Equal',
+                '!=' => 'Not equal',
+                '>' => 'Greater than',
+                '<' => 'Less than',
+                '>=' => 'Greater than or equal',
+                '<=' => 'Less than or equal',
+                'IN' => 'In list',
+                'BETWEEN' => 'Between',
+            ],
+            'date' => [
+                '=' => 'Equal',
+                '!=' => 'Not equal',
+                '>' => 'After',
+                '<' => 'Before',
+                '>=' => 'On or after',
+                '<=' => 'On or before',
+                'BETWEEN' => 'Between dates',
+            ],
+            'select' => [
+                '=' => 'Equal',
+                '!=' => 'Not equal',
+                'IN' => 'In list',
+                'NOT IN' => 'Not in list',
+            ],
+            'distinct' => [
+                '=' => 'Equal',
+                '!=' => 'Not equal',
+                'IN' => 'In list',
+            ],
+            'boolean' => [
+                '=' => 'Equal',
+                'is_true' => 'Is true',
+                'is_false' => 'Is false',
+            ],
+        ];
+    }
+
+    /**
+     * Get operators for specific column type
+     * Helper method for filter validation and UI
+     * 
+     * @param string $columnType The type of column (text, number, date, etc.)
+     * @return array Array of available operators for the column type
+     */
+    public function getOperatorsForType(string $columnType): array
+    {
+        $allOperators = $this->getFilterOperators();
+        return $allOperators[$columnType] ?? $allOperators['text'];
+    }
 }

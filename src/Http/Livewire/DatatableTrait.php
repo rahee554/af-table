@@ -211,6 +211,127 @@ class DatatableTrait extends Component
         'refreshTable' => '$refresh',
     ];
 
+    // *----------- INITIALIZATION AND CONFIGURATION METHODS -----------*//
+
+    /**
+     * Initialize columns from configuration
+     * Normalizes column configuration to ensure consistency
+     */
+    protected function initializeColumns(array $columns): array
+    {
+        $initialized = [];
+        
+        foreach ($columns as $key => $config) {
+            if (is_string($config)) {
+                // Simple string configuration: 'user_name' => 'user_name'
+                $initialized[$config] = [
+                    'key' => $config,
+                    'label' => ucfirst(str_replace('_', ' ', $config)),
+                    'searchable' => true,
+                    'sortable' => true,
+                ];
+            } elseif (is_array($config)) {
+                // Array configuration
+                $columnKey = $config['key'] ?? $key;
+                $initialized[$columnKey] = array_merge([
+                    'key' => $columnKey,
+                    'label' => ucfirst(str_replace('_', ' ', $columnKey)),
+                    'searchable' => true,
+                    'sortable' => true,
+                ], $config);
+            }
+        }
+        
+        return $initialized;
+    }
+
+    /**
+     * Initialize column configuration metadata
+     * Sets up eager loading, caching, and optimization
+     */
+    protected function initializeColumnConfiguration(array $columns): void
+    {
+        // Calculate required relations for eager loading
+        $this->cachedRelations = $this->calculateRequiredRelations($columns);
+        
+        // Calculate select columns for optimization
+        $this->cachedSelectColumns = $this->calculateSelectColumns($columns);
+    }
+
+    /**
+     * Calculate required relations for eager loading optimization
+     * Extracts all relation names from column configurations
+     */
+    protected function calculateRequiredRelations(array $columns): array
+    {
+        $relations = [];
+        
+        foreach ($columns as $column) {
+            if (!is_array($column)) {
+                continue;
+            }
+            
+            if (isset($column['relation'])) {
+                $relationString = $column['relation'];
+                [$relationPath, $attribute] = explode(':', $relationString);
+                
+                // Add all nested relation paths
+                // e.g., 'student.user:name' => ['student', 'student.user']
+                $parts = explode('.', $relationPath);
+                $path = '';
+                
+                foreach ($parts as $part) {
+                    $path = $path ? "{$path}.{$part}" : $part;
+                    if (!in_array($path, $relations)) {
+                        $relations[] = $path;
+                    }
+                }
+            }
+        }
+        
+        return $relations;
+    }
+
+    /**
+     * Calculate select columns for query optimization
+     * Returns array of columns to select from main table
+     */
+    protected function calculateSelectColumns(array $columns): array
+    {
+        $selectColumns = ['*']; // Start with all columns from main table
+        
+        // If we want to optimize further, we could specify exact columns
+        // But for safety and compatibility, we use '*'
+        
+        return $selectColumns;
+    }
+
+    /**
+     * Get the optimal sort column for initialization
+     * Returns first sortable column or 'id'
+     */
+    protected function getOptimalSortColumn(): ?string
+    {
+        // Try to find first sortable column
+        foreach ($this->columns as $columnKey => $column) {
+            if (!is_array($column)) {
+                continue;
+            }
+            
+            $sortable = $column['sortable'] ?? true;
+            if ($sortable && !isset($column['function']) && !isset($column['raw'])) {
+                return $columnKey;
+            }
+        }
+        
+        // Default to id if it exists
+        if (isset($this->columns['id'])) {
+            return 'id';
+        }
+        
+        return null;
+    }
+
     // *----------- CORE LIVEWIRE METHODS -----------*//
 
     /**
@@ -368,6 +489,18 @@ class DatatableTrait extends Component
     }
 
     /**
+     * Handle filter column changes - Reset filter value when column changes
+     * This prevents the value from previous column persisting
+     */
+    public function updatedFilterColumn($value)
+    {
+        // Reset filter value and operator when column changes
+        $this->filterValue = null;
+        $this->filterOperator = '=';
+        $this->resetPage();
+    }
+
+    /**
      * Handle sorting - Core Livewire lifecycle
      */
     public function sortBy($column)
@@ -490,21 +623,86 @@ class DatatableTrait extends Component
 
     /**
      * Apply relation filter for multiple filters
+     * FIX: Handle distinct filters differently from search/manual filters
+     * Distinct filters use IDs, so we filter by foreign key directly
+     * Other filters search through the relation
      */
     protected function applyRelationFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, string $operator, $value): void
     {
-        $relationConfig = $this->filters[$column]['relation'];
-        [$relation, $attribute] = explode(':', $relationConfig);
-
-        // For select type filters on relation columns, the value is the foreign key ID
-        // So we should filter by the foreign key column directly rather than the relation
-        if (isset($this->filters[$column]['type']) && $this->filters[$column]['type'] === 'select') {
-            // Filter by the foreign key column directly
+        $relationConfig = $this->filters[$column]['relation'] ?? null;
+        
+        if (!$relationConfig) {
+            // Fallback to direct column filtering if no relation config
             $this->applyOperatorCondition($query, $column, $operator, $value);
+            return;
+        }
+        
+        // Check if this is a distinct filter
+        $filterType = $this->filters[$column]['type'] ?? null;
+        
+        if ($filterType === 'distinct') {
+            // DISTINCT FILTERS: Use foreign key directly
+            // The distinct dropdown sends the ID (e.g., module_id = 1)
+            // So we filter by the foreign key column directly
+            $this->applyOperatorCondition($query, $column, $operator, $value);
+            return;
+        }
+        
+        // NON-DISTINCT FILTERS: Filter through the relation
+        // Parse the relation string
+        $parsed = $this->parseRelationString($relationConfig);
+        
+        if (empty($parsed)) {
+            return;
+        }
+        
+        $relationPath = $parsed['relationPath'];
+        $attribute = $parsed['attribute'];
+
+        // Filter through the relation for search/manual filters
+        if (strpos($relationPath, '.') !== false) {
+            // Nested relation - use nested whereHas
+            $this->applyNestedRelationFilter($query, $relationPath, $attribute, $operator, $value);
         } else {
-            // For other filter types (like date, text), filter through the relation
-            $query->whereHas($relation, function ($q) use ($attribute, $operator, $value) {
+            // Simple relation - use standard whereHas
+            $query->whereHas($relationPath, function ($q) use ($attribute, $operator, $value) {
                 $this->applyOperatorCondition($q, $attribute, $operator, $value);
+            });
+        }
+    }
+
+    /**
+     * Apply nested relation filter for multi-level relations
+     * e.g., 'student.user:name' => whereHas('student', function() { whereHas('user', ...) })
+     */
+    protected function applyNestedRelationFilter(\Illuminate\Database\Eloquent\Builder $query, string $relationPath, string $attribute, string $operator, $value): void
+    {
+        $parts = explode('.', $relationPath);
+        
+        // Build nested whereHas calls from outside in
+        $this->buildNestedWhereHas($query, $parts, $attribute, $operator, $value);
+    }
+
+    /**
+     * Recursively build nested whereHas clauses
+     */
+    protected function buildNestedWhereHas(\Illuminate\Database\Eloquent\Builder $query, array $relationParts, string $attribute, string $operator, $value, int $depth = 0): void
+    {
+        if ($depth >= count($relationParts)) {
+            return;
+        }
+
+        $currentRelation = $relationParts[$depth];
+        
+        if ($depth === count($relationParts) - 1) {
+            // Last relation - apply the filter
+            $query->whereHas($currentRelation, function ($q) use ($attribute, $operator, $value) {
+                $this->applyOperatorCondition($q, $attribute, $operator, $value);
+            });
+        } else {
+            // Intermediate relation - nest another whereHas
+            $query->whereHas($currentRelation, function ($q) use ($relationParts, $attribute, $operator, $value, $depth) {
+                $this->buildNestedWhereHas($q, $relationParts, $attribute, $operator, $value, $depth + 1);
             });
         }
     }
@@ -764,6 +962,143 @@ class DatatableTrait extends Component
             ]);
             return [];
         }
+    }
+
+    // *----------- SEARCH SUPPORT METHODS -----------*//
+
+    /**
+     * Get searchable columns from current column configuration
+     * Required by search traits but not defined anywhere
+     */
+    protected function getSearchableColumns(): array
+    {
+        $searchableColumns = [];
+        
+        foreach ($this->columns as $columnKey => $column) {
+            if ($this->isColumnSearchable($columnKey)) {
+                $searchableColumns[] = $columnKey;
+            }
+        }
+        
+        return $searchableColumns;
+    }
+
+    /**
+     * Get searchable relations from column configuration
+     * Extracts relation columns for relation-based searching
+     * Required by HasUnifiedSearch trait
+     */
+    protected function getSearchableRelations(): array
+    {
+        $relationColumns = [];
+        
+        foreach ($this->columns as $columnKey => $column) {
+            if (!is_array($column)) {
+                continue;
+            }
+            
+            if (!isset($column['relation'])) {
+                continue;
+            }
+            
+            // Check if this column is searchable
+            if (isset($column['searchable']) && $column['searchable'] === false) {
+                continue;
+            }
+            
+            $relationString = $column['relation'];
+            [$relationPath, $attribute] = explode(':', $relationString);
+            
+            // Parse the relation path
+            $relationParts = explode('.', $relationPath);
+            $firstRelation = $relationParts[0];
+            
+            if (!isset($relationColumns[$firstRelation])) {
+                $relationColumns[$firstRelation] = [];
+            }
+            
+            // For simple relations, add the attribute
+            if (count($relationParts) === 1) {
+                $relationColumns[$firstRelation][] = $attribute;
+            } else {
+                // For nested relations like 'student.user:name'
+                // We need to use nested where has
+                // Store the full nested path
+                if (!isset($relationColumns[$relationPath])) {
+                    $relationColumns[$relationPath] = [];
+                }
+                $relationColumns[$relationPath][] = $attribute;
+            }
+        }
+        
+        return $relationColumns;
+    }
+
+    /**
+     * Get searchable JSON columns from configuration
+     * Extracts JSON columns for JSON-based searching
+     * Required by HasUnifiedSearch trait
+     */
+    protected function getSearchableJsonColumns(): array
+    {
+        $jsonColumns = [];
+        
+        foreach ($this->columns as $columnKey => $column) {
+            if (!is_array($column)) {
+                continue;
+            }
+            
+            if (!isset($column['json'])) {
+                continue;
+            }
+            
+            // Check if this column is searchable
+            if (isset($column['searchable']) && $column['searchable'] === false) {
+                continue;
+            }
+            
+            $jsonPath = $column['json'];
+            $actualColumn = $column['key'] ?? $columnKey;
+            
+            if (!isset($jsonColumns[$actualColumn])) {
+                $jsonColumns[$actualColumn] = [];
+            }
+            
+            $jsonColumns[$actualColumn][] = $jsonPath;
+        }
+        
+        return $jsonColumns;
+    }
+
+    /**
+     * Parse a relation string into components
+     * Handles nested relations like 'student.user:name' => ['student', 'student.user'], 'name'
+     * Required for proper relation handling in sorting, filtering, and searching
+     */
+    protected function parseRelationString(string $relationString): array
+    {
+        if (strpos($relationString, ':') === false) {
+            // Invalid format, return empty
+            return [];
+        }
+        
+        [$relationPath, $attribute] = explode(':', $relationString, 2);
+        
+        // Build progressive paths for nested relations
+        $relations = [];
+        $parts = explode('.', $relationPath);
+        $path = '';
+        
+        foreach ($parts as $part) {
+            $path = $path ? "{$path}.{$part}" : $part;
+            $relations[] = $path;
+        }
+        
+        return [
+            'relations' => $relations,
+            'relationPath' => $relationPath,
+            'attribute' => $attribute,
+        ];
     }
 
     // *----------- TRAIT CONFLICT RESOLUTION -----------*//
