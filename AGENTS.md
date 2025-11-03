@@ -125,25 +125,57 @@ The component uses **18+ traits** organized in three categories:
 
 ### Column Structure
 
-Each column is defined as an array with the following properties:
+⚠️ **IMPORTANT**: Each column is defined as a direct array. The `key` parameter inside each column definition specifies the actual database column name.
 
 ```php
 'columns' => [
-    'column_key' => [
-        'key' => 'database_column',        // Database column name (optional if using 'function')
-        'label' => 'Display Label',        // Column header text
-        'th_class' => 'css-classes',       // Header cell CSS classes
-        'td_class' => 'css-classes',       // Data cell CSS classes
-        'relation' => 'relationName:attribute', // For relationship columns
-        'json' => 'path.to.value',         // For JSON column extraction
-        'raw' => '<span>{{$row->name}}</span>', // Raw HTML template
-        'function' => 'methodName',        // Model method name
-        'searchable' => true,              // Enable search (default: true)
-        'sortable' => true,                // Enable sorting (default: true)
-        'exportable' => true,              // Include in export (default: true)
-        'hide' => false,                   // Initially hide column (default: false)
-    ]
-]
+    [
+        'key' => 'id',
+        'label' => 'ID',
+        'sortable' => true,
+    ],
+    [
+        'key' => 'name',
+        'label' => 'Customer Name',
+        'searchable' => true,
+        'sortable' => true,
+    ],
+    [
+        'key' => 'email',
+        'label' => 'Email',
+        'searchable' => true,
+    ],
+],
+```
+
+**Column Key vs Key Parameter**:
+- **Column Array**: Each column is a direct array element in the columns array
+- **`key` parameter**: The actual database column name to query
+
+Example:
+```php
+'columns' => [
+    [
+        'key' => 'user_email',    // Database column name
+        'label' => 'Email Address',
+    ],
+    [
+        'key' => 'full_name',     // Database column name
+        'label' => 'Name',
+    ],
+],
+```
+
+**Legacy Support**: Named arrays are still supported for backward compatibility:
+```php
+'columns' => [
+    'user_email' => [
+        'label' => 'Email Address',
+    ],
+    'full_name' => [
+        'label' => 'Name',
+    ],
+],
 ```
 
 ### Column Types
@@ -328,66 +360,131 @@ Apply custom WHERE conditions to the base query before table operations.
 
 ## 🎬 Actions Configuration
 
-Actions are buttons displayed for each row, allowing custom operations.
+Actions are buttons displayed for each row, allowing custom operations. The package now supports dynamic action types for flexible UI interactions.
 
-### Action Structure
+### Action Types
 
+#### Button Actions
 ```php
 'actions' => [
-    'action_key' => [
-        'label' => 'Button Label',
-        'route' => 'route.name',       // Laravel route name
-        'params' => ['id'],            // Route parameters (e.g., ['id', 'slug'])
-        'class' => 'btn btn-primary',  // CSS classes
-        'icon' => 'fas fa-edit',       // Icon class (optional)
-        'method' => 'GET',             // HTTP method (default: GET)
-        'confirm' => 'Are you sure?',  // Confirmation message (optional)
-    ]
-]
+    [
+        'type' => 'button',
+        'label' => 'Edit',
+        'icon' => 'fas fa-edit',
+        'class' => 'btn btn-primary btn-sm',
+        'method' => 'GET',
+        'url' => '/admin/customers/{{$row->id}}/edit',
+    ],
+    [
+        'type' => 'button',
+        'label' => 'Delete',
+        'icon' => 'fas fa-trash',
+        'class' => 'btn btn-danger btn-sm',
+        'method' => 'DELETE',
+        'url' => '/admin/customers/{{$row->id}}',
+        'confirm' => 'Are you sure you want to delete this customer?',
+    ],
+],
 ```
 
-### Action Examples
-
-#### Simple Link Action
+#### Toggle Actions
 ```php
 'actions' => [
-    'view' => [
-        'label' => 'View',
-        'route' => 'users.show',
+    [
+        'type' => 'toggle',
+        'label' => 'Active',
+        'icon' => 'fas fa-toggle-on',
+        'class' => 'btn btn-success btn-sm',
+        'method' => 'PATCH',
+        'url' => '/admin/customers/{{$row->id}}/toggle-status',
+        'active' => '{{$row->status == "active" ? "true" : "false"}}',
+    ],
+],
+```
+
+#### Raw HTML Actions
+```php
+'actions' => [
+    [
+        'type' => 'raw',
+        'content' => '<a href="/admin/customers/{{$row->id}}" class="btn btn-info btn-sm"><i class="fas fa-eye"></i> View</a>',
+    ],
+],
+```
+
+### Action Parameters
+
+| Parameter | Type | Description | Required |
+|-----------|------|-------------|----------|
+| `type` | string | Action type: `button`, `toggle`, `raw` | Yes |
+| `label` | string | Button text (not used for `raw` type) | No |
+| `icon` | string | FontAwesome icon class | No |
+| `class` | string | CSS classes for styling | No |
+| `method` | string | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` | No (defaults to GET) |
+| `url` | string | Target URL with `{{$row->id}}` placeholder | No |
+| `confirm` | string | Confirmation message for destructive actions | No |
+| `content` | string | Raw HTML content (only for `raw` type) | Yes (for raw type) |
+| `active` | string | Toggle state expression (only for `toggle` type) | No |
+
+### Complete Example
+
+```php
+'actions' => [
+    [
+        'type' => 'button',
+        'label' => 'Edit',
+        'icon' => 'fas fa-edit',
+        'class' => 'btn btn-primary btn-sm',
+        'method' => 'GET',
+        'url' => '/admin/customers/{{$row->id}}/edit',
+    ],
+    [
+        'type' => 'button',
+        'label' => 'Delete',
+        'icon' => 'fas fa-trash',
+        'class' => 'btn btn-danger btn-sm',
+        'method' => 'DELETE',
+        'url' => '/admin/customers/{{$row->id}}',
+        'confirm' => 'Are you sure?',
+    ],
+    [
+        'type' => 'toggle',
+        'label' => 'Status',
+        'icon' => 'fas fa-toggle-on',
+        'class' => 'btn btn-success btn-sm',
+        'method' => 'PATCH',
+        'url' => '/admin/customers/{{$row->id}}/toggle',
+        'active' => '{{$row->is_active ? "true" : "false"}}',
+    ],
+    [
+        'type' => 'raw',
+        'content' => '<div class="btn-group"><button class="btn btn-secondary">Custom</button></div>',
+    ],
+],
+```
+
+### Legacy Support
+
+The package maintains backward compatibility with the old action format:
+
+```php
+'actions' => [
+    'edit' => [
+        'label' => 'Edit',
+        'route' => 'users.edit',
         'params' => ['id'],
-        'class' => 'btn btn-sm btn-info',
-    ]
+        'class' => 'btn btn-primary',
+        'icon' => 'fas fa-edit',
+    ],
+    'delete' => [
+        'label' => 'Delete',
+        'route' => 'users.destroy',
+        'params' => ['id'],
+        'method' => 'DELETE',
+        'confirm' => 'Are you sure?',
+    ],
 ]
 ```
-
-#### Edit Action with Icon
-```php
-'edit' => [
-    'label' => 'Edit',
-    'route' => 'users.edit',
-    'params' => ['id'],
-    'class' => 'btn btn-sm btn-primary',
-    'icon' => 'fas fa-edit',
-]
-```
-
-#### Delete Action with Confirmation
-```php
-'delete' => [
-    'label' => 'Delete',
-    'route' => 'users.destroy',
-    'params' => ['id'],
-    'method' => 'DELETE',
-    'class' => 'btn btn-sm btn-danger',
-    'icon' => 'fas fa-trash',
-    'confirm' => 'Are you sure you want to delete this user?',
-]
-```
-
-**Action Rules:**
-- `params` array values should match column keys from your data
-- Routes must exist in your Laravel `routes/web.php`
-- The component automatically passes model instance to generate URLs
 
 ---
 

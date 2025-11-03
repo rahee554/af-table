@@ -178,6 +178,11 @@ class DatatableTrait extends Component
     protected $cachedSelectColumns = null;
     protected $distinctValuesCacheTime = 300;
     protected $maxDistinctValues = 1000;
+    
+    // Phase 1 Performance Optimizations
+    protected $cachedQueryResults = null;
+    protected $cachedQueryHash = null;
+    protected $distinctValuesCache = [];
 
     // *----------- Optional Configuration -----------*//
     public $searchable = true;
@@ -216,6 +221,7 @@ class DatatableTrait extends Component
     /**
      * Initialize columns from configuration
      * Normalizes column configuration to ensure consistency
+     * Supports both direct arrays and named arrays
      */
     protected function initializeColumns(array $columns): array
     {
@@ -224,21 +230,34 @@ class DatatableTrait extends Component
         foreach ($columns as $key => $config) {
             if (is_string($config)) {
                 // Simple string configuration: 'user_name' => 'user_name'
-                $initialized[$config] = [
+                $columnKey = $config;
+                $initialized[$columnKey] = [
                     'key' => $config,
                     'label' => ucfirst(str_replace('_', ' ', $config)),
                     'searchable' => true,
                     'sortable' => true,
                 ];
             } elseif (is_array($config)) {
-                // Array configuration
-                $columnKey = $config['key'] ?? $key;
-                $initialized[$columnKey] = array_merge([
-                    'key' => $columnKey,
-                    'label' => ucfirst(str_replace('_', ' ', $columnKey)),
-                    'searchable' => true,
-                    'sortable' => true,
-                ], $config);
+                // Array configuration - check if it's a direct array or named array
+                if (isset($config['key'])) {
+                    // Direct array format: ['key' => 'id', 'label' => 'ID']
+                    $columnKey = $config['key'];
+                    $initialized[$columnKey] = array_merge([
+                        'key' => $columnKey,
+                        'label' => ucfirst(str_replace('_', ' ', $columnKey)),
+                        'searchable' => true,
+                        'sortable' => true,
+                    ], $config);
+                } else {
+                    // Named array format: 'id' => ['label' => 'ID'] (legacy support)
+                    $columnKey = $key;
+                    $initialized[$columnKey] = array_merge([
+                        'key' => $columnKey,
+                        'label' => ucfirst(str_replace('_', ' ', $columnKey)),
+                        'searchable' => true,
+                        'sortable' => true,
+                    ], $config);
+                }
             }
         }
         
@@ -336,6 +355,7 @@ class DatatableTrait extends Component
 
     /**
      * Component Initialization - Core Livewire method
+     * PERFORMANCE FIX: Pre-load distinct values on mount
      */
     public function mount($model, $columns, $filters = [], $actions = [], $index = false, $tableId = null, $query = null)
     {
@@ -358,10 +378,55 @@ class DatatableTrait extends Component
         if (empty($this->sortColumn)) {
             $this->sortColumn = $this->getOptimalSortColumn();
         }
+        
+        // PERFORMANCE FIX: Pre-load all distinct values on mount
+        $this->preloadDistinctValues();
+    }
+    
+    /**
+     * Pre-load distinct values for all select/distinct filters
+     * PERFORMANCE FIX: Prevents repeated database queries on each render
+     */
+    protected function preloadDistinctValues(): void
+    {
+        foreach ($this->filters as $filterKey => $filterConfig) {
+            $filterType = $filterConfig['type'] ?? null;
+            if (in_array($filterType, ['select', 'distinct'])) {
+                try {
+                    $this->distinctValuesCache[$filterKey] = $this->loadDistinctValuesForFilter($filterKey);
+                } catch (\Exception $e) {
+                    // Silently fail for individual filters to not break the component
+                    Log::warning("Failed to preload distinct values for filter: {$filterKey}", [
+                        'error' => $e->getMessage()
+                    ]);
+                    $this->distinctValuesCache[$filterKey] = [];
+                }
+            }
+        }
+    }
+    
+    /**
+     * Load distinct values for a specific filter
+     * Internal method used by preloadDistinctValues()
+     */
+    protected function loadDistinctValuesForFilter(string $filterKey): array
+    {
+        if (!isset($this->columns[$filterKey]) || !isset($this->filters[$filterKey])) {
+            return [];
+        }
+
+        try {
+            // Use the existing cached method from traits
+            return $this->getCachedColumnDistinctValues($filterKey);
+        } catch (\Exception $e) {
+            Log::warning("Error loading distinct values for {$filterKey}: " . $e->getMessage());
+            return [];
+        }
     }
 
     /**
      * Core query building - Unique to main class
+     * PERFORMANCE FIX: Consolidated filter logic to prevent duplicates
      */
     protected function buildUnifiedQuery(): \Illuminate\Database\Eloquent\Builder
     {
@@ -382,31 +447,8 @@ class DatatableTrait extends Component
             $this->applyOptimizedSearch($query);
         }
 
-        // Delegate filtering to HasAdvancedFiltering trait
-        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
-            // Check if this is a relation filter
-            if (isset($this->filters[$this->filterColumn]['relation'])) {
-                $this->applyRelationFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
-            } else {
-                // Apply regular column filter
-                $this->applyColumnFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
-            }
-        }
-
-        // Apply multiple filter instances
-        if (!empty($this->filterInstances)) {
-            $this->applyMultipleFilters($query);
-        }
-
-        // Delegate additional filters
-        if (!empty($this->filters)) {
-            $this->applyAdvancedFilters($query, $this->filters);
-        }
-
-        // Delegate date range filtering
-        if ($this->dateColumn && $this->startDate && $this->endDate) {
-            $this->applyDateRangeFilter($query, $this->dateColumn, $this->startDate, $this->endDate);
-        }
+        // PERFORMANCE FIX: Apply all filters through consolidated method
+        $this->applyAllFilters($query);
 
         // Delegate sorting to HasSorting trait
         if ($this->sortColumn) {
@@ -414,6 +456,35 @@ class DatatableTrait extends Component
         }
 
         return $query;
+    }
+    
+    /**
+     * Apply all filters in a consolidated way to prevent duplicates
+     * PERFORMANCE FIX: Consolidates filter logic from multiple sources
+     */
+    protected function applyAllFilters(\Illuminate\Database\Eloquent\Builder $query): void
+    {
+        // Primary filter
+        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
+            if (isset($this->filters[$this->filterColumn]['relation'])) {
+                $this->applyRelationFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
+            } else {
+                $this->applyColumnFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
+            }
+        }
+
+        // Additional filters from filterInstances
+        if (!empty($this->filterInstances)) {
+            $this->applyMultipleFilters($query);
+        }
+
+        // Date range filter
+        if ($this->dateColumn && $this->startDate && $this->endDate) {
+            $this->applyDateRangeFilter($query, $this->dateColumn, $this->startDate, $this->endDate);
+        }
+        
+        // Note: applyAdvancedFilters is NOT called here as it would duplicate filters
+        // The filters are already applied through filterColumn and filterInstances
     }
 
     /**
@@ -443,27 +514,80 @@ class DatatableTrait extends Component
 
     /**
      * Render the component - Core Livewire method
+     * PERFORMANCE FIX: Cache query results between renders when nothing changed
      */
     public function render()
     {
-        $data = $this->getData();
+        $queryHash = $this->generateQueryHash();
+        
+        // Return cached results if query parameters haven't changed
+        if ($this->cachedQueryHash === $queryHash && $this->cachedQueryResults !== null) {
+            $data = $this->cachedQueryResults;
+        } else {
+            $data = $this->getData();
+            $this->cachedQueryResults = $data;
+            $this->cachedQueryHash = $queryHash;
+        }
 
         return view('artflow-table::livewire.datatable-trait', [
             'data' => $data,
             'index' => $this->index,
         ]);
     }
+    
+    /**
+     * Generate a hash of all query-affecting parameters
+     * Used to determine if we need to re-query the database
+     */
+    protected function generateQueryHash(): string
+    {
+        return md5(json_encode([
+            'search' => $this->search,
+            'sortColumn' => $this->sortColumn,
+            'sortDirection' => $this->sortDirection,
+            'filterColumn' => $this->filterColumn,
+            'filterValue' => $this->filterValue,
+            'filterOperator' => $this->filterOperator,
+            'filterInstances' => $this->filterInstances,
+            'dateColumn' => $this->dateColumn,
+            'startDate' => $this->startDate,
+            'endDate' => $this->endDate,
+            'page' => $this->page ?? 1,
+            'perPage' => $this->getPerPageValue(),
+        ]));
+    }
+    
+    /**
+     * Invalidate cached query results
+     * Call this whenever query-affecting parameters change
+     */
+    protected function invalidateQueryCache(): void
+    {
+        $this->cachedQueryResults = null;
+        $this->cachedQueryHash = null;
+    }
 
     // *----------- LIVEWIRE LIFECYCLE METHODS -----------*//
 
     /**
      * Handle search updates - Core Livewire lifecycle
+     * PERFORMANCE FIX: Only trigger events and reset page when value actually changed
      */
     public function updatedSearch($value)
     {
+        // Skip if value hasn't changed
+        if ($value === $this->search) {
+            return;
+        }
+        
         $oldValue = $this->search;
         $this->search = $value;
-        $this->resetPage();
+        
+        // Only reset page and invalidate cache if search is meaningful
+        if (strlen(trim($value)) >= 3 || strlen(trim($oldValue)) >= 3) {
+            $this->resetPage();
+            $this->invalidateQueryCache();
+        }
 
         $this->triggerSearchEvent($value, $oldValue);
 
@@ -491,6 +615,7 @@ class DatatableTrait extends Component
     /**
      * Handle filter column changes - Reset filter value when column changes
      * This prevents the value from previous column persisting
+     * PERFORMANCE FIX: Invalidate cache when filter changes
      */
     public function updatedFilterColumn($value)
     {
@@ -498,10 +623,12 @@ class DatatableTrait extends Component
         $this->filterValue = null;
         $this->filterOperator = '=';
         $this->resetPage();
+        $this->invalidateQueryCache();
     }
 
     /**
      * Handle sorting - Core Livewire lifecycle
+     * PERFORMANCE FIX: Invalidate cache when sort changes
      */
     public function sortBy($column)
     {
@@ -516,6 +643,7 @@ class DatatableTrait extends Component
         }
 
         $this->resetPage();
+        $this->invalidateQueryCache();
         $this->triggerSortEvent($this->sortColumn, $this->sortDirection, $oldColumn, $oldDirection);
 
         if ($this->enableSessionPersistence) {
@@ -585,6 +713,7 @@ class DatatableTrait extends Component
 
     /**
      * Update a filter instance
+     * PERFORMANCE FIX: Invalidate cache when filter changes
      */
     public function updateFilterInstance($instanceId, $field, $value)
     {
@@ -595,6 +724,7 @@ class DatatableTrait extends Component
             }
         }
         $this->resetPage();
+        $this->invalidateQueryCache();
     }
 
     /**
@@ -940,9 +1070,15 @@ class DatatableTrait extends Component
 
     /**
      * Get distinct values for a column (required by template for filter dropdowns)
+     * PERFORMANCE FIX: Return from component-lifetime cache
      */
     public function getDistinctValues($columnKey)
     {
+        // Return from cache if available
+        if (isset($this->distinctValuesCache[$columnKey])) {
+            return $this->distinctValuesCache[$columnKey];
+        }
+        
         // Check if column exists and has filter configuration
         if (!isset($this->columns[$columnKey]) || !isset($this->filters[$columnKey])) {
             return [];
@@ -951,15 +1087,20 @@ class DatatableTrait extends Component
         try {
             // For relation columns, get distinct from related table
             if (isset($this->filters[$columnKey]['relation'])) {
-                return $this->getCachedRelationDistinctValues($columnKey);
+                $values = $this->getCachedRelationDistinctValues($columnKey);
+            } else {
+                // For regular columns, get distinct from main table
+                $values = $this->getCachedColumnDistinctValues($columnKey);
             }
             
-            // For regular columns, get distinct from main table
-            return $this->getCachedColumnDistinctValues($columnKey);
+            // Cache the result
+            $this->distinctValuesCache[$columnKey] = $values;
+            return $values;
         } catch (\Exception $e) {
             Log::warning('DatatableTrait getDistinctValues error: ' . $e->getMessage(), [
                 'column' => $columnKey
             ]);
+            $this->distinctValuesCache[$columnKey] = [];
             return [];
         }
     }
@@ -1204,11 +1345,20 @@ class DatatableTrait extends Component
 
     /**
      * Apply optimized eager loading to query - Missing method implementation
+     * PERFORMANCE FIX: Enhanced logging and verification
      */
     protected function applyOptimizedEagerLoading(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         // Use cached relations if available
         if (!empty($this->cachedRelations)) {
+            // Log for debugging N+1 issues
+            if (config('app.debug')) {
+                Log::debug('DatatableTrait: Eager loading relations', [
+                    'relations' => $this->cachedRelations,
+                    'model' => is_object($this->model) ? get_class($this->model) : $this->model
+                ]);
+            }
+            
             $query->with($this->cachedRelations);
         }
         

@@ -13,6 +13,7 @@ class TableServiceProvider extends ServiceProvider
         // Explicitly register the Livewire components
         Livewire::component('aftable-simple', \ArtflowStudio\Table\Http\Livewire\Datatable::class);
         Livewire::component('aftable', \ArtflowStudio\Table\Http\Livewire\DatatableTrait::class);
+        Livewire::component('test-table-component', \ArtflowStudio\Table\Http\Livewire\TestTableComponent::class);
 
         // Register the custom Blade directives
         Blade::directive('AFtable', function ($expression) {
@@ -26,8 +27,10 @@ class TableServiceProvider extends ServiceProvider
         });
 
         // Load views from the resources/views folder in your package
-        $this->loadViewsFrom(__DIR__ . '/resources/views', 'artflow-table');
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'artflow-table');
         
+        // Register test routes
+        $this->loadRoutesFrom(__DIR__ . '/../routes/test.php');
 
         // Optionally publish the views to the app's resources/views/vendor directory
         $this->publishes([
@@ -45,6 +48,7 @@ class TableServiceProvider extends ServiceProvider
                 \ArtflowStudio\Table\Console\Commands\TestTraitCommand::class,
                 \ArtflowStudio\Table\Console\Commands\ImprovedTestTraitCommand::class,
                 \ArtflowStudio\Table\Console\Commands\ClearPhantomColumnsCommand::class,
+                \ArtflowStudio\Table\Console\Commands\MigrateCommand::class,
             ]);
         }
     }

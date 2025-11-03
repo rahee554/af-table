@@ -3,7 +3,9 @@
   "description": "A custom package to render Livewire components using the @AFtable directive.",
   "autoload": {
     "psr-4": {
-      "ArtflowStudio\\Table\\": "src/"
+      "ArtflowStudio\\Table\\": "src/",
+      "ArtflowStudio\\Table\\Database\\Seeders\\": "database/seeders/",
+      "ArtflowStudio\\Table\\Tests\\Models\\": "tests/Models/"
     }
   },
   "require": {

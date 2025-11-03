@@ -1,4 +1,4 @@
-# ArtflowStudio Laravel Livewire Datatable Package
+# ArtflowStudio Laravel Livewire Datatable Package v1.5.1
 
 A comprehensive, trait-based Laravel Livewire datatable package with advanced features for building powerful data tables with minimal configuration.
 
@@ -22,7 +22,26 @@ A comprehensive, trait-based Laravel Livewire datatable package with advanced fe
 class MyComponent extends Component { ... }
 ```
 
-## 🚀 Features
+## 🚀 Version 1.5.1 Features
+
+### Dynamic Action System
+- **Button Actions**: Standard buttons with icons, classes, and HTTP methods
+- **Toggle Actions**: Interactive toggle buttons with active state expressions
+- **Raw HTML Actions**: Custom HTML content for complex actions
+- **HTTP Method Support**: GET, POST, PUT, PATCH, DELETE with CSRF protection
+- **Confirmation Dialogs**: Optional confirmation messages for destructive actions
+
+### Enhanced Column Configuration
+- **Direct Array Keys**: Simplified column configuration without named arrays
+- **Backward Compatibility**: Legacy named array format still supported
+- **Improved Generator**: Updated code generator with action type selection
+
+### Package Improvements
+- **Updated Documentation**: Comprehensive AGENTS.md with examples
+- **Enhanced Generator**: Web-based code generator with dynamic action support
+- **Better Error Handling**: Improved validation and debugging
+
+---
 
 ### Core Features
 - **Trait-Based Architecture**: Modular design with 23+ specialized traits
@@ -259,34 +278,84 @@ $this->filters = [
 ];
 ```
 
-### Actions
+### Actions Configuration (v1.5.1)
+
+The new dynamic action system supports multiple action types:
+
+#### Button Actions
+```php
+'actions' => [
+    [
+        'type' => 'button',
+        'label' => 'Edit',
+        'icon' => 'fas fa-edit',
+        'class' => 'btn btn-primary btn-sm',
+        'method' => 'GET',
+        'url' => '/admin/users/{{$row->id}}/edit',
+    ],
+    [
+        'type' => 'button',
+        'label' => 'Delete',
+        'icon' => 'fas fa-trash',
+        'class' => 'btn btn-danger btn-sm',
+        'method' => 'DELETE',
+        'url' => '/admin/users/{{$row->id}}',
+        'confirm' => 'Are you sure you want to delete this user?',
+    ],
+],
+```
+
+#### Toggle Actions
+```php
+'actions' => [
+    [
+        'type' => 'toggle',
+        'label' => 'Active',
+        'icon' => 'fas fa-toggle-on',
+        'class' => 'btn btn-success btn-sm',
+        'method' => 'PATCH',
+        'url' => '/admin/users/{{$row->id}}/toggle-status',
+        'active' => '{{$row->status == "active" ? "true" : "false"}}',
+    ],
+],
+```
+
+#### Raw HTML Actions
+```php
+'actions' => [
+    [
+        'type' => 'raw',
+        'content' => '<a href="/admin/users/{{$row->id}}" class="btn btn-info btn-sm"><i class="fas fa-eye"></i> View</a>',
+    ],
+],
+```
+
+### Column Configuration (v1.5.1)
+
+Simplified column configuration using direct array keys:
 
 ```php
-// Row actions
-$this->addAction('view', [
-    'label' => 'View',
-    'route' => ['name' => 'users.show', 'params' => ['{id}']],
-    'icon' => 'eye',
-    'class' => 'btn btn-info'
-]);
-
-$this->addAction('edit', [
-    'label' => 'Edit',
-    'url' => '/users/{id}/edit',
-    'condition' => function($record) {
-        return auth()->user()->can('update', $record);
-    }
-]);
-
-// Bulk actions
-$this->addBulkAction('activate', [
-    'label' => 'Activate Selected',
-    'handler' => function($recordIds) {
-        User::whereIn('id', $recordIds)->update(['status' => 'active']);
-        return ['success' => true, 'message' => 'Users activated'];
-    }
-]);
+'columns' => [
+    [
+        'key' => 'id',
+        'label' => 'ID',
+        'sortable' => true,
+    ],
+    [
+        'key' => 'name',
+        'label' => 'Customer Name',
+        'searchable' => true,
+        'sortable' => true,
+    ],
+    [
+        'key' => 'email',
+        'label' => 'Email',
+        'searchable' => true,
+    ],
+],
 ```
+
+**Legacy Support**: Named arrays are still supported for backward compatibility.
 
 ### Event Listeners
 
@@ -676,6 +745,30 @@ Performance tests validate:
 4. Commit your changes (`git commit -am 'Add amazing feature'`)
 5. Push to the branch (`git push origin feature/amazing-feature`)
 6. Open a Pull Request
+
+## 📝 Changelog
+
+### Version 1.5.1 (Latest)
+- **Dynamic Action System**: Added support for button, toggle, and raw HTML actions
+- **Enhanced Column Configuration**: Simplified column setup with direct array keys
+- **Updated Generator**: Web-based code generator with action type selection
+- **Improved Documentation**: Comprehensive AGENTS.md with examples
+- **Backward Compatibility**: Legacy action and column formats still supported
+
+### Version 1.4
+- **Real-Time Column Visibility**: Instant updates with wire:model.live
+- **Smart Index Column**: Sort-aware indexing with proper pagination
+- **Enhanced JSON Support**: Better handling of complex JSON structures
+- **Improved Delete Operations**: Better event handling and parent communication
+- **Session Persistence**: Column visibility stored across page loads
+- **Trait-Based Ready**: Architecture prepared for modular v3.0
+
+### Version 1.3
+- **Advanced Search**: Global and column-specific search capabilities
+- **Smart Filtering**: Multiple filter types with caching
+- **Flexible Sorting**: Column-based sorting with relation support
+- **Dynamic Columns**: Show/hide columns with session persistence
+- **Export Functionality**: CSV, JSON, Excel export with chunking
 
 ## 📝 License
 
