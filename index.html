@@ -637,7 +637,7 @@
             const sortdir = document.getElementById('sortdir').value;
 
             let code = `@livewire('aftable', [\n`;
-            code += `    'model' => \\${model}::class`;
+            code += `    'model' => \\'${model}'`;
 
             if (allColumns.length)
                 code += `,\n    'columns' => [\n        ${allColumns.join(",\n        ")}\n    ]`;

@@ -2,45 +2,75 @@
 
 A comprehensive, trait-based Laravel Livewire datatable package with advanced features for building powerful data tables with minimal configuration.
 
+## ⚠️ Important Usage Note
+
+**This component must be used directly in Blade views, NOT in Livewire component classes.**
+
+✅ **Correct Usage:**
+```blade
+<!-- In a Blade view file -->
+@livewire('aftable', [
+    'model' => '\App\Models\User',
+    'columns' => [...],
+    // ... configuration
+])
+```
+
+❌ **Incorrect Usage:**
+```php
+// Don't use inside a Livewire component class
+class MyComponent extends Component { ... }
+```
+
 ## 🚀 Features
 
 ### Core Features
-- **Trait-Based Architecture**: Modular design with 18 specialized traits
+- **Trait-Based Architecture**: Modular design with 23+ specialized traits
 - **Advanced Search**: Global and column-specific search capabilities
-- **Smart Filtering**: Multiple filter types with caching
+- **Smart Filtering**: Multiple filter types with caching (text, number, date, distinct, relation)
 - **Flexible Sorting**: Column-based sorting with relation support
 - **Dynamic Columns**: Show/hide columns with session persistence
 - **Export Functionality**: CSV, JSON, Excel export with chunking
 - **Relationship Support**: Eager loading and nested relationships
-- **JSON Column Support**: Search and filter JSON data
+- **JSON Column Support**: Search and filter JSON data with dot notation
 - **Memory Management**: Automatic optimization for large datasets
 - **Session Persistence**: Save and restore table state
 - **Query String Support**: Shareable URLs with table state
 - **Event System**: Comprehensive event listeners
 - **Actions & Bulk Actions**: Row and bulk operations
-- **Raw Templates**: Custom HTML templates with placeholders
+- **Raw Templates**: Custom HTML templates with Blade syntax
 - **Performance Optimization**: Caching, chunking, eager loading
 
 ### Available Traits
 
-1. **HasQueryBuilder** - Core query building functionality
-2. **HasDataValidation** - Column and data validation
-3. **HasColumnConfiguration** - Column setup and management
-4. **HasColumnVisibility** - Show/hide columns dynamically
-5. **HasSearch** - Global and column search
-6. **HasFiltering** - Advanced filtering capabilities
-7. **HasSorting** - Column sorting with relations
-8. **HasCaching** - Intelligent caching system
-9. **HasEagerLoading** - Optimized relationship loading
-10. **HasMemoryManagement** - Memory optimization
-11. **HasJsonSupport** - JSON column operations
-12. **HasRelationships** - Relationship handling
-13. **HasExport** - Data export functionality
-14. **HasRawTemplates** - Custom HTML templates
-15. **HasSessionManagement** - State persistence
-16. **HasQueryStringSupport** - URL-based state
-17. **HasEventListeners** - Event system
-18. **HasActions** - Row and bulk actions
+#### Core Traits (Essential Functionality)
+1. **HasUnifiedSearch** - Global and column-specific search with optimization
+2. **HasUnifiedValidation** - Input validation and sanitization
+3. **HasTemplateRendering** - Cell value rendering with Blade templates
+4. **HasActionHandling** - Row and bulk actions management
+5. **HasBasicFeatures** - Core datatable features
+6. **HasDataValidation** - Data type validation and security
+7. **HasSorting** - Column sorting with relation support
+8. **HasUnifiedCaching** - Intelligent caching system with distinct values
+9. **HasRelationships** - Eloquent relationship handling (simple and nested)
+10. **HasJsonSupport** - JSON column extraction with dot notation
+11. **HasJsonFile** - JSON file operations
+12. **HasColumnManagement** - Column configuration and management
+13. **HasQueryBuilding** - Advanced query construction
+
+#### UI Traits (User Interaction)
+14. **HasColumnVisibility** - Dynamic column show/hide with session persistence
+15. **HasEventListeners** - Livewire event system integration
+
+#### Advanced Traits (Performance & Export)
+16. **HasApiEndpoint** - API endpoint generation
+17. **HasPerformanceMonitoring** - Performance tracking and statistics
+18. **HasQueryOptimization** - Query performance optimization
+19. **HasQueryStringSupport** - URL-based state sharing
+20. **HasSessionManagement** - State persistence across sessions
+21. **HasUnifiedOptimization** - Unified optimization strategies
+22. **HasUtilities** - Helper methods and utilities
+23. **HasExportFeatures** - CSV/Excel export with chunking
 
 ## 📦 Installation
 
