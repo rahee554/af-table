@@ -22,6 +22,7 @@ use ArtflowStudio\Table\Traits\Core\HasQueryBuilding;
 // UI & Interaction Traits - Reduced conflict footprint
 use ArtflowStudio\Table\Traits\UI\HasColumnVisibility;
 use ArtflowStudio\Table\Traits\UI\HasEventListeners;
+use ArtflowStudio\Table\Traits\UI\HasSortingUI;
 
 // Advanced Features Traits - Performance & API
 use ArtflowStudio\Table\Traits\Advanced\HasApiEndpoint;
@@ -32,6 +33,8 @@ use ArtflowStudio\Table\Traits\Advanced\HasSessionManagement;
 use ArtflowStudio\Table\Traits\Advanced\HasUnifiedOptimization;
 use ArtflowStudio\Table\Traits\Advanced\HasUtilities;
 use ArtflowStudio\Table\Traits\Advanced\HasExportFeatures;
+use ArtflowStudio\Table\Traits\Advanced\HasCountAggregations;
+use ArtflowStudio\Table\Traits\Advanced\HasAutoOptimization;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -91,6 +94,9 @@ class DatatableTrait extends Component
     
     use HasSorting {
         HasSorting::toggleSort as toggleUnifiedSort;
+        HasSorting::getSortIcon insteadof HasSortingUI;
+        HasSorting::getSortableColumns insteadof HasSortingUI;
+        HasSorting::getSortState insteadof HasSortingUI;
     }
     
     use HasUnifiedCaching {
@@ -139,6 +145,11 @@ class DatatableTrait extends Component
     use HasQueryStringSupport;
     use HasUnifiedOptimization;
     use HasEventListeners;
+    use HasSortingUI {
+        HasSortingUI::isSorted insteadof HasSorting;
+    }
+    use HasCountAggregations;
+    use HasAutoOptimization;
     use WithPagination;
 
     // *----------- Properties -----------*//
@@ -222,6 +233,9 @@ class DatatableTrait extends Component
      * Initialize columns from configuration
      * Normalizes column configuration to ensure consistency
      * Supports both direct arrays and named arrays
+     * 
+     * Note: sortable/searchable are auto-enabled by HasAutoOptimization trait
+     * No need to manually set them - just provide key and label
      */
     protected function initializeColumns(array $columns): array
     {
@@ -234,8 +248,7 @@ class DatatableTrait extends Component
                 $initialized[$columnKey] = [
                     'key' => $config,
                     'label' => ucfirst(str_replace('_', ' ', $config)),
-                    'searchable' => true,
-                    'sortable' => true,
+                    // sortable/searchable auto-enabled by autoOptimizeColumns()
                 ];
             } elseif (is_array($config)) {
                 // Array configuration - check if it's a direct array or named array
@@ -245,8 +258,7 @@ class DatatableTrait extends Component
                     $initialized[$columnKey] = array_merge([
                         'key' => $columnKey,
                         'label' => ucfirst(str_replace('_', ' ', $columnKey)),
-                        'searchable' => true,
-                        'sortable' => true,
+                        // sortable/searchable auto-enabled by autoOptimizeColumns()
                     ], $config);
                 } else {
                     // Named array format: 'id' => ['label' => 'ID'] (legacy support)
@@ -254,8 +266,7 @@ class DatatableTrait extends Component
                     $initialized[$columnKey] = array_merge([
                         'key' => $columnKey,
                         'label' => ucfirst(str_replace('_', ' ', $columnKey)),
-                        'searchable' => true,
-                        'sortable' => true,
+                        // sortable/searchable auto-enabled by autoOptimizeColumns()
                     ], $config);
                 }
             }
@@ -357,15 +368,26 @@ class DatatableTrait extends Component
      * Component Initialization - Core Livewire method
      * PERFORMANCE FIX: Pre-load distinct values on mount
      */
-    public function mount($model, $columns, $filters = [], $actions = [], $index = false, $tableId = null, $query = null)
+    public function mount($model, $columns, $filters = [], $actions = [], $index = false, $tableId = null, $query = null, $countAggregations = [])
     {
         $this->model = $model;
         $this->tableId = $tableId ?? (is_string($model) ? $model : (is_object($model) ? get_class($model) : uniqid('datatable_')));
         $this->query = $query;
 
+        // Initialize count aggregations FIRST before anything else
+        if (!empty($countAggregations)) {
+            $this->setCountAggregations($countAggregations);
+        }
+
         // Delegate column initialization to HasColumnManagement trait
         $this->columns = $this->initializeColumns($columns);
         $this->initializeColumnConfiguration($this->columns);
+
+        // AUTO-OPTIMIZATION: Auto-detect and apply optimizations (NO MANUAL CONFIG NEEDED!)
+        $this->autoDetectCountAggregations();  // Detect _count columns
+        $this->autoOptimizeColumns();          // Auto-enable sorting/searching and eager loading
+        $this->autoDetectOptimalSort();        // Auto-detect best sort column
+        $this->autoApplyEagerLoading($this->model::query());  // Prepare eager loading
 
         // Delegate column visibility to HasColumnVisibility trait  
         $this->initializeColumnVisibility();
@@ -437,6 +459,9 @@ class DatatableTrait extends Component
         if ($this->query) {
             $this->applyCustomQueryConstraints($query);
         }
+
+        // Apply count aggregations FIRST to prevent N+1 queries
+        $query = $this->applyCountAggregations($query);
 
         // Delegate optimization to traits
         $query = $this->applyColumnOptimization($query);
