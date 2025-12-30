@@ -3,17 +3,12 @@
         <!-- Livewire Styles -->
         @livewireStyles
     @endonce
-    <link rel="stylesheet" href="{{ asset('vendor/artflow-studio/table/assets/style.css') }}">
 @endpush
-
 @push('scripts')
     @once
         <!-- Livewire Scripts -->
         @livewireScripts
     @endonce
-
-    <!-- Your custom JS for this component -->
-    <script src="{{ asset('vendor/artflow-studio/table/assets/scripts.js') }}"></script>
 @endpush
 
 <div>
@@ -226,54 +221,54 @@
             @endif
         </div>
     @endif
-    <div class="row mb-2">
-        <div class="col">
-            <div class="w-100px">
-              @if ($searchable)
-                <div class="position-relative w-md-250px me-2">
-                    <input type="text" wire:model.live.debounce.500ms="search" placeholder="Search (min 3 chars)..."
-                        class="form-control form-control-sm border-0 p-2 pe-4" minlength="3">
+    <div class="row mb-3 gap-2">
+        <div class="col-12 col-lg">
+            @if ($searchable)
+                <div class="position-relative">
+                    <input type="text" 
+                           wire:model.live.debounce.500ms="search" 
+                           placeholder="🔍 Search (min 3 chars)..."
+                           class="form-control form-control-sm border-0 p-3 ps-4 pe-5 shadow-sm bg-light" 
+                           minlength="3"
+                           style="border-radius: 8px; font-size: 0.95rem;">
 
                     @if (!empty($search))
-                        <span class="position-absolute top-50 end-0 translate-middle-y me-2 cursor-pointer text-muted"
-                            style="z-index: 1;" wire:click="$set('search', '')">
-                            &times;
-                        </span>
+                        <button type="button"
+                                class="position-absolute top-50 end-0 translate-middle-y me-3 btn btn-sm btn-link text-muted p-0"
+                                wire:click="$set('search', '')"
+                                style="z-index: 10; border: none; background: none; cursor: pointer;">
+                            <i class="fas fa-times fa-fw"></i>
+                        </button>
                     @endif
                 </div>
             @endif
-            </div>
         </div>
 
-
-        <div class="col d-flex justify-content-end">
-          
-
+        <div class="col-12 col-lg-auto d-flex gap-2 justify-content-lg-end">
             @if ($colvisBtn == true)
-                <div class="dropdown me-2" id="columnVisibilityDropdownWrapper">
-                    <button class="btn btn-outline btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                        Column Visibility
+                <div class="dropdown" id="columnVisibilityDropdownWrapper">
+                    <button class="btn btn-outline-secondary btn-sm" 
+                            type="button" 
+                            id="columnVisibilityDropdown"
+                            data-bs-toggle="dropdown" 
+                            aria-expanded="false"
+                            title="Toggle column visibility">
+                        <i class="fas fa-eye fa-fw"></i> Columns
                     </button>
-                    <ul class="dropdown-menu" aria-labelledby="columnVisibilityDropdown">
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="columnVisibilityDropdown" style="min-width: 200px;">
                         @foreach ($columns as $columnKey => $column)
                             @php
-                                // Determine current visibility state
                                 $isCurrentlyVisible = isset($visibleColumns[$columnKey]) ? (bool)$visibleColumns[$columnKey] : !($column['hide'] ?? false);
                             @endphp
-                            <li class="cursor-pointer">
-                                <div class="form-check form-switch form-check-custom form-check-solid me-10">
-                                    <input class="form-check-input h-20px w-30px m-1" type="checkbox"
-                                        id="column-{{ $columnKey }}"
-                                        wire:click="toggleColumnVisibility('{{ $columnKey }}')"
-                                        {{ $isCurrentlyVisible ? 'checked' : '' }}>
+                            <li class="px-2 py-1">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" 
+                                           type="checkbox"
+                                           id="column-{{ $columnKey }}"
+                                           wire:click="toggleColumnVisibility('{{ $columnKey }}')"
+                                           {{ $isCurrentlyVisible ? 'checked' : '' }}>
                                     <label class="form-check-label" for="column-{{ $columnKey }}">
-                                        {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
-                                        {{-- //** Key of the Field **//
-                                        
-                                        @if(!isset($column['json']))
-                                            <small class="text-muted">({{ $columnKey }})</small>
-                                        @endif --}}
+                                        <small>{{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}</small>
                                     </label>
                                 </div>
                             </li>
@@ -283,40 +278,42 @@
             @endif
             
             @if ($exportable)
-                <div class="dropdown me-2">
-                    <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" id="exportDropdown"
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-download"></i> Export
+                <div class="dropdown">
+                    <button class="btn btn-outline-success btn-sm dropdown-toggle" 
+                            type="button" 
+                            id="exportDropdown"
+                            data-bs-toggle="dropdown" 
+                            aria-expanded="false"
+                            title="Export data">
+                        <i class="fas fa-download fa-fw"></i> Export
                     </button>
-                    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
-                        <li>
-                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('csv')">
-                                <i class="fas fa-file-csv"></i> Export as CSV
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('xlsx')">
-                                <i class="fas fa-file-excel"></i> Export as Excel
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('pdf')">
-                                <i class="fas fa-file-pdf"></i> Export as PDF
-                            </a>
-                        </li>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
+                        <li><a class="dropdown-item" href="#" wire:click.prevent="handleExport('csv')">
+                            <i class="fas fa-file-csv text-danger"></i> CSV
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" wire:click.prevent="handleExport('xlsx')">
+                            <i class="fas fa-file-excel text-success"></i> Excel
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" wire:click.prevent="handleExport('pdf')">
+                            <i class="fas fa-file-pdf text-info"></i> PDF
+                        </a></li>
                     </ul>
                 </div>
             @endif
             
             @if ($refreshBtn == true)
-                <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
-                    <i class="fas fa-refresh"></i>
+                <button wire:click="refreshTable" 
+                        class="btn btn-outline-secondary btn-sm"
+                        title="Refresh table">
+                    <i class="fas fa-sync-alt fa-fw"></i> Refresh
                 </button>
             @endif
             
             @if ($printable)
-                <button onclick="window.print()" class="btn btn-sm btn-secondary">
-                    <i class="fas fa-print"></i> Print
+                <button onclick="window.print()" 
+                        class="btn btn-outline-info btn-sm"
+                        title="Print table">
+                    <i class="fas fa-print fa-fw"></i> Print
                 </button>
             @endif
         </div>

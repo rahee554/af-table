@@ -30,6 +30,11 @@ This document provides complete method signatures and usage examples for the Art
     'searchable' => bool,                  // Enable search (default: true)
     'showSearch' => bool,                  // Show search box (default: true)
     
+    // Sorting (v1.5.2+)
+    'sortBy' => string,                    // Default sort column key
+    'sortDirection' => string,             // Default sort direction ('asc' or 'desc')
+    'sort' => string,                      // Alias for sortDirection (backward compat)
+    
     // UI & Display
     'tableClass' => string,                // Custom table CSS classes
     'theadClass' => string,                // Table header CSS classes
@@ -218,14 +223,31 @@ This document provides complete method signatures and usage examples for the Art
 ])
 ```
 
-### Default Sort
+### Default Sort (v1.5.2+)
 ```blade
 @livewire('aftable', [
     'model' => 'App\Models\Item',
     'columns' => [...],
     'sortBy' => 'created_at',          // Sort by this column initially
-    'sortDirection' => 'desc',         // asc or desc
+    'sortDirection' => 'desc',         // 'asc' or 'desc' (default: 'asc')
 ])
+```
+
+### Backward Compatibility
+```blade
+@livewire('aftable', [
+    'model' => 'App\Models\Item',
+    'columns' => [...],
+    'sortBy' => 'id',
+    'sort' => 'desc',                  // 'sort' still works as an alias for sortDirection
+])
+```
+
+### Non-Sortable Columns
+```blade
+'columns' => [
+    ['key' => 'avatar', 'label' => 'Avatar', 'sortable' => false], // Disable sorting for this column
+]
 ```
 
 ---
@@ -534,6 +556,8 @@ This document provides complete method signatures and usage examples for the Art
 | Many queries | Use `'relation' => 'relationName:columnName'` format |
 | Export not working | Set `showExport: true` and check permissions |
 | Search returns nothing | Only text columns are searchable |
+| `sortBy` not working | Ensure the key matches a column in your `columns` array |
+| Undefined variable `$sortBy` | Upgrade to v1.5.2+ (fixed in this version) |
 
 ---
 

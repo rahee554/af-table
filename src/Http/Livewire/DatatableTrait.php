@@ -159,6 +159,7 @@ class DatatableTrait extends Component
     public $checkbox = false;
     public $search = '';
     public $sortColumn = null;
+    public $sortBy = null; // Alias for sortColumn - for user convenience
     public $sortDirection = 'asc';
     public $selectedRows = [];
     public $selectAll = false;
@@ -368,7 +369,7 @@ class DatatableTrait extends Component
      * Component Initialization - Core Livewire method
      * PERFORMANCE FIX: Pre-load distinct values on mount
      */
-    public function mount($model, $columns, $filters = [], $actions = [], $index = false, $tableId = null, $query = null, $countAggregations = [])
+    public function mount($model, $columns, $filters = [], $actions = [], $index = false, $tableId = null, $query = null, $countAggregations = [], $sortBy = null, $sortDirection = null, $sort = null)
     {
         $this->model = $model;
         $this->tableId = $tableId ?? (is_string($model) ? $model : (is_object($model) ? get_class($model) : uniqid('datatable_')));
@@ -396,9 +397,28 @@ class DatatableTrait extends Component
         $this->actions = $actions;
         $this->index = $index;
 
-        // Delegate sort optimization to HasSorting trait
+        // Handle sorting parameters: sortBy takes precedence over auto-detection
+        if (!empty($sortBy)) {
+            $this->sortColumn = $sortBy;
+            $this->sortBy = $sortBy;
+        }
+        
+        // Handle sort direction: sortDirection takes precedence, fallback to sort for backward compatibility
+        if (!empty($sortDirection)) {
+            $this->sortDirection = in_array($sortDirection, ['asc', 'desc']) ? $sortDirection : 'asc';
+        } elseif (!empty($sort)) {
+            // Backward compatibility: 'sort' parameter can specify direction
+            $this->sortDirection = in_array($sort, ['asc', 'desc']) ? $sort : 'desc';
+        }
+
+        // Delegate sort optimization to HasSorting trait - only if not already set
         if (empty($this->sortColumn)) {
             $this->sortColumn = $this->getOptimalSortColumn();
+        }
+        
+        // Keep sortBy in sync with sortColumn for Livewire reactivity
+        if (empty($this->sortBy) && !empty($this->sortColumn)) {
+            $this->sortBy = $this->sortColumn;
         }
         
         // PERFORMANCE FIX: Pre-load all distinct values on mount
@@ -654,6 +674,7 @@ class DatatableTrait extends Component
     /**
      * Handle sorting - Core Livewire lifecycle
      * PERFORMANCE FIX: Invalidate cache when sort changes
+     * Now syncs both sortColumn and sortBy for consistency
      */
     public function sortBy($column)
     {
@@ -666,6 +687,9 @@ class DatatableTrait extends Component
             $this->sortColumn = $column;
             $this->sortDirection = 'asc';
         }
+
+        // Keep sortBy in sync with sortColumn
+        $this->sortBy = $this->sortColumn;
 
         $this->resetPage();
         $this->invalidateQueryCache();

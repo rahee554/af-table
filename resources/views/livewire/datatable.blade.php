@@ -171,7 +171,7 @@
                         <th class="fw-bold bg-light" wire:click="toggleSort('updated_at')" style="cursor:pointer;">
                             <span class="d-inline-flex align-items-center">
                                 #
-                                @if ($sortColumn == 'updated_at')
+                                @if ($sortBy == 'updated_at')
                                     <span class="ms-1" style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
                                 @endif
                             </span>
@@ -208,7 +208,7 @@
                                 <span class="d-inline-flex align-items-center">
                                     {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
                                     {{-- <small class="text-muted ms-1">({{ $columnKey }})</small> --}}
-                                    @if ($isSortable && $sortColumn == $column['key'])
+                                    @if ($isSortable && $sortBy == $column['key'])
                                         <span class="ms-1"
                                             style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
                                     @endif

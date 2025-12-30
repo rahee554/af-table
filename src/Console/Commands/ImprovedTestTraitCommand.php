@@ -283,7 +283,7 @@ class ImprovedTestTraitCommand extends Command
                         'email' => ['key' => 'email', 'label' => 'Email'],
                     ];
                     $this->search = '';
-                    $this->sortColumn = null;
+                    $this->sortBy = null;
                     $this->sortDirection = 'asc';
                     $this->perPage = 10;
                 }

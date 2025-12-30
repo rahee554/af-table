@@ -10,7 +10,7 @@
   },
   "require": {
     "php": "*",
-    "livewire/livewire": "^3.5",
+    "livewire/livewire": "*",
     "illuminate/view": "*"
   },
   "extra": {

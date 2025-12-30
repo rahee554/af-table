@@ -1,843 +1,608 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AF Table Livewire Code Generator v1.5.1</title>
+    <title>AF Table Code Generator v1.5.2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap 5.3 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        textarea[readonly] { background: #f8f9fa; font-family: monospace; }
-        .form-section { border: 1px solid #eee; padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem; }
-        .section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; }
-        .option-label { font-size: 0.95rem; }
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f9fafb;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+       
+
+        .header-section {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 3rem 2rem;
+            border-radius: 1rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.2);
+        }
+
+        .form-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 2rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .form-section:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            color: var(--primary-color);
+        }
+
+        .section-title i { margin-right: 0.75rem; }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control, .form-select {
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 0.8rem;
+            font-size: 0.9rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .badge-new {
+            background-color: #ecfdf5;
+            color: #059669;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 1rem;
+            margin-left: 0.5rem;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .code-area-container {
+            position: sticky;
+            top: 2rem;
+        }
+
+        #output {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            background-color: #1e293b;
+            color: #e2e8f0;
+            border: none;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            line-height: 1.6;
+            resize: none;
+        }
+
         .copy-btn {
             position: absolute;
-            top: 10px;
-            right: 20px;    
-            z-index: 10;
-            background: #fff;
-            border: none;   
-            color: #007bff;
-            font-size: 1.3rem;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 0.4rem;
             cursor: pointer;
+            transition: all 0.2s;
         }
-        .copy-btn:active {
-            color: #1e7e34;
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
-        .code-area-container {
+
+        .item-row {
+            background: #f8fafc;
+            border: 1px solid #f1f5f9;
+            padding: 1.25rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
             position: relative;
         }
-        .function-column-section {
-            background: #f8f9fa;
-            border-left: 4px solid #28a745;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 5px;
+
+        .remove-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 1.1rem;
+            opacity: 0.6;
+            transition: opacity 0.2s;
         }
-        .section-help {
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin-bottom: 0.5rem;
+
+        .remove-btn:hover { opacity: 1; }
+
+        .help-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .alert-custom {
+            border-radius: 0.75rem;
+            border: none;
+            padding: 1.25rem;
         }
     </style>
 </head>
 <body>
-<div class="container py-5">
-    <h1 class="mb-4">AF Table Livewire Code Generator v1.4</h1>
-    <p class="lead text-muted">Generate AFTable Livewire code with advanced v1.4 features: real-time column visibility, smart index column, enhanced JSON support, improved delete operations, and trait-based architecture ready.</p>
 
-    <!-- Version 1.5.1 Features Alert -->
-    <div class="alert alert-success mb-4">
-        <h6><strong>🚀 Version 1.5.1 Features</strong></h6>
-        <div class="row">
-            <div class="col-md-6">
-                <ul class="mb-2">
-                    <li><strong>Dynamic Action System:</strong> Button, toggle, and raw HTML actions</li>
-                    <li><strong>Direct Column Keys:</strong> Simplified column configuration without named arrays</li>
-                    <li><strong>Enhanced Action Rendering:</strong> HTTP method support with CSRF protection</li>
-                </ul>
-            </div>
-            <div class="col-md-6">
-                <ul class="mb-2">
-                    <li><strong>Improved Generator:</strong> Updated UI with action type selection</li>
-                    <li><strong>Backward Compatibility:</strong> Legacy action formats still supported</li>
-                    <li><strong>Package Documentation:</strong> Comprehensive AGENTS.md with examples</li>
-                </ul>
-            </div>
+<div class="container-fluid py-5">
+    <div class="header-section text-center">
+        <h1 class="display-5 fw-bold mb-2">AF Table Code Generator</h1>
+        <p class="lead opacity-90 mb-0">Enterprise-grade Livewire datatables in seconds. Updated for v1.5.2+</p>
+        <div class="mt-3">
+            <span class="badge bg-white text-primary px-3 py-2 rounded-pill fw-bold">v1.5.2 Stable</span>
         </div>
     </div>
 
-    <!-- JSON Column Example -->
-    <div class="alert alert-info mb-4">
-        <h6><strong>🆕 Enhanced JSON Column Support (v1.4)</strong></h6>
-        <p class="mb-2">Extract specific values from JSON columns with unique key handling and real-time visibility support:</p>
-        <div class="row">
-            <div class="col-md-6">
-                <strong>Example JSON Column:</strong> <code>data</code>
-                <pre class="bg-light p-2 mt-1 small">{
-  "name": "John Doe",
-  "contact": {
-    "email": "john@example.com",
-    "phone": "123-456-7890"
-  },
-  "preferences": {
-    "theme": "dark",
-    "notifications": true
-  }
-}</pre>
-            </div>
-            <div class="col-md-6">
-                <strong>Column Configurations:</strong>
-                <ul class="small mb-2">
-                    <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>name</code> → Displays: "John Doe"</li>
-                    <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>contact.email</code> → Displays: "john@example.com"</li>
-                    <li><strong>Key:</strong> <code>data</code>, <strong>JSON Path:</strong> <code>preferences.theme</code> → Displays: "dark"</li>
-                </ul>
-                <div class="alert alert-warning py-2 mb-2">
-                    <small><strong>⚠️ v1.4 Notes:</strong></small>
-                    <ul class="small mb-0">
-                        <li>JSON columns have unique keys for proper visibility control</li>
-                        <li>Real-time column visibility works with JSON columns</li>
-                        <li>JSON columns are not sortable (computed values)</li>
-                    </ul>
+    <div class="row">
+        <div class="col-lg-7">
+            <form id="generatorForm">
+                <!-- 1. Model -->
+                <div class="form-section">
+                    <div class="section-title"><i class="fas fa-database"></i> 1. Core Configuration</div>
+                    <div class="mb-3">
+                        <label class="form-label">Eloquent Model Class</label>
+                        <input type="text" class="form-control" id="model" placeholder="e.g. App\Models\AccountFlow\Transaction" required>
+                        <div class="help-text">Full namespace of your Eloquent model.</div>
+                    </div>
+                </div>
+
+                <!-- 2. Columns -->
+                <div class="form-section">
+                    <div class="section-title"><i class="fas fa-columns"></i> 2. Table Columns</div>
+                    <div id="columns-container"></div>
+                    
+                    <div class="d-flex gap-2 mt-3">
+                        <button class="btn btn-outline-primary btn-sm" type="button" onclick="addColumn('db')">
+                            <i class="fas fa-plus me-1"></i> Database Column
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" type="button" onclick="addColumn('function')">
+                            <i class="fas fa-code me-1"></i> Function Column
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. Filters -->
+                <div class="form-section">
+                    <div class="section-title"><i class="fas fa-filter"></i> 3. Advanced Filters</div>
+                    <div id="filters-container"></div>
+                    <button class="btn btn-outline-primary btn-sm mt-2" type="button" onclick="addFilter()">
+                        <i class="fas fa-plus me-1"></i> Add Filter
+                    </button>
+                </div>
+
+                <!-- 4. Actions -->
+                <div class="form-section">
+                    <div class="section-title"><i class="fas fa-mouse-pointer"></i> 4. Row Actions</div>
+                    <div id="actions-container"></div>
+                    <button class="btn btn-outline-primary btn-sm mt-2" type="button" onclick="addAction()">
+                        <i class="fas fa-plus me-1"></i> Add Action
+                    </button>
+                </div>
+
+                <!-- 5. Options -->
+                <div class="form-section">
+                    <div class="section-title"><i class="fas fa-cog"></i> 5. Table Options</div>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Default Sort Column</label>
+                            <input type="text" class="form-control" id="sortBy" placeholder="e.g. created_at">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Default Sort Direction</label>
+                            <select class="form-select" id="sortDirection">
+                                <option value="desc">Descending (Newest First)</option>
+                                <option value="asc">Ascending (A-Z)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Rows Per Page</label>
+                            <input type="number" class="form-control" id="records" value="25">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Date Column (for range filter)</label>
+                            <input type="text" class="form-control" id="dateColumn" placeholder="e.g. created_at">
+                        </div>
+                    </div>
+
+                    <label class="form-label d-block mb-3">Features & Visibility</label>
+                    <div class="feature-grid">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="checkbox" checked>
+                            <label class="form-check-label">Row Selection</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="index">
+                            <label class="form-check-label">Index Column</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="searchable" checked>
+                            <label class="form-check-label">Searchable</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="exportable" checked>
+                            <label class="form-check-label">Exportable</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="printable">
+                            <label class="form-check-label">Printable</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="colvisBtn" checked>
+                            <label class="form-check-label">Column Toggle</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="refreshBtn" checked>
+                            <label class="form-check-label">Refresh Button</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid mb-5">
+                    <button type="button" class="btn btn-primary btn-lg shadow-sm" onclick="generateCode()">
+                        <i class="fas fa-bolt me-2"></i> Generate Component Code
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="code-area-container">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="h5 fw-bold mb-0">Generated PHP Code</h3>
+                    <span class="text-muted small">Ready for Blade files</span>
+                </div>
+                <div class="position-relative">
+                    <button class="copy-btn" title="Copy to clipboard" onclick="copyCode()">
+                        <i class="far fa-copy"></i>
+                    </button>
+                    <textarea id="output" class="form-control w-100" rows="35" readonly placeholder="// Your generated code will appear here..."></textarea>
+                </div>
+                
+                <div class="alert alert-info alert-custom mt-4">
+                    <h6 class="fw-bold"><i class="fas fa-info-circle me-2"></i> Pro Tip</h6>
+                    <p class="small mb-0">You can pass a custom query using the <code>'query'</code> parameter to filter data based on the current user or tenant.</p>
                 </div>
             </div>
         </div>
-    </div>
-
-    <form id="generatorForm">
-        <div class="form-section">
-            <div class="section-title">1. Model</div>
-            <input type="text" class="form-control form-control-sm mb-2" id="model" placeholder="Eloquent Model Class (e.g. App\Models\Service)" required>
-        </div>
-
-        <div class="form-section">
-            <div class="section-title">2. Columns</div>
-            <div class="section-help">Define your table columns. You can mix database columns and function-based columns.</div>
-            
-            <!-- Database Columns -->
-            <h6 class="mt-3 mb-2">Database Columns</h6>
-            <div id="database-columns"></div>
-            <button class="btn btn-outline-primary btn-sm mb-3" type="button" onclick="addDatabaseColumn()">+ Add Database Column</button>
-            
-            <!-- Function Columns -->
-            <div class="function-column-section">
-                <h6 class="mb-2"><i class="text-success">●</i> Function-Based Columns (NEW)</h6>
-                <div class="section-help">These columns call model methods directly and don't require database fields.</div>
-                <div id="function-columns"></div>
-                <button class="btn btn-outline-success btn-sm" type="button" onclick="addFunctionColumn()">+ Add Function Column</button>
-            </div>
-        </div>
-
-        <div class="form-section">
-            <div class="section-title">3. Filters</div>
-            <div class="section-help">Add filters for database columns only. Function columns cannot be filtered.</div>
-            <div id="filters"></div>
-            <button class="btn btn-outline-primary btn-sm mb-2" type="button" onclick="addFilter()">+ Add Filter</button>
-        </div>
-
-        <div class="form-section">
-            <div class="section-title">4. Query Constraints</div>
-            <div class="section-help">Add WHERE conditions applied to the base query before table operations.</div>
-            <div id="queries"></div>
-            <button class="btn btn-outline-primary btn-sm mb-2" type="button" onclick="addQuery()">+ Add Query Condition</button>
-        </div>
-
-        <div class="form-section">
-            <div class="section-title">5. Actions</div>
-            <div class="section-help">Row-level action buttons with dynamic types: button, toggle, and raw HTML.</div>
-            <div id="actions"></div>
-            <button class="btn btn-outline-primary btn-sm mb-2" type="button" onclick="addAction()">+ Add Action</button>
-        </div>
-
-        <div class="form-section">
-            <div class="section-title">6. Table Options</div>
-            <div class="row">
-                <div class="col-md-4 mb-2">
-                    <label class="form-label option-label">Rows per page</label>
-                    <input type="number" class="form-control form-control-sm" id="records" placeholder="Default: 10">
-                </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label option-label">Unique Table ID</label>
-                    <input type="text" class="form-control form-control-sm" id="tableId" placeholder="Optional">
-                </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label option-label">Date Column (for range filter)</label>
-                    <input type="text" class="form-control form-control-sm" id="dateColumn" placeholder="e.g. created_at">
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-12">
-                    <label class="form-label d-block option-label">Feature Flags</label>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="checkbox">
-                        <label class="form-check-label" for="checkbox">Row Selection (checkbox)</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="index">
-                        <label class="form-check-label" for="index">Smart Index Column (v1.4)</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="searchable" checked>
-                        <label class="form-check-label" for="searchable">Searchable</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="colSort" checked>
-                        <label class="form-check-label" for="colSort">Column Sorting</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="exportable">
-                        <label class="form-check-label" for="exportable">Exportable</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="printable">
-                        <label class="form-check-label" for="printable">Printable</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="refreshBtn">
-                        <label class="form-check-label" for="refreshBtn">Refresh Button</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="colvisBtn" checked>
-                        <label class="form-check-label" for="colvisBtn">Real-Time Column Visibility (v1.4)</label>
-                    </div>
-                </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-md-4">
-                    <label class="form-label option-label">Default Sort Direction</label>
-                    <select class="form-select form-select-sm" id="sortdir">
-                        <option value="">Default</option>
-                        <option value="asc">Ascending</option>
-                        <option value="desc">Descending</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <button type="button" class="btn btn-success btn-lg mt-2" onclick="generateCode()">
-            <i class="me-2">⚡</i>Generate AFTable Code v1.5.1
-        </button>
-    </form>
-
-    <!-- Documentation Links -->
-    <div class="alert alert-light border mt-4 mb-4">
-        <h6><strong>📚 Documentation & Resources (v1.5.1)</strong></h6>
-        <div class="row">
-            <div class="col-md-6">
-                <ul class="mb-0">
-                    <li><strong>README.md</strong> - Complete usage guide and v1.5.1 features</li>
-                    <li><strong>AGENTS.md</strong> - AI Agent documentation with dynamic actions</li>
-                    <li><strong>CHANGELOG.md</strong> - Version history and updates</li>
-                </ul>
-            </div>
-            <div class="col-md-6">
-                <ul class="mb-0">
-                    <li><strong>trait_based_architecture.md</strong> - v3.0 trait-based design plan</li>
-                    <li><strong>docs/</strong> - Technical documentation</li>
-                    <li><strong>index.html</strong> - This code generator (updated for v1.5.1)</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <div class="mt-5 code-area-container" style="max-width:900px;position:relative;">
-        <h3>Generated Code</h3>
-        <button class="copy-btn" title="Copy to clipboard" onclick="copyCode()" type="button">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M10 1.5A1.5 1.5 0 0 1 11.5 3v1H12A2.5 2.5 0 0 1 14.5 6.5v6A2.5 2.5 0 0 1 12 15H6.5A2.5 2.5 0 0 1 4 12.5V12h-.5A1.5 1.5 0 0 1 2 10.5v-8A1.5 1.5 0 0 1 3.5 1h6ZM3.5 2A.5.5 0 0 0 3 2.5v8a.5.5 0 0 0 .5.5H4V6.5A2.5 2.5 0 0 1 6.5 4H11V3.5a.5.5 0 0 0-.5-.5h-6ZM6.5 5A1.5 1.5 0 0 0 5 6.5v6A1.5 1.5 0 0 0 6.5 14h5A1.5 1.5 0 0 0 13 12.5v-6A1.5 1.5 0 0 0 11.5 5h-5Z"/>
-            </svg>
-        </button>
-        <textarea class="form-control form-control-sm" id="output" rows="30" readonly style="min-height:400px"></textarea>
     </div>
 </div>
 
 <script>
-    let filterCount = 0, queryCount = 0, actionCount = 0, dbColumnCount = 0, functionColumnCount = 0;
+    let columnCount = 0;
+    let filterCount = 0;
+    let actionCount = 0;
 
-    function addDatabaseColumn() {
-        try {
-            const id = ++dbColumnCount;
-            console.log('Adding database column:', id);
-            
-            const html = `
-            <div class="row g-2 mb-2 align-items-end border p-3 rounded" id="db-column-row-${id}" style="background: #f8f9fa;">
-                <div class="col-sm-2">
-                    <label class="form-label small">Column Key</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="e.g. name, booking_id" id="db-column-key-${id}" required>
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Label</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="Display Label" id="db-column-label-${id}" required>
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Header Classes (th)</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="e.g. bg-primary text-white" id="db-column-th-class-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Cell Classes (td)</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="e.g. text-center fw-bold" id="db-column-td-class-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Relation (optional)</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="e.g. booking:unique_id" id="db-column-relation-${id}">
-                    <small class="text-muted">Format: relationName:attribute</small>
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">JSON Path (optional)</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="e.g. name, contact.email" id="db-column-json-path-${id}">
-                    <small class="text-muted">Extract value from JSON column</small>
-                </div>
-                <div class="col-sm-1">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="db-column-hide-${id}">
-                        <label class="form-check-label small" for="db-column-hide-${id}">Hide</label>
+    function addColumn(type) {
+        const id = ++columnCount;
+        const container = document.getElementById('columns-container');
+        
+        const html = `
+            <div class="item-row" id="col-row-${id}" data-type="${type}">
+                <span class="remove-btn" onclick="removeElement('col-row-${id}')"><i class="fas fa-times-circle"></i></span>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small">${type === 'db' ? 'Column Key' : 'Function Name'}</label>
+                        <input type="text" class="form-control form-control-sm col-key" placeholder="${type === 'db' ? 'e.g. name' : 'e.g. getStatus'}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Display Label</label>
+                        <input type="text" class="form-control form-control-sm col-label" placeholder="e.g. Full Name">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Relation <span class="text-muted">(opt)</span></label>
+                        <input type="text" class="form-control form-control-sm col-relation" placeholder="user:name">
+                    </div>
+                    ${type === 'db' ? `
+                    <div class="col-md-4">
+                        <label class="form-label small">JSON Path <span class="text-muted">(opt)</span></label>
+                        <input type="text" class="form-control form-control-sm col-json" placeholder="meta.details">
+                    </div>` : ''}
+                    <div class="col-md-4">
+                        <label class="form-label small">Format</label>
+                        <select class="form-select form-select-sm col-format">
+                            <option value="">None</option>
+                            <option value="currency">Currency</option>
+                            <option value="date">Date</option>
+                            <option value="boolean">Boolean (Check/Cross)</option>
+                            <option value="number">Number</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check mb-1">
+                            <input class="form-check-input col-sortable" type="checkbox" checked>
+                            <label class="form-check-label small">Sortable</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">Raw HTML / Blade Template <span class="text-muted">(optional)</span></label>
+                        <textarea class="form-control form-control-sm col-raw" rows="2" placeholder="e.g. <span class='badge'>{{ \$row->status }}</span>"></textarea>
                     </div>
                 </div>
-                <div class="col-12">
-                    <label class="form-label small">Raw Template</label>
-                    <textarea class="form-control form-control-sm" placeholder="Enter Blade template here, e.g. {{ \\$row->booking->unique_id }}" id="db-column-raw-${id}" rows="3" style="font-family: monospace;"></textarea>
-                    <small class="text-muted">For relations: {{ \\$row->relationName->attribute }}, For JSON: Leave empty when using JSON Path</small>
-                </div>
-                <div class="col-sm-1">
-                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('db-column-row-${id}')">Remove</button>
-                </div>
-            </div>`;
-            
-            const container = document.getElementById('database-columns');
-            if (container) {
-                container.insertAdjacentHTML('beforeend', html);
-                console.log('Database column added successfully');
-            } else {
-                console.error('Database columns container not found');
-            }
-        } catch (error) {
-            console.error('Error adding database column:', error);
-        }
-    }
-
-    function addFunctionColumn() {
-        try {
-            const id = ++functionColumnCount;
-            console.log('Adding function column:', id);
-            
-            const html = `
-            <div class="row g-2 mb-2 align-items-end border p-2 rounded" id="function-column-row-${id}" style="background: #f1f8e9;">
-                <div class="col-sm-2">
-                    <label class="form-label small text-success">Function Name</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="e.g. isActive, hasFlight" id="function-column-name-${id}" required>
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Label</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="Display Label" id="function-column-label-${id}" required>
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Header Classes (th)</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="e.g. bg-success text-white" id="function-column-th-class-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Cell Classes (td)</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="e.g. text-center fw-bold" id="function-column-td-class-${id}">
-                </div>
-                <div class="col-sm-1">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="function-column-hide-${id}">
-                        <label class="form-check-label small" for="function-column-hide-${id}">Hide</label>
-                    </div>
-                </div>
-                <div class="col-sm-1">
-                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('function-column-row-${id}')">Remove</button>
-                </div>
-                <div class="col-12">
-                    <label class="form-label small">Raw Template (optional)</label>
-                    <textarea class="form-control form-control-sm" placeholder="Enter custom Blade template here" id="function-column-raw-${id}" rows="3" style="font-family: monospace;"></textarea>
-                </div>
-            </div>`;
-            
-            const container = document.getElementById('function-columns');
-            if (container) {
-                container.insertAdjacentHTML('beforeend', html);
-                console.log('Function column added successfully');
-            } else {
-                console.error('Function columns container not found');
-            }
-        } catch (error) {
-            console.error('Error adding function column:', error);
-        }
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
     }
 
     function addFilter() {
-        try {
-            const id = ++filterCount;
-            console.log('Adding filter:', id);
-            
-            const html = `
-            <div class="row g-2 mb-2 align-items-end" id="filter-row-${id}">
-                <div class="col-sm-4">
-                    <input type="text" class="form-control form-control-sm" placeholder="Column Key" id="filter-key-${id}" required>
+        const id = ++filterCount;
+        const container = document.getElementById('filters-container');
+        const html = `
+            <div class="item-row" id="filter-row-${id}">
+                <span class="remove-btn" onclick="removeElement('filter-row-${id}')"><i class="fas fa-times-circle"></i></span>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small">Column Key</label>
+                        <input type="text" class="form-control form-control-sm filter-key" placeholder="e.g. status">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Filter Type</label>
+                        <select class="form-select form-select-sm filter-type">
+                            <option value="text">Text Search</option>
+                            <option value="select">Select Dropdown</option>
+                            <option value="distinct">Auto-Distinct</option>
+                            <option value="date">Date Range</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Relation <span class="text-muted">(opt)</span></label>
+                        <input type="text" class="form-control form-control-sm filter-relation" placeholder="category:name">
+                    </div>
                 </div>
-                <div class="col-sm-4">
-                    <select class="form-select form-select-sm" id="filter-type-${id}">
-                        <option value="text">Text</option>
-                        <option value="select">Select</option>
-                        <option value="distinct">Distinct</option>
-                        <option value="number">Number</option>
-                        <option value="date">Date</option>
-                    </select>
-                </div>
-                <div class="col-sm-3">
-                    <input type="text" class="form-control form-control-sm" placeholder="Relation (optional)" id="filter-relation-${id}">
-                </div>
-                <div class="col-sm-1">
-                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('filter-row-${id}')">Remove</button>
-                </div>
-            </div>`;
-            
-            const container = document.getElementById('filters');
-            if (container) {
-                container.insertAdjacentHTML('beforeend', html);
-                console.log('Filter added successfully');
-            } else {
-                console.error('Filters container not found');
-            }
-        } catch (error) {
-            console.error('Error adding filter:', error);
-        }
-    }
-
-    function addQuery() {
-        try {
-            const id = ++queryCount;
-            console.log('Adding query:', id);
-            
-            const html = `
-            <div class="row g-2 mb-2 align-items-end" id="query-row-${id}">
-                <div class="col-sm-3">
-                    <input type="text" class="form-control form-control-sm" placeholder="Column" id="query-col-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <select class="form-select form-select-sm" id="query-op-${id}">
-                        <option value="">= (default)</option>
-                        <option value="=">=</option>
-                        <option value="!=">!=</option>
-                        <option value=">">&gt;</option>
-                        <option value=">=">&gt;=</option>
-                        <option value="<">&lt;</option>
-                        <option value="<=">&lt;=</option>
-                        <option value="like">like</option>
-                        <option value="in">in</option>
-                    </select>
-                </div>
-                <div class="col-sm-5">
-                    <input type="text" class="form-control form-control-sm" placeholder="Value (use comma for 'in')" id="query-val-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('query-row-${id}')">Remove</button>
-                </div>
-            </div>`;
-            
-            const container = document.getElementById('queries');
-            if (container) {
-                container.insertAdjacentHTML('beforeend', html);
-                console.log('Query added successfully');
-            } else {
-                console.error('Queries container not found');
-            }
-        } catch (error) {
-            console.error('Error adding query:', error);
-        }
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
     }
 
     function addAction() {
-        try {
-            const id = ++actionCount;
-            console.log('Adding action:', id);
-            
-            const html = `
-            <div class="row g-2 mb-3 align-items-end border p-3 rounded" id="action-row-${id}" style="background: #f8f9fa;">
-                <div class="col-sm-2">
-                    <label class="form-label small">Action Type</label>
-                    <select class="form-select form-select-sm" id="action-type-${id}">
-                        <option value="button">Button</option>
-                        <option value="toggle">Toggle</option>
-                        <option value="raw">Raw HTML</option>
-                    </select>
+        const id = ++actionCount;
+        const container = document.getElementById('actions-container');
+        const html = `
+            <div class="item-row" id="action-row-${id}">
+                <span class="remove-btn" onclick="removeElement('action-row-${id}')"><i class="fas fa-times-circle"></i></span>
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label small">Type</label>
+                        <select class="form-select form-select-sm action-type">
+                            <option value="button">Button</option>
+                            <option value="toggle">Toggle Switch</option>
+                            <option value="raw">Raw HTML</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Label</label>
+                        <input type="text" class="form-control form-control-sm action-label" placeholder="e.g. Edit">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Icon</label>
+                        <input type="text" class="form-control form-control-sm action-icon" placeholder="fas fa-edit">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Method</label>
+                        <select class="form-select form-select-sm action-method">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">URL / Route</label>
+                        <input type="text" class="form-control form-control-sm action-url" placeholder="/admin/users/{{$row->id}}/edit">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">Confirm Msg <span class="text-muted">(opt)</span></label>
+                        <input type="text" class="form-control form-control-sm action-confirm" placeholder="Are you sure?">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">Raw HTML Content <span class="text-muted">(for 'Raw' type)</span></label>
+                        <textarea class="form-control form-control-sm action-content" rows="2" placeholder="<button class='btn'>...</button>"></textarea>
+                    </div>
                 </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Label</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="Button text" id="action-label-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Icon (optional)</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="fas fa-edit" id="action-icon-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">CSS Classes</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="btn btn-primary btn-sm" id="action-class-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">HTTP Method</label>
-                    <select class="form-select form-select-sm" id="action-method-${id}">
-                        <option value="GET">GET</option>
-                        <option value="POST">POST</option>
-                        <option value="PUT">PUT</option>
-                        <option value="PATCH">PATCH</option>
-                        <option value="DELETE">DELETE</option>
-                    </select>
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">URL</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="/admin/items/{{$row->id}}/edit" id="action-url-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Confirm Message</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="Are you sure?" id="action-confirm-${id}">
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small">Active State (toggle)</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="{{$row->status == 'active' ? 'true' : 'false'}}" id="action-active-${id}">
-                </div>
-                <div class="col-12">
-                    <label class="form-label small">Raw HTML Content (for raw type only)</label>
-                    <textarea class="form-control form-control-sm" placeholder="Raw HTML content" id="action-content-${id}" rows="2" style="font-family: monospace;"></textarea>
-                </div>
-                <div class="col-sm-1">
-                    <button class="btn btn-danger btn-sm" type="button" onclick="removeElement('action-row-${id}')">Remove</button>
-                </div>
-            </div>`;
-            
-            const container = document.getElementById('actions');
-            if (container) {
-                container.insertAdjacentHTML('beforeend', html);
-                console.log('Action added successfully');
-            } else {
-                console.error('Actions container not found');
-            }
-        } catch (error) {
-            console.error('Error adding action:', error);
-        }
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
     }
 
     function removeElement(id) {
-        try {
-            console.log('Removing element:', id);
-            const el = document.getElementById(id);
-            if (el) {
-                el.remove();
-                console.log('Element removed successfully');
-            } else {
-                console.error('Element not found:', id);
-            }
-        } catch (error) {
-            console.error('Error removing element:', error);
-        }
+        document.getElementById(id).remove();
     }
 
-    function phpString(value) {
-        if (!value) return '';
-        return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    function phpEscape(str) {
+        if (!str) return '';
+        return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
 
     function generateCode() {
-        try {
-            console.log('Generating code...');
-            
-            const model = document.getElementById('model')?.value?.trim() || '';
-            
-            if (!model) {
-                alert('Please enter a model class name');
-                return;
-            }
-            
-            // Database Columns
-            const dbColumns = [];
-            for (let i = 1; i <= dbColumnCount; i++) {
-                if (!document.getElementById(`db-column-row-${i}`)) continue;
-                
-                const keyEl = document.getElementById(`db-column-key-${i}`);
-                const labelEl = document.getElementById(`db-column-label-${i}`);
-                const thClassEl = document.getElementById(`db-column-th-class-${i}`);
-                const tdClassEl = document.getElementById(`db-column-td-class-${i}`);
-                const relationEl = document.getElementById(`db-column-relation-${i}`);
-                const jsonPathEl = document.getElementById(`db-column-json-path-${i}`);
-                const rawEl = document.getElementById(`db-column-raw-${i}`);
-                const hideEl = document.getElementById(`db-column-hide-${i}`);
-                
-                if (!keyEl || !labelEl) continue;
-                
-                const key = phpString(keyEl.value.trim());
-                const label = phpString(labelEl.value.trim());
-                const thClass = phpString(thClassEl?.value?.trim() || '');
-                const tdClass = phpString(tdClassEl?.value?.trim() || '');
-                const relation = phpString(relationEl?.value?.trim() || '');
-                const jsonPath = phpString(jsonPathEl?.value?.trim() || '');
-                const raw = rawEl?.value?.trim() || '';
-                const hide = hideEl?.checked || false;
-                
-                if (!key || !label) continue;
-                
-                let col = `['key' => '${key}', 'label' => '${label}'`;
-                if (thClass) col += `, 'th_class' => '${thClass}'`;
-                if (tdClass) col += `, 'td_class' => '${tdClass}'`;
-                if (relation) col += `, 'relation' => '${relation}'`;
-                if (jsonPath) col += `, 'json' => '${jsonPath}'`;
-                if (raw) col += `, 'raw' => '${raw.replace(/'/g, "\\'")}'`;
-                if (hide) col += `, 'hide' => true`;
-                col += ']';
-                dbColumns.push(col);
-            }
-
-            // Function Columns
-            const functionColumns = [];
-            for (let i = 1; i <= functionColumnCount; i++) {
-                if (!document.getElementById(`function-column-row-${i}`)) continue;
-                
-                const nameEl = document.getElementById(`function-column-name-${i}`);
-                const labelEl = document.getElementById(`function-column-label-${i}`);
-                const thClassEl = document.getElementById(`function-column-th-class-${i}`);
-                const tdClassEl = document.getElementById(`function-column-td-class-${i}`);
-                const rawEl = document.getElementById(`function-column-raw-${i}`);
-                const hideEl = document.getElementById(`function-column-hide-${i}`);
-                
-                if (!nameEl || !labelEl) continue;
-                
-                const functionName = phpString(nameEl.value.trim());
-                const label = phpString(labelEl.value.trim());
-                const thClass = phpString(thClassEl?.value?.trim() || '');
-                const tdClass = phpString(tdClassEl?.value?.trim() || '');
-                const raw = rawEl?.value?.trim() || '';
-                const hide = hideEl?.checked || false;
-                
-                if (!functionName || !label) continue;
-                
-                let col = `['function' => '${functionName}', 'label' => '${label}'`;
-                if (thClass) col += `, 'th_class' => '${thClass}'`;
-                if (tdClass) col += `, 'td_class' => '${tdClass}'`;
-                if (raw) col += `, 'raw' => '${raw.replace(/'/g, "\\'")}'`;
-                if (hide) col += `, 'hide' => true`;
-                col += ']';
-                functionColumns.push(col);
-            }
-
-            // Combine all columns
-            const allColumns = [...dbColumns, ...functionColumns];
-
-            // Filters
-            const filters = [];
-            for (let i = 1; i <= filterCount; i++) {
-                if (!document.getElementById(`filter-row-${i}`)) continue;
-                const key = phpString(document.getElementById(`filter-key-${i}`).value.trim());
-                const type = document.getElementById(`filter-type-${i}`).value;
-                const relation = phpString(document.getElementById(`filter-relation-${i}`).value.trim());
-                if (!key) continue;
-                let f = `'${key}' => [ 'type' => '${type}'`;
-                if (relation) f += `, 'relation' => '${relation}'`;
-                f += ' ]';
-                filters.push(f);
-            }
-
-            // Queries
-            const queries = [];
-            for (let i = 1; i <= queryCount; i++) {
-                if (!document.getElementById(`query-row-${i}`)) continue;
-                const col = phpString(document.getElementById(`query-col-${i}`).value.trim());
-                let op = document.getElementById(`query-op-${i}`).value;
-                let val = phpString(document.getElementById(`query-val-${i}`).value.trim());
-                if (!col || !val) continue;
-                if(op === "in") {
-                    val = `[${val.split(',').map(v=>`'${phpString(v.trim())}'`).join(', ')}]`;
-                    queries.push(`[ '${col}', 'in', ${val} ]`);
-                } else if(op && op !== "=") {
-                    queries.push(`[ '${col}', '${op}', '${val}' ]`);
-                } else {
-                    queries.push(`[ '${col}', '${val}' ]`);
-                }
-            }
-
-            // Actions
-            const actions = [];
-            for (let i = 1; i <= actionCount; i++) {
-                if (!document.getElementById(`action-row-${i}`)) continue;
-                
-                const typeEl = document.getElementById(`action-type-${i}`);
-                const labelEl = document.getElementById(`action-label-${i}`);
-                const iconEl = document.getElementById(`action-icon-${i}`);
-                const classEl = document.getElementById(`action-class-${i}`);
-                const methodEl = document.getElementById(`action-method-${i}`);
-                const urlEl = document.getElementById(`action-url-${i}`);
-                const confirmEl = document.getElementById(`action-confirm-${i}`);
-                const activeEl = document.getElementById(`action-active-${i}`);
-                const contentEl = document.getElementById(`action-content-${i}`);
-                
-                if (!typeEl) continue;
-                
-                const type = typeEl.value;
-                const label = phpString(labelEl?.value?.trim() || '');
-                const icon = phpString(iconEl?.value?.trim() || '');
-                const className = phpString(classEl?.value?.trim() || '');
-                const method = methodEl?.value || 'GET';
-                const url = phpString(urlEl?.value?.trim() || '');
-                const confirm = phpString(confirmEl?.value?.trim() || '');
-                const active = phpString(activeEl?.value?.trim() || '');
-                const content = contentEl?.value?.trim() || '';
-                
-                let action = `[`;
-                action += `'type' => '${type}'`;
-                if (label) action += `, 'label' => '${label}'`;
-                if (icon) action += `, 'icon' => '${icon}'`;
-                if (className) action += `, 'class' => '${className}'`;
-                if (method !== 'GET') action += `, 'method' => '${method}'`;
-                if (url) action += `, 'url' => '${url}'`;
-                if (confirm) action += `, 'confirm' => '${confirm}'`;
-                if (type === 'toggle' && active) action += `, 'active' => '${active}'`;
-                if (type === 'raw' && content) action += `, 'content' => '${content.replace(/'/g, "\\'")}'`;
-                action += `]`;
-                
-                actions.push(action);
-            }
-
-            // Table options (optional)
-            const records = document.getElementById('records').value;
-            const tableId = document.getElementById('tableId').value.trim();
-            const dateColumn = document.getElementById('dateColumn').value.trim();
-
-            // Feature flags
-            const checkbox = document.getElementById('checkbox').checked;
-            const exportable = document.getElementById('exportable').checked;
-            const printable = document.getElementById('printable').checked;
-            const index = document.getElementById('index').checked;
-            const searchable = document.getElementById('searchable').checked;
-            const colSort = document.getElementById('colSort').checked;
-            const refreshBtn = document.getElementById('refreshBtn').checked;
-            const colvisBtn = document.getElementById('colvisBtn').checked;
-            const sortdir = document.getElementById('sortdir').value;
-
-            let code = `@livewire('aftable', [\n`;
-            code += `    'model' => '${model}'`;
-
-            if (allColumns.length)
-                code += `,\n    'columns' => [\n        ${allColumns.join(",\n        ")}\n    ]`;
-            if (filters.length)
-                code += `,\n    'filters' => [\n        ${filters.join(",\n        ")}\n    ]`;
-            if (queries.length)
-                code += `,\n    'query' => [\n        ${queries.join(",\n        ")}\n    ]`;
-            if (actions.length)
-                code += `,\n    'actions' => [\n        ${actions.join(",\n        ")}\n    ]`;
-            if (records)
-                code += `,\n    'records' => ${parseInt(records, 10)}`;
-            if (tableId)
-                code += `,\n    'tableId' => '${phpString(tableId)}'`;
-            if (dateColumn)
-                code += `,\n    'dateColumn' => '${phpString(dateColumn)}'`;
-            if (checkbox)
-                code += `,\n    'checkbox' => true`;
-            if (exportable)
-                code += `,\n    'exportable' => true`;
-            if (printable)
-                code += `,\n    'printable' => true`;
-            if (index)
-                code += `,\n    'index' => true`;
-          
-            if (!searchable)
-                code += `,\n    'searchable' => false`;
-            if (!colSort)
-                code += `,\n    'colSort' => false`;
-            if (refreshBtn)
-                code += `,\n    'refreshBtn' => true`;
-            if (!colvisBtn)
-                code += `,\n    'colvisBtn' => false`;
-            if (sortdir === 'asc' || sortdir === 'desc')
-                code += `,\n    'sort' => '${sortdir}'`;
-
-            code += `\n])`;
-
-            const outputEl = document.getElementById('output');
-            if (outputEl) {
-                outputEl.value = code;
-                console.log('Code generated successfully');
-            } else {
-                console.error('Output element not found');
-            }
-        } catch (error) {
-            console.error('Error generating code:', error);
-            alert('Error generating code. Check console for details.');
+        const model = document.getElementById('model').value.trim();
+        if (!model) {
+            alert('Please enter a model class.');
+            return;
         }
+
+        let code = `@livewire('aftable', [\n`;
+        code += `    'model' => '${phpEscape(model)}',\n`;
+
+        // Columns
+        const colRows = document.querySelectorAll('#columns-container .item-row');
+        if (colRows.length > 0) {
+            code += `    'columns' => [\n`;
+            colRows.forEach(row => {
+                const type = row.dataset.type;
+                const key = row.querySelector('.col-key').value.trim();
+                const label = row.querySelector('.col-label').value.trim();
+                const relation = row.querySelector('.col-relation').value.trim();
+                const format = row.querySelector('.col-format').value;
+                const sortable = row.querySelector('.col-sortable').checked;
+                const raw = row.querySelector('.col-raw').value.trim();
+                const json = row.querySelector('.col-json')?.value?.trim();
+
+                if (key) {
+                    code += `        ['${type === 'db' ? 'key' : 'function'}' => '${phpEscape(key)}', 'label' => '${phpEscape(label)}'`;
+                    if (relation) code += `, 'relation' => '${phpEscape(relation)}'`;
+                    if (json) code += `, 'json' => '${phpEscape(json)}'`;
+                    if (format) code += `, 'format' => '${format}'`;
+                    if (!sortable) code += `, 'sortable' => false`;
+                    if (raw) code += `, 'raw' => '${phpEscape(raw)}'`;
+                    code += `],\n`;
+                }
+            });
+            code += `    ],\n`;
+        }
+
+        // Filters
+        const filterRows = document.querySelectorAll('#filters-container .item-row');
+        if (filterRows.length > 0) {
+            code += `    'filters' => [\n`;
+            filterRows.forEach(row => {
+                const key = row.querySelector('.filter-key').value.trim();
+                const type = row.querySelector('.filter-type').value;
+                const relation = row.querySelector('.filter-relation').value.trim();
+                if (key) {
+                    code += `        '${phpEscape(key)}' => ['type' => '${type}'`;
+                    if (relation) code += `, 'relation' => '${phpEscape(relation)}'`;
+                    code += `],\n`;
+                }
+            });
+            code += `    ],\n`;
+        }
+
+        // Actions
+        const actionRows = document.querySelectorAll('#actions-container .item-row');
+        if (actionRows.length > 0) {
+            code += `    'actions' => [\n`;
+            actionRows.forEach(row => {
+                const type = row.querySelector('.action-type').value;
+                const label = row.querySelector('.action-label').value.trim();
+                const icon = row.querySelector('.action-icon').value.trim();
+                const method = row.querySelector('.action-method').value;
+                const url = row.querySelector('.action-url').value.trim();
+                const confirm = row.querySelector('.action-confirm').value.trim();
+                const content = row.querySelector('.action-content').value.trim();
+
+                code += `        ['type' => '${type}'`;
+                if (label) code += `, 'label' => '${phpEscape(label)}'`;
+                if (icon) code += `, 'icon' => '${phpEscape(icon)}'`;
+                if (method !== 'GET') code += `, 'method' => '${method}'`;
+                if (url) code += `, 'url' => '${phpEscape(url)}'`;
+                if (confirm) code += `, 'confirm' => '${phpEscape(confirm)}'`;
+                if (type === 'raw' && content) code += `, 'content' => '${phpEscape(content)}'`;
+                code += `],\n`;
+            });
+            code += `    ],\n`;
+        }
+
+        // Options
+        const sortBy = document.getElementById('sortBy').value.trim();
+        const sortDirection = document.getElementById('sortDirection').value;
+        const records = document.getElementById('records').value;
+        const dateColumn = document.getElementById('dateColumn').value.trim();
+
+        if (sortBy) code += `    'sortBy' => '${phpEscape(sortBy)}',\n`;
+        if (sortDirection) code += `    'sortDirection' => '${sortDirection}',\n`;
+        if (records && records != 25) code += `    'records' => ${records},\n`;
+        if (dateColumn) code += `    'dateColumn' => '${phpEscape(dateColumn)}',\n`;
+
+        // Flags
+        if (!document.getElementById('checkbox').checked) code += `    'checkbox' => false,\n`;
+        if (document.getElementById('index').checked) code += `    'index' => true,\n`;
+        if (!document.getElementById('searchable').checked) code += `    'searchable' => false,\n`;
+        if (!document.getElementById('exportable').checked) code += `    'showExport' => false,\n`;
+        if (document.getElementById('printable').checked) code += `    'printable' => true,\n`;
+        if (!document.getElementById('colvisBtn').checked) code += `    'colvisBtn' => false,\n`;
+        if (!document.getElementById('refreshBtn').checked) code += `    'refreshBtn' => false,\n`;
+
+        code += `])`;
+        document.getElementById('output').value = code;
     }
 
     function copyCode() {
-        try {
-            const codeArea = document.getElementById('output');
-            if (!codeArea) {
-                console.error('Output textarea not found');
-                return;
-            }
-            
-            codeArea.select();
-            codeArea.setSelectionRange(0, 99999);
-            
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(codeArea.value).then(() => {
-                    console.log('Code copied to clipboard');
-                    showCopySuccess();
-                });
-            } else {
-                // Fallback
-                document.execCommand('copy');
-                showCopySuccess();
-            }
-        } catch (error) {
-            console.error('Error copying code:', error);
-        }
-    }
-
-    function showCopySuccess() {
-        const btn = document.querySelector('.copy-btn');
-        if (btn) {
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = `<span style="font-size:1.2em;color:green;">&#10003;</span>`;
-            setTimeout(() => {
-                btn.innerHTML = originalHtml;
-            }, 1200);
-        }
-    }
-
-    // Initialize with some example data
-    window.onload = function() {
-        console.log('Page loaded, initializing...');
+        const output = document.getElementById('output');
+        output.select();
+        document.execCommand('copy');
         
-        try {
-            // Removed automatic creation of default columns
-            // Users will add columns manually using the buttons
-        } catch (error) {
-            console.error('Error during initialization:', error);
-        }
+        const btn = document.querySelector('.copy-btn i');
+        btn.className = 'fas fa-check text-success';
+        setTimeout(() => {
+            btn.className = 'far fa-copy';
+        }, 2000);
+    }
+
+    // Add initial column
+    window.onload = () => {
+        addColumn('db');
     };
-
-    // Add event listeners when DOM is ready
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, setting up event listeners...');
-        
-        // Ensure all button event listeners are properly attached
-        const addDbBtn = document.querySelector('button[onclick*="addDatabaseColumn"]');
-        const addFuncBtn = document.querySelector('button[onclick*="addFunctionColumn"]');
-        const addFilterBtn = document.querySelector('button[onclick*="addFilter"]');
-        const addQueryBtn = document.querySelector('button[onclick*="addQuery"]');
-        const addActionBtn = document.querySelector('button[onclick*="addAction"]');
-        const generateBtn = document.querySelector('button[onclick*="generateCode"]');
-        const copyBtn = document.querySelector('.copy-btn');
-
-        // Debug: Check if buttons exist
-        console.log('Button check:', {
-            addDbBtn: !!addDbBtn,
-            addFuncBtn: !!addFuncBtn,
-            addFilterBtn: !!addFilterBtn,
-            addQueryBtn: !!addQueryBtn,
-            addActionBtn: !!addActionBtn,
-            generateBtn: !!generateBtn,
-            copyBtn: !!copyBtn
-        });
-    });
 </script>
+
 </body>
 </html>
