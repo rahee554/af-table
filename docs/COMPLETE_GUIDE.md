@@ -1,7 +1,7 @@
 # 🎯 ArtFlow Table Package - Complete Reference
 
-**Version:** 1.5.2+  
-**Latest Update:** December 30, 2025  
+**Version:** 1.6.0  
+**Latest Update:** July 2025  
 **Status:** ✅ Production Ready
 
 ---
@@ -13,7 +13,7 @@
 - **[USAGE_STUB.md](docs/USAGE_STUB.md)** - All parameters and methods reference
 
 ### Advanced Topics
-- **[SORTING_GUIDE.md](docs/SORTING_GUIDE.md)** - Everything about sorting (NEW!)
+- **[SORTING_GUIDE.md](docs/SORTING_GUIDE.md)** - Everything about sorting
 - **[ENHANCED_FEATURES.md](docs/ENHANCED_FEATURES.md)** - Advanced features and optimization
 - **[AI_TECHNICAL_REFERENCE.md](docs/AI_TECHNICAL_REFERENCE.md)** - Technical architecture
 
@@ -34,7 +34,7 @@
 ])
 ```
 
-### With Sorting (5 seconds)
+### With Sorting
 
 ```blade
 @livewire('aftable', [
@@ -44,10 +44,154 @@
         ['key' => 'price', 'label' => 'Price'],
         ['key' => 'created_at', 'label' => 'Created'],
     ],
-    'sortBy' => 'created_at',        // Sort by date
-    'sortDirection' => 'desc',       // Newest first
+    'sortBy' => 'created_at',
+    'sort'   => 'desc',
 ])
 ```
+
+---
+
+## ⚡ Static / Foreach Mode (v1.6.0)
+
+Pass any PHP array or Laravel Collection directly — no Eloquent model required.
+Best for: API responses, computed/aggregated data, small datasets.
+
+```blade
+@php
+$employees = [
+    ['name' => 'Alice', 'salary' => 5000, 'dept' => 'Engineering'],
+    ['name' => 'Bob',   'salary' => 4500, 'dept' => 'Design'],
+];
+@endphp
+
+@livewire('aftable', [
+    'data'    => $employees,
+    'vars'    => ['currency' => 'USD'],
+    'columns' => [
+        ['key' => 'name',   'label' => 'Name'],
+        ['key' => 'dept',   'label' => 'Department'],
+        ['key' => 'salary', 'label' => 'Salary',
+         'raw' => '{{ $currency }} {{ number_format($row->salary, 2) }}'],
+    ],
+])
+```
+
+**Static mode features:** in-memory search, sort, and pagination — fully reactive.
+
+---
+
+## 🎨 Custom Table Template (v1.6.0)
+
+Render the table using your app's own table markup instead of the default Bootstrap one.
+
+### Using `@aftable` / `@endaftable` directives
+
+```blade
+@aftable(['model' => App\Models\User::class, 'columns' => [...]])
+    <table class="table table-hover table-striped my-theme-class">
+        <thead class="bg-dark text-white"><tr></tr></thead>
+        <tbody></tbody>
+    </table>
+@endaftable
+```
+
+The component extracts your `<table>` tag's attributes and applies them while still rendering all the standard headers, rows, search, filters, and pagination.
+
+### Using `customTemplate` parameter directly
+
+```blade
+@livewire('aftable', [
+    'model'          => App\Models\User::class,
+    'columns'        => [...],
+    'customTemplate' => '<table class="table table-hover my-theme" id="myTable">',
+])
+```
+
+---
+
+## 🧩 Raw Column Templates
+
+### Blade String (full Blade syntax)
+
+```php
+['key' => 'status', 'label' => 'Status',
+ 'raw' => '<span class="badge bg-{{ $row->active ? \'success\' : \'danger\' }}">
+               {{ $row->active ? \'Active\' : \'Inactive\' }}
+           </span>'],
+```
+
+### Closure / Callable (faster — zero Blade overhead)
+
+```php
+['key' => 'status', 'label' => 'Status',
+ 'raw' => fn($row) => $row->active
+     ? '<span class="badge bg-success">Active</span>'
+     : '<span class="badge bg-danger">Inactive</span>'],
+
+// With extra vars ($vars is your 'vars' array)
+['key' => 'price', 'label' => 'Price',
+ 'raw' => fn($row, $vars) => e($vars['currency']).' '.number_format($row->price, 2)],
+```
+
+### PHP Calculations in Blade
+
+```php
+['key' => 'total', 'label' => 'Total', 'sortable' => false,
+ 'raw' => '{{ number_format($row->price * $row->qty, 2) }}'],
+```
+
+---
+
+## 🎨 Dynamic CSS Classes (v1.6.0 — no eval())
+
+The `classCondition` map now uses closures or safe shorthand (no more `eval()`):
+
+```php
+'classCondition' => [
+    // Closure (most flexible)
+    'text-success fw-bold' => fn($row) => $row->active,
+    
+    // Boolean literal
+    'opacity-50' => false,
+    
+    // Truthy shorthand — truthy check: !!$row->featured
+    'border-primary' => 'featured',
+    
+    // Negation shorthand — !$row->active
+    'text-muted' => '!active',
+    
+    // Equality shorthand — $row->status === 'inactive'
+    'text-danger' => 'status:inactive',
+],
+```
+
+---
+
+## 📋 All Mount Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | class-string | `null` | Eloquent model class (Eloquent mode) |
+| `data` | array\|Collection | `null` | Static rows (static mode) |
+| `vars` | array | `[]` | Extra variables available in all `raw` templates |
+| `columns` | array | `[]` | Column definitions |
+| `filters` | array | `[]` | Filter configuration |
+| `actions` | array | `[]` | Row action buttons |
+| `sortBy` | string | `null` | Default sort column |
+| `sort` | string | `'desc'` | Default sort direction |
+| `customTemplate` | string | `null` | Custom `<table>` HTML for theming |
+| `query` | array\|Closure | `null` | Extra query constraints |
+| `searchable` | bool | `true` | Enable global search |
+| `exportable` | bool | `false` | Show export dropdown |
+| `printable` | bool | `false` | Show print button |
+| `index` | bool | `false` | Show row index column |
+| `checkbox` | bool | `false` | Row selection checkboxes |
+| `colvisBtn` | bool | `true` | Column visibility toggle |
+| `refreshBtn` | bool | `false` | Manual refresh button |
+| `records` | int | `10` | Rows per page |
+| `dateColumn` | string | `null` | Column for date range filter |
+
+
 
 ### With Related Data (7 seconds)
 

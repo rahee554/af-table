@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AF Table Code Generator v1.5.2</title>
+    <title>AF Table Code Generator v1.6.0</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap 5.3 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -198,22 +198,46 @@
 <div class="container-fluid py-5">
     <div class="header-section text-center">
         <h1 class="display-5 fw-bold mb-2">AF Table Code Generator</h1>
-        <p class="lead opacity-90 mb-0">Enterprise-grade Livewire datatables in seconds. Updated for v1.5.2+</p>
+        <p class="lead opacity-90 mb-0">Enterprise-grade Livewire datatables in seconds. Updated for v1.6.0+</p>
         <div class="mt-3">
-            <span class="badge bg-white text-primary px-3 py-2 rounded-pill fw-bold">v1.5.2 Stable</span>
+            <span class="badge bg-white text-primary px-3 py-2 rounded-pill fw-bold">v1.6.0 Stable</span>
+            <span class="badge bg-success text-white px-3 py-2 rounded-pill fw-bold ms-2">+ Static Mode</span>
+            <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold ms-2">+ Custom Template</span>
         </div>
     </div>
 
     <div class="row">
         <div class="col-lg-7">
             <form id="generatorForm">
-                <!-- 1. Model -->
+                <!-- 1. Model / Data Source -->
                 <div class="form-section">
-                    <div class="section-title"><i class="fas fa-database"></i> 1. Core Configuration</div>
+                    <div class="section-title"><i class="fas fa-database"></i> 1. Data Source</div>
                     <div class="mb-3">
-                        <label class="form-label">Eloquent Model Class</label>
-                        <input type="text" class="form-control" id="model" placeholder="e.g. App\Models\AccountFlow\Transaction" required>
-                        <div class="help-text">Full namespace of your Eloquent model.</div>
+                        <label class="form-label">Data Mode</label>
+                        <select class="form-select" id="dataMode" onchange="toggleDataMode()">
+                            <option value="eloquent">Eloquent Model (Database)</option>
+                            <option value="static">Static / Foreach Array (PHP Array or Collection)</option>
+                        </select>
+                        <div class="help-text">Use <strong>Eloquent</strong> for database-driven tables. Use <strong>Static</strong> to pass a PHP array or Collection directly — no model required.</div>
+                    </div>
+                    <div id="eloquent-fields">
+                        <div class="mb-3">
+                            <label class="form-label">Eloquent Model Class</label>
+                            <input type="text" class="form-control" id="model" placeholder="e.g. App\Models\AccountFlow\Transaction">
+                            <div class="help-text">Full namespace of your Eloquent model.</div>
+                        </div>
+                    </div>
+                    <div id="static-fields" style="display:none">
+                        <div class="mb-3">
+                            <label class="form-label">PHP Variable Name (your array/collection)</label>
+                            <input type="text" class="form-control" id="staticVar" placeholder="e.g. $employees">
+                            <div class="help-text">The PHP variable holding your array / Collection to pass as <code>'data'</code>.</div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Extra Variables <span class="text-muted">(optional)</span> <span class="badge-new">NEW</span></label>
+                        <input type="text" class="form-control" id="extraVars" placeholder="e.g. currency=USD, tax=0.15">
+                        <div class="help-text">Comma-separated key=value pairs. Available as <code>$currency</code>, <code>$tax</code>, etc. inside <code>raw</code> templates.</div>
                     </div>
                 </div>
 
@@ -309,9 +333,33 @@
                     </div>
                 </div>
 
-                <div class="d-grid mb-5">
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Output Syntax</label>
+                    <div class="d-flex flex-wrap gap-3 mt-1">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="syntaxStyle" id="syntax-livewire" value="livewire" checked>
+                            <label class="form-check-label" for="syntax-livewire"><code>@livewire('aftable', [...])</code></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="syntaxStyle" id="syntax-tag" value="tag">
+                            <label class="form-check-label" for="syntax-tag"><code>&lt;livewire:aftable … /&gt;</code></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="syntaxStyle" id="syntax-directive" value="directive">
+                            <label class="form-check-label" for="syntax-directive"><code>@aftable([...]) … @endaftable</code></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid mb-4">
                     <button type="button" class="btn btn-primary btn-lg shadow-sm" onclick="generateCode()">
                         <i class="fas fa-bolt me-2"></i> Generate Component Code
+                    </button>
+                </div>
+
+                <div class="d-grid mb-5">
+                    <button type="button" class="btn btn-outline-success btn-lg" onclick="generateStaticSnippets()">
+                        <i class="fas fa-scroll me-2"></i> Show Usage Snippets
                     </button>
                 </div>
             </form>
@@ -331,8 +379,125 @@
                 </div>
                 
                 <div class="alert alert-info alert-custom mt-4">
-                    <h6 class="fw-bold"><i class="fas fa-info-circle me-2"></i> Pro Tip</h6>
-                    <p class="small mb-0">You can pass a custom query using the <code>'query'</code> parameter to filter data based on the current user or tenant.</p>
+                    <h6 class="fw-bold"><i class="fas fa-info-circle me-2"></i> Pro Tips</h6>
+                    <ul class="small mb-0 ps-3">
+                        <li>Pass a custom query via <code>'query'</code> to scope data by user/tenant.</li>
+                        <li>Use <code>'vars' => ['currency' => 'USD']</code> to inject shared variables into every <code>raw</code> template.</li>
+                        <li class="mt-1">Use a <strong>Closure</strong> as <code>'raw'</code> for complex column rendering with zero Blade overhead.</li>
+                    </ul>
+                </div>
+
+                <!-- Usage Guide -->
+                <div class="mt-4">
+                    <h4 class="fw-bold mb-3"><i class="fas fa-book-open me-2 text-primary"></i> Usage Guide</h4>
+
+                    <div class="form-section">
+                        <h6 class="fw-bold text-primary">Eloquent Mode (Standard)</h6>
+                        <pre style="background:#1e293b;color:#e2e8f0;border-radius:.5rem;padding:1rem;font-size:.8rem;overflow-x:auto">@livewire('aftable', [
+    'model'   =&gt; App\Models\User::class,
+    'columns' =&gt; [
+        ['key' =&gt; 'id',    'label' =&gt; 'ID'],
+        ['key' =&gt; 'name',  'label' =&gt; 'Name'],
+        ['key' =&gt; 'email', 'label' =&gt; 'Email'],
+        // Blade template column:
+        ['key' =&gt; 'status', 'label' =&gt; 'Status',
+         'raw' =&gt; '&lt;span class="badge bg-success"&gt;{{ $row-&gt;status }}&lt;/span&gt;'],
+        // Closure column (fastest — no Blade overhead):
+        ['key' =&gt; 'price', 'label' =&gt; 'Price',
+         'raw' =&gt; fn($row) =&gt; '&lt;b&gt;'.number_format($row-&gt;price, 2).'&lt;/b&gt;'],
+    ],
+    'sortBy'  =&gt; 'created_at',
+    'sort'    =&gt; 'desc',
+])</pre>
+                    </div>
+
+                    <div class="form-section">
+                        <h6 class="fw-bold text-success">Static / Foreach Mode <span class="badge-new">NEW</span></h6>
+                        <p class="small text-muted">Pass any PHP array or Collection as <code>'data'</code>. No Eloquent model required. Great for API responses, computed data, or small datasets.</p>
+                        <pre style="background:#1e293b;color:#e2e8f0;border-radius:.5rem;padding:1rem;font-size:.8rem;overflow-x:auto">@php
+    $employees = [
+        ['name' =&gt; 'Alice', 'salary' =&gt; 5000, 'dept' =&gt; 'Engineering'],
+        ['name' =&gt; 'Bob',   'salary' =&gt; 4500, 'dept' =&gt; 'Design'],
+    ];
+@endphp
+
+@livewire('aftable', [
+    'data'    =&gt; $employees,    // array or Collection — no model needed
+    'vars'    =&gt; ['currency' =&gt; 'USD'],   // extra vars for raw templates
+    'columns' =&gt; [
+        ['key' =&gt; 'name',   'label' =&gt; 'Name'],
+        ['key' =&gt; 'dept',   'label' =&gt; 'Department'],
+        ['key' =&gt; 'salary', 'label' =&gt; 'Salary', 'raw' =&gt;
+            '{{ $currency }} {{ number_format($row-&gt;salary, 2) }}'],
+    ],
+])</pre>
+                    </div>
+
+                    <div class="form-section">
+                        <h6 class="fw-bold text-warning">Custom Table Template <span class="badge-new">NEW</span></h6>
+                        <p class="small text-muted">Use your app's existing table theme by passing a custom <code>&lt;table&gt;</code> tag. The component injects its headers and rows automatically.</p>
+                        <pre style="background:#1e293b;color:#e2e8f0;border-radius:.5rem;padding:1rem;font-size:.8rem;overflow-x:auto">{{-- Blade directive syntax --}}
+@aftable(['model' =&gt; App\Models\User::class, 'columns' =&gt; [...]])
+    &lt;table class="table table-hover table-striped my-theme-table"&gt;
+        &lt;thead class="bg-dark text-white"&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/thead&gt;
+        &lt;tbody&gt;&lt;/tbody&gt;
+    &lt;/table&gt;
+@endaftable
+
+{{-- Or pass customTemplate directly --}}
+@livewire('aftable', [
+    'model'          =&gt; App\Models\User::class,
+    'columns'        =&gt; [...],
+    'customTemplate' =&gt; '&lt;table class="table table-hover my-theme"&gt;&lt;/table&gt;',
+])</pre>
+                    </div>
+
+                    <div class="form-section">
+                        <h6 class="fw-bold text-info">Closure Raw Columns</h6>
+                        <p class="small text-muted">Use a PHP Closure as <code>'raw'</code> for complex logic without Blade overhead. Receives <code>$row</code> and <code>$vars</code>.</p>
+                        <pre style="background:#1e293b;color:#e2e8f0;border-radius:.5rem;padding:1rem;font-size:.8rem;overflow-x:auto">'columns' =&gt; [
+    // Simple closure — $row is the current row
+    ['key' =&gt; 'status', 'label' =&gt; 'Status',
+     'raw' =&gt; fn($row) =&gt; $row-&gt;active
+         ? '&lt;span class="badge bg-success"&gt;Active&lt;/span&gt;'
+         : '&lt;span class="badge bg-danger"&gt;Inactive&lt;/span&gt;'],
+
+    // Closure with extra vars ($vars is your 'vars' array)
+    ['key' =&gt; 'price', 'label' =&gt; 'Price',
+     'raw' =&gt; fn($row, $vars) =&gt; e($vars['currency']).' '.number_format($row-&gt;price, 2)],
+
+    // Dynamic CSS classes (no eval() — uses closure or key:value shorthand)
+    ['key' =&gt; 'status', 'label' =&gt; 'Status',
+     'classCondition' =&gt; [
+         'text-success fw-bold' =&gt; fn($row) =&gt; $row-&gt;active,
+         'text-danger'          =&gt; 'status:inactive',   // key:value shorthand
+         'opacity-50'           =&gt; '!active',           // negation shorthand
+     ]],
+]</pre>
+                    </div>
+
+                    <div class="form-section">
+                        <h6 class="fw-bold">All Mount Parameters</h6>
+                        <table class="table table-sm table-bordered small">
+                            <thead class="table-light"><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>model</code></td><td>class-string</td><td>Eloquent model class (Eloquent mode)</td></tr>
+                                <tr><td><code>data</code></td><td>array|Collection</td><td>Static rows (static mode — no model needed)</td></tr>
+                                <tr><td><code>vars</code></td><td>array</td><td>Extra variables available in all raw templates</td></tr>
+                                <tr><td><code>columns</code></td><td>array</td><td>Column definitions (key, label, raw, relation…)</td></tr>
+                                <tr><td><code>filters</code></td><td>array</td><td>Filter configuration per column</td></tr>
+                                <tr><td><code>actions</code></td><td>array</td><td>Row action buttons / raw HTML</td></tr>
+                                <tr><td><code>sortBy</code></td><td>string</td><td>Default sort column key</td></tr>
+                                <tr><td><code>sort</code></td><td>string</td><td>Default sort direction (asc/desc)</td></tr>
+                                <tr><td><code>customTemplate</code></td><td>string</td><td>Custom <code>&lt;table&gt;</code> HTML — uses your theme's table tag</td></tr>
+                                <tr><td><code>query</code></td><td>array|Closure</td><td>Extra query constraints (scoping by user/tenant)</td></tr>
+                                <tr><td><code>searchable</code></td><td>bool</td><td>Enable/disable global search (default: true)</td></tr>
+                                <tr><td><code>exportable</code></td><td>bool</td><td>Show export dropdown (default: false)</td></tr>
+                                <tr><td><code>index</code></td><td>bool</td><td>Show row index column (default: false)</td></tr>
+                                <tr><td><code>checkbox</code></td><td>bool</td><td>Show row selection checkboxes</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -343,6 +508,60 @@
     let columnCount = 0;
     let filterCount = 0;
     let actionCount = 0;
+
+    function toggleDataMode() {
+        const mode = document.getElementById('dataMode').value;
+        document.getElementById('eloquent-fields').style.display = mode === 'eloquent' ? '' : 'none';
+        document.getElementById('static-fields').style.display  = mode === 'static'   ? '' : 'none';
+    }
+
+    function generateStaticSnippets() {
+        const snippets = `<?php
+// ── STATIC / FOREACH MODE ──────────────────────────────────────────────────
+$employees = [
+    ['name' => 'Alice', 'salary' => 5000, 'dept' => 'Engineering'],
+    ['name' => 'Bob',   'salary' => 4500, 'dept' => 'Design'],
+];
+?>
+
+@livewire('aftable', [
+    'data'    => $employees,           // pass array or Collection
+    'vars'    => ['currency' => 'USD'], // shared vars for raw templates
+    'columns' => [
+        ['key' => 'name',   'label' => 'Name'],
+        ['key' => 'dept',   'label' => 'Department'],
+        ['key' => 'salary', 'label' => 'Salary',
+         'raw' => '{{ $currency }} {{ number_format($row->salary, 2) }}'],
+    ],
+])
+
+// ── CLOSURE RAW COLUMN ────────────────────────────────────────────────────
+'columns' => [
+    ['key' => 'status', 'label' => 'Status',
+     'raw' => fn($row) => $row->active
+         ? '<span class="badge bg-success">Active</span>'
+         : '<span class="badge bg-danger">Inactive</span>'],
+],
+
+// ── CUSTOM TABLE TEMPLATE (@aftable directive) ──────────────────────────
+@aftable(['model' => App\\Models\\User::class, 'columns' => [...]])
+    <table class="table table-hover table-striped my-custom-table">
+        <thead class="bg-dark text-white"><tr></tr></thead>
+        <tbody></tbody>
+    </table>
+@endaftable
+
+// ── DYNAMIC CSS CLASS (no eval) ───────────────────────────────────────────
+'columns' => [
+    ['key' => 'status', 'label' => 'Status',
+     'classCondition' => [
+         'text-success fw-bold' => fn($row) => $row->active,
+         'text-danger'          => 'status:inactive',   // key:value
+         'opacity-50'           => '!active',           // negation
+     ]],
+],`;
+        document.getElementById('output').value = snippets;
+    }
 
     function addColumn(type) {
         const id = ++columnCount;
@@ -484,105 +703,174 @@
     }
 
     function generateCode() {
-        const model = document.getElementById('model').value.trim();
-        if (!model) {
+        const mode      = document.getElementById('dataMode').value;
+        const model     = document.getElementById('model').value.trim();
+        const staticVar = document.getElementById('staticVar').value.trim();
+        const extraVars = document.getElementById('extraVars').value.trim();
+        const syntax    = document.querySelector('input[name="syntaxStyle"]:checked').value;
+
+        if (mode === 'eloquent' && !model) {
             alert('Please enter a model class.');
             return;
         }
+        if (mode === 'static' && !staticVar) {
+            alert('Please enter the PHP variable name holding your data (e.g. $employees).');
+            return;
+        }
 
-        let code = `@livewire('aftable', [\n`;
-        code += `    'model' => '${phpEscape(model)}',\n`;
+        // Build the config array as a flat list of "key => value" lines
+        const configLines = [];
+
+        if (mode === 'eloquent') {
+            configLines.push(`    'model' => '${phpEscape(model)}'`);
+        } else {
+            const varName = staticVar.startsWith('$') ? staticVar.slice(1) : staticVar;
+            configLines.push(`    'data'  => $${varName}`);
+        }
+
+        // Extra vars
+        if (extraVars) {
+            const pairs = extraVars.split(',').map(p => p.trim()).filter(Boolean);
+            const varsEntries = pairs.map(p => {
+                const [k, ...rest] = p.split('=');
+                return `'${k.trim()}' => '${phpEscape(rest.join('=').trim())}'`;
+            }).join(', ');
+            configLines.push(`    'vars'  => [${varsEntries}]`);
+        }
 
         // Columns
         const colRows = document.querySelectorAll('#columns-container .item-row');
         if (colRows.length > 0) {
-            code += `    'columns' => [\n`;
+            let colStr = `    'columns' => [\n`;
             colRows.forEach(row => {
-                const type = row.dataset.type;
-                const key = row.querySelector('.col-key').value.trim();
-                const label = row.querySelector('.col-label').value.trim();
+                const type     = row.dataset.type;
+                const key      = row.querySelector('.col-key').value.trim();
+                const label    = row.querySelector('.col-label').value.trim();
                 const relation = row.querySelector('.col-relation').value.trim();
-                const format = row.querySelector('.col-format').value;
+                const format   = row.querySelector('.col-format').value;
                 const sortable = row.querySelector('.col-sortable').checked;
-                const raw = row.querySelector('.col-raw').value.trim();
-                const json = row.querySelector('.col-json')?.value?.trim();
+                const raw      = row.querySelector('.col-raw').value.trim();
+                const json     = row.querySelector('.col-json')?.value?.trim();
 
                 if (key) {
-                    code += `        ['${type === 'db' ? 'key' : 'function'}' => '${phpEscape(key)}', 'label' => '${phpEscape(label)}'`;
-                    if (relation) code += `, 'relation' => '${phpEscape(relation)}'`;
-                    if (json) code += `, 'json' => '${phpEscape(json)}'`;
-                    if (format) code += `, 'format' => '${format}'`;
-                    if (!sortable) code += `, 'sortable' => false`;
-                    if (raw) code += `, 'raw' => '${phpEscape(raw)}'`;
-                    code += `],\n`;
+                    colStr += `        ['${type === 'db' ? 'key' : 'function'}' => '${phpEscape(key)}', 'label' => '${phpEscape(label)}'`;
+                    if (relation) colStr += `, 'relation' => '${phpEscape(relation)}'`;
+                    if (json)     colStr += `, 'json' => '${phpEscape(json)}'`;
+                    if (format)   colStr += `, 'format' => '${format}'`;
+                    if (!sortable) colStr += `, 'sortable' => false`;
+                    if (raw)      colStr += `, 'raw' => '${phpEscape(raw)}'`;
+                    colStr += `],\n`;
                 }
             });
-            code += `    ],\n`;
+            colStr += `    ]`;
+            configLines.push(colStr);
         }
 
         // Filters
         const filterRows = document.querySelectorAll('#filters-container .item-row');
         if (filterRows.length > 0) {
-            code += `    'filters' => [\n`;
+            let fStr = `    'filters' => [\n`;
             filterRows.forEach(row => {
-                const key = row.querySelector('.filter-key').value.trim();
-                const type = row.querySelector('.filter-type').value;
+                const key      = row.querySelector('.filter-key').value.trim();
+                const type     = row.querySelector('.filter-type').value;
                 const relation = row.querySelector('.filter-relation').value.trim();
                 if (key) {
-                    code += `        '${phpEscape(key)}' => ['type' => '${type}'`;
-                    if (relation) code += `, 'relation' => '${phpEscape(relation)}'`;
-                    code += `],\n`;
+                    fStr += `        '${phpEscape(key)}' => ['type' => '${type}'`;
+                    if (relation) fStr += `, 'relation' => '${phpEscape(relation)}'`;
+                    fStr += `],\n`;
                 }
             });
-            code += `    ],\n`;
+            fStr += `    ]`;
+            configLines.push(fStr);
         }
 
         // Actions
         const actionRows = document.querySelectorAll('#actions-container .item-row');
         if (actionRows.length > 0) {
-            code += `    'actions' => [\n`;
+            let aStr = `    'actions' => [\n`;
             actionRows.forEach(row => {
-                const type = row.querySelector('.action-type').value;
-                const label = row.querySelector('.action-label').value.trim();
-                const icon = row.querySelector('.action-icon').value.trim();
-                const method = row.querySelector('.action-method').value;
-                const url = row.querySelector('.action-url').value.trim();
+                const type    = row.querySelector('.action-type').value;
+                const label   = row.querySelector('.action-label').value.trim();
+                const icon    = row.querySelector('.action-icon').value.trim();
+                const method  = row.querySelector('.action-method').value;
+                const url     = row.querySelector('.action-url').value.trim();
                 const confirm = row.querySelector('.action-confirm').value.trim();
                 const content = row.querySelector('.action-content').value.trim();
 
-                code += `        ['type' => '${type}'`;
-                if (label) code += `, 'label' => '${phpEscape(label)}'`;
-                if (icon) code += `, 'icon' => '${phpEscape(icon)}'`;
-                if (method !== 'GET') code += `, 'method' => '${method}'`;
-                if (url) code += `, 'url' => '${phpEscape(url)}'`;
-                if (confirm) code += `, 'confirm' => '${phpEscape(confirm)}'`;
-                if (type === 'raw' && content) code += `, 'content' => '${phpEscape(content)}'`;
-                code += `],\n`;
+                aStr += `        ['type' => '${type}'`;
+                if (label)  aStr += `, 'label' => '${phpEscape(label)}'`;
+                if (icon)   aStr += `, 'icon' => '${phpEscape(icon)}'`;
+                if (method !== 'GET') aStr += `, 'method' => '${method}'`;
+                if (url)    aStr += `, 'url' => '${phpEscape(url)}'`;
+                if (confirm) aStr += `, 'confirm' => '${phpEscape(confirm)}'`;
+                if (type === 'raw' && content) aStr += `, 'content' => '${phpEscape(content)}'`;
+                aStr += `],\n`;
             });
-            code += `    ],\n`;
+            aStr += `    ]`;
+            configLines.push(aStr);
         }
 
         // Options
-        const sortBy = document.getElementById('sortBy').value.trim();
+        const sortBy        = document.getElementById('sortBy').value.trim();
         const sortDirection = document.getElementById('sortDirection').value;
-        const records = document.getElementById('records').value;
-        const dateColumn = document.getElementById('dateColumn').value.trim();
+        const records       = document.getElementById('records').value;
+        const dateColumn    = document.getElementById('dateColumn').value.trim();
 
-        if (sortBy) code += `    'sortBy' => '${phpEscape(sortBy)}',\n`;
-        if (sortDirection) code += `    'sortDirection' => '${sortDirection}',\n`;
-        if (records && records != 25) code += `    'records' => ${records},\n`;
-        if (dateColumn) code += `    'dateColumn' => '${phpEscape(dateColumn)}',\n`;
+        if (sortBy)      configLines.push(`    'sortBy' => '${phpEscape(sortBy)}'`);
+        if (sortDirection) configLines.push(`    'sortDirection' => '${sortDirection}'`);
+        if (records && records != 25) configLines.push(`    'records' => ${records}`);
+        if (dateColumn)  configLines.push(`    'dateColumn' => '${phpEscape(dateColumn)}'`);
 
         // Flags
-        if (!document.getElementById('checkbox').checked) code += `    'checkbox' => false,\n`;
-        if (document.getElementById('index').checked) code += `    'index' => true,\n`;
-        if (!document.getElementById('searchable').checked) code += `    'searchable' => false,\n`;
-        if (!document.getElementById('exportable').checked) code += `    'showExport' => false,\n`;
-        if (document.getElementById('printable').checked) code += `    'printable' => true,\n`;
-        if (!document.getElementById('colvisBtn').checked) code += `    'colvisBtn' => false,\n`;
-        if (!document.getElementById('refreshBtn').checked) code += `    'refreshBtn' => false,\n`;
+        if (!document.getElementById('checkbox').checked)  configLines.push(`    'checkbox' => false`);
+        if (document.getElementById('index').checked)      configLines.push(`    'index' => true`);
+        if (!document.getElementById('searchable').checked) configLines.push(`    'searchable' => false`);
+        if (!document.getElementById('exportable').checked) configLines.push(`    'showExport' => false`);
+        if (document.getElementById('printable').checked)  configLines.push(`    'printable' => true`);
+        if (!document.getElementById('colvisBtn').checked)  configLines.push(`    'colvisBtn' => false`);
+        if (!document.getElementById('refreshBtn').checked) configLines.push(`    'refreshBtn' => false`);
 
-        code += `])`;
+        const arrayBody = configLines.join(',\n');
+        let code = '';
+
+        if (syntax === 'livewire') {
+            // ── @livewire() blade helper ──────────────────────────────────
+            code = `@livewire('aftable', [\n${arrayBody},\n])`;
+
+        } else if (syntax === 'tag') {
+            // ── <livewire:aftable> tag syntax ─────────────────────────────
+            // Complex array params are best passed via a @php block
+            code = `@php\n    $aftableConfig = [\n${arrayBody},\n    ];\n@endphp\n\n`;
+            code += `<livewire:aftable\n`;
+            // Simple scalar flags as inline attributes
+            if (document.getElementById('index').checked)       code += `    :index="true"\n`;
+            if (!document.getElementById('searchable').checked) code += `    :searchable="false"\n`;
+            if (document.getElementById('exportable').checked)  code += `    :exportable="true"\n`;
+            if (document.getElementById('printable').checked)   code += `    :printable="true"\n`;
+            if (!document.getElementById('colvisBtn').checked)  code += `    :colvisBtn="false"\n`;
+            if (!document.getElementById('refreshBtn').checked) code += `    :refreshBtn="false"\n`;
+            if (document.getElementById('sortBy').value.trim()) code += `    sortBy="${phpEscape(document.getElementById('sortBy').value.trim())}"\n`;
+            if (document.getElementById('records').value != 25) code += `    :records="${document.getElementById('records').value}"\n`;
+            code += `    v-bind="$aftableConfig"\n/>`;
+            code += `\n\n{{-- Note: <livewire:> tag syntax passes complex arrays (columns, filters, etc.)\n`;
+            code += `     via the @php $aftableConfig block above and spreads them with v-bind.\n`;
+            code += `     Alternatively use @livewire() for a single-expression approach. --}}`;
+
+        } else {
+            // ── @aftable / @endaftable directive ──────────────────────────
+            code = `@aftable([\n${arrayBody},\n])\n`;
+            code += `    {{--\n`;
+            code += `        Optional: place a custom <table> tag here to use your own theme.\n`;
+            code += `        The component injects its <thead> and <tbody> automatically.\n`;
+            code += `\n`;
+            code += `        <table class="table table-hover table-striped my-theme">\n`;
+            code += `            <thead class="bg-dark text-white"><tr></tr></thead>\n`;
+            code += `            <tbody></tbody>\n`;
+            code += `        </table>\n`;
+            code += `    --}}\n`;
+            code += `@endaftable`;
+        }
+
         document.getElementById('output').value = code;
     }
 

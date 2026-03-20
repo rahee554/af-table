@@ -302,11 +302,14 @@ All documentation is included in the package directory. To access offline:
 
 ## 📝 Last Updated
 
-**Date:** November 23, 2025  
-**Version:** v1.6 Optimized  
+**Date:** July 2025  
+**Version:** 1.6.0  
 **Status:** ✅ Production Ready  
 **Consolidation:** Complete  
 **Quality:** Enterprise-Grade
+
+### v1.6.0 New Documents
+- **[CHANGELOG_V1.6.0.md](CHANGELOG_V1.6.0.md)** — Full v1.6.0 release notes
 
 ---
 

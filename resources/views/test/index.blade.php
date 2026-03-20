@@ -71,6 +71,24 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="foreach-tab" data-bs-toggle="pill" data-bs-target="#foreach_demo"
+                        type="button" role="tab">
+                    <i class="fas fa-list me-2"></i>Foreach / Static Data
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="custom-template-tab" data-bs-toggle="pill" data-bs-target="#custom_template"
+                        type="button" role="tab">
+                    <i class="fas fa-code me-2"></i>Custom Template
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="print-demo-tab" data-bs-toggle="pill" data-bs-target="#print_demo"
+                        type="button" role="tab">
+                    <i class="fas fa-print me-2"></i>Print Demo
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="performance-tab" data-bs-toggle="pill" data-bs-target="#performance" 
                         type="button" role="tab" wire:click="$set('currentTest', 'performance')">
                     <i class="fas fa-tachometer-alt me-2"></i>Performance Tests
@@ -109,6 +127,61 @@
                 <p class="text-muted mb-4">Testing with 50,000 timesheet records - performance stress test</p>
                 
                 @livewire('test-table-component', ['testType' => 'timesheets'])
+            </div>
+
+            <!-- Foreach / Static Data Demo Tab -->
+            <div class="tab-pane fade" id="foreach_demo" role="tabpanel">
+                <h3 class="mb-3"><i class="fas fa-list me-2"></i>Foreach / Static Data Demo</h3>
+                <p class="text-muted mb-4">Demonstrates passing a plain PHP array/Collection to AFTable — no Eloquent model required. Includes live PHP calculations in <code>raw</code> columns and <code>vars</code> accessible inside templates.</p>
+
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>How it works:</strong> Pass <code>data: $collection</code> instead of <code>model:</code>. Search, sort, filter, pagination, and column visibility all work on in-memory data. Use <code>raw</code> columns for PHP expressions like <code>@{{ $row->price * $row->quantity }}</code>. Extra variables are passed via <code>vars:</code> and accessible as <code>$vars['currency']</code> inside <code>raw</code> templates.
+                </div>
+
+                @livewire('test-table-component', ['testType' => 'foreach_demo'])
+            </div>
+
+            <!-- Custom Template Tab -->
+            <div class="tab-pane fade" id="custom_template" role="tabpanel">
+                <h3 class="mb-3"><i class="fas fa-code me-2"></i>Custom Template Test</h3>
+                <p class="text-muted mb-4">Demonstrates the <code>&#64;aftable / &#64;endaftable</code> paired directives that let you pass a fully custom <code>&lt;table&gt;</code> element with your own CSS classes.</p>
+
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>How it works:</strong> Wrap the table config inside <code>&#64;aftable([...])</code> and <code>&#64;endaftable</code>. The HTML between the directives becomes the outer <code>&lt;table&gt;</code> markup — you control classes, ID, and inline styles. All sort/search/pagination still render inside it.
+                    <br><br>
+                    <strong>Example code:</strong>
+                    <pre class="mt-2 mb-0 p-2 bg-light rounded small"><code>&#64;aftable(['model' => App\Models\User::class, 'columns' => [...]])
+    &lt;table class="table table-hover table-sm border my-custom-theme"&gt;
+        &lt;thead class="table-dark"&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/thead&gt;
+        &lt;tbody&gt;&lt;/tbody&gt;
+    &lt;/table&gt;
+&#64;endaftable</code></pre>
+                </div>
+
+                @livewire('test-table-component', ['testType' => 'custom_template'])
+            </div>
+
+            <!-- Print Demo Tab -->
+            <div class="tab-pane fade" id="print_demo" role="tabpanel">
+                <h3 class="mb-3"><i class="fas fa-print me-2"></i>Print Demo</h3>
+                <p class="text-muted mb-4">Demonstrates the isolated print window system. Click the <strong>Print</strong> button in the toolbar to open a clean pop-up window containing only the table — no surrounding layout.</p>
+
+                <div class="alert alert-success mb-4">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>printConfig options:</strong>
+                    <code>title</code>, <code>header</code> (custom HTML), <code>footer</code>, <code>fontSize</code> (pt), <code>orientation</code> (portrait/landscape), <code>paperSize</code> (A4/Letter/…), <code>showDate</code>, <code>showPageNum</code>, <code>tableClass</code>.
+                    <br><br>
+                    This demo uses <strong>landscape A4</strong>, <strong>11pt</strong> font, a company header note, and shows the date + page number.
+                </div>
+
+                <div class="alert alert-warning mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Make sure <strong>pop-ups are allowed</strong> for this page in your browser — the isolated print window opens in a new pop-up.
+                </div>
+
+                @livewire('test-table-component', ['testType' => 'print_demo'])
             </div>
 
             <!-- Performance Tab -->

@@ -16,13 +16,17 @@ class TestTableComponent extends Component
     public function render()
     {
         $config = $this->getTestConfig();
-        
+
         return view('artflow-table::test.table-component', [
-            'model' => $config['model'],
+            'model' => $config['model'] ?? null,
+            'data' => $config['data'] ?? null,
+            'vars' => $config['vars'] ?? [],
             'columns' => $config['columns'],
             'filters' => $config['filters'],
             'actions' => $config['actions'],
             'tableId' => $config['tableId'],
+            'printable' => $config['printable'] ?? false,
+            'printConfig' => $config['printConfig'] ?? [],
         ]);
     }
 
@@ -31,16 +35,25 @@ class TestTableComponent extends Component
         switch ($this->testType) {
             case 'employees':
                 return $this->getEmployeeConfig();
-            
+
             case 'projects':
                 return $this->getProjectConfig();
-            
+
             case 'tasks':
                 return $this->getTaskConfig();
-            
+
             case 'timesheets':
                 return $this->getTimesheetConfig();
-            
+
+            case 'foreach_demo':
+                return $this->getForeachDemoConfig();
+
+            case 'custom_template':
+                return $this->getCustomTemplateConfig();
+
+            case 'print_demo':
+                return $this->getPrintDemoConfig();
+
             default:
                 return $this->getEmployeeConfig();
         }
@@ -281,6 +294,81 @@ class TestTableComponent extends Component
         ];
     }
 
+    protected function getForeachDemoConfig(): array
+    {
+        $categories = ['Electronics', 'Clothing', 'Food', 'Books', 'Toys'];
+        $statuses = ['active', 'inactive', 'pending'];
+
+        $data = collect(range(1, 100))->map(fn ($i) => [
+            'id' => $i,
+            'product' => 'Product '.str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+            'category' => $categories[$i % 5],
+            'price' => round(mt_rand(100, 99900) / 100, 2),
+            'quantity' => mt_rand(1, 100),
+            'status' => $statuses[$i % 3],
+        ]);
+
+        return [
+            'model' => null,
+            'data' => $data,
+            'vars' => ['currency' => 'USD'],
+            'tableId' => 'foreach_demo_table',
+            'columns' => [
+                [
+                    'key' => 'id',
+                    'label' => '#',
+                    'sortable' => true,
+                ],
+                [
+                    'key' => 'product',
+                    'label' => 'Product',
+                    'sortable' => true,
+                    'searchable' => true,
+                ],
+                [
+                    'key' => 'category',
+                    'label' => 'Category',
+                    'sortable' => true,
+                    'searchable' => false,
+                ],
+                [
+                    'key' => 'price',
+                    'label' => 'Unit Price',
+                    'sortable' => true,
+                    'raw' => '{{ $vars["currency"] }} {{ number_format($row->price, 2) }}',
+                ],
+                [
+                    'key' => 'quantity',
+                    'label' => 'Qty',
+                    'sortable' => true,
+                ],
+                [
+                    'key' => 'total',
+                    'label' => 'Total (Calc)',
+                    'sortable' => false,
+                    'raw' => '<strong>{{ $vars["currency"] }} {{ number_format($row->price * $row->quantity, 2) }}</strong>',
+                ],
+                [
+                    'key' => 'status',
+                    'label' => 'Status',
+                    'sortable' => true,
+                    'raw' => '<span class="badge bg-{{ $row->status === "active" ? "success" : ($row->status === "inactive" ? "danger" : "warning") }}">{{ ucfirst($row->status) }}</span>',
+                ],
+            ],
+            'filters' => [
+                'category' => [
+                    'type' => 'distinct',
+                    'label' => 'Category',
+                ],
+                'status' => [
+                    'type' => 'distinct',
+                    'label' => 'Status',
+                ],
+            ],
+            'actions' => [],
+        ];
+    }
+
     protected function getTimesheetConfig(): array
     {
         return [
@@ -336,6 +424,74 @@ class TestTableComponent extends Component
                     'type' => 'number',
                     'label' => 'Hours',
                 ],
+            ],
+            'actions' => [],
+        ];
+    }
+
+    protected function getCustomTemplateConfig(): array
+    {
+        return [
+            'model' => '\\ArtflowStudio\\Table\\Tests\\Models\\TestEmployee',
+            'tableId' => 'custom_template_table',
+            'printable' => false,
+            'printConfig' => [],
+            'columns' => [
+                ['key' => 'id', 'label' => 'ID', 'sortable' => true, 'searchable' => false],
+                ['key' => 'employee_code', 'label' => 'Code', 'sortable' => true, 'searchable' => true],
+                ['key' => 'first_name', 'label' => 'First Name', 'sortable' => true, 'searchable' => true],
+                ['key' => 'last_name', 'label' => 'Last Name', 'sortable' => true, 'searchable' => true],
+                ['key' => 'department_name', 'label' => 'Department', 'sortable' => true, 'relation' => 'department:name'],
+                [
+                    'key' => 'status',
+                    'label' => 'Status',
+                    'sortable' => true,
+                    'raw' => '<span class="badge rounded-pill bg-{{ $row->status === "active" ? "success" : ($row->status === "on_leave" ? "warning" : "danger") }}">{{ ucfirst(str_replace("_", " ", $row->status)) }}</span>',
+                ],
+            ],
+            'filters' => [
+                'department_name' => ['type' => 'distinct', 'label' => 'Department'],
+                'status' => ['type' => 'distinct', 'label' => 'Status'],
+            ],
+            'actions' => [],
+        ];
+    }
+
+    protected function getPrintDemoConfig(): array
+    {
+        return [
+            'model' => '\\ArtflowStudio\\Table\\Tests\\Models\\TestEmployee',
+            'tableId' => 'print_demo_table',
+            'printable' => true,
+            'printConfig' => [
+                'title'       => 'Employee Directory',
+                'header'      => '<p style="color:#555;">Confidential — Internal Use Only</p>',
+                'footer'      => 'ArtflowStudio LMS · HR Department',
+                'fontSize'    => 11,
+                'orientation' => 'landscape',
+                'paperSize'   => 'A4',
+                'showDate'    => true,
+                'showPageNum' => true,
+                'tableClass'  => 'table-striped',
+            ],
+            'columns' => [
+                ['key' => 'id', 'label' => 'ID', 'sortable' => true, 'searchable' => false],
+                ['key' => 'employee_code', 'label' => 'Code', 'sortable' => true, 'searchable' => true],
+                ['key' => 'first_name', 'label' => 'First Name', 'sortable' => true, 'searchable' => true],
+                ['key' => 'last_name', 'label' => 'Last Name', 'sortable' => true, 'searchable' => true],
+                ['key' => 'email', 'label' => 'Email', 'sortable' => true, 'searchable' => true],
+                ['key' => 'department_name', 'label' => 'Department', 'sortable' => true, 'relation' => 'department:name'],
+                ['key' => 'position', 'label' => 'Position', 'sortable' => true, 'searchable' => true],
+                [
+                    'key' => 'status',
+                    'label' => 'Status',
+                    'sortable' => true,
+                    'raw' => '<span class="badge bg-{{ $row->status === "active" ? "success" : ($row->status === "on_leave" ? "warning" : "danger") }}">{{ ucfirst(str_replace("_", " ", $row->status)) }}</span>',
+                ],
+            ],
+            'filters' => [
+                'department_name' => ['type' => 'distinct', 'label' => 'Department'],
+                'status' => ['type' => 'distinct', 'label' => 'Status'],
             ],
             'actions' => [],
         ];

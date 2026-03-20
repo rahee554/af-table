@@ -19,21 +19,6 @@ trait HasSortingUI
         return $this->sortColumn === $column ?? false;
     }
 
-    /**
-     * Get sort direction icon class for a column
-     * Returns FontAwesome icon classes based on current sort state
-     * 
-     * @param string $column Column key
-     * @return string Icon class (e.g., 'fas fa-sort-up', 'fas fa-sort-down', 'fas fa-sort')
-     */
-    public function getSortIcon(string $column): string
-    {
-        if ($this->sortColumn !== $column) {
-            return 'fas fa-sort'; // Neutral sort icon
-        }
-
-        return $this->sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
-    }
 
     /**
      * Get CSS class for sort indicator
@@ -67,19 +52,6 @@ trait HasSortingUI
         return $this->sortDirection === 'asc' ? 'desc' : 'asc';
     }
 
-    /**
-     * Get current sort state as array
-     * Useful for passing to templates or external systems
-     * 
-     * @return array ['column' => string, 'direction' => string]
-     */
-    public function getSortState(): array
-    {
-        return [
-            'column' => $this->sortColumn,
-            'direction' => $this->sortDirection,
-        ];
-    }
 
     /**
      * Check if column can be sorted
@@ -137,42 +109,6 @@ trait HasSortingUI
         return ucfirst(str_replace('_', ' ', $column));
     }
 
-    /**
-     * Get sortable columns with their metadata
-     * Useful for rendering sort controls
-     * 
-     * @return array Sortable columns with metadata
-     */
-    public function getSortableColumns(): array
-    {
-        $sortable = [];
-
-        if (!isset($this->columns)) {
-            return $sortable;
-        }
-
-        foreach ($this->columns as $key => $config) {
-            if (!is_array($config)) {
-                continue;
-            }
-
-            if (!$this->canSortColumn($key)) {
-                continue;
-            }
-
-            $sortable[$key] = [
-                'key' => $key,
-                'label' => $this->getColumnLabel($key),
-                'is_sorted' => $this->isColumnSorted($key),
-                'direction' => $this->sortDirection,
-                'next_direction' => $this->getNextSortDirection($key),
-                'icon' => $this->getSortIcon($key),
-                'class' => $this->getSortClass($key),
-            ];
-        }
-
-        return $sortable;
-    }
 
     /**
      * Get HTML for sort indicator badge

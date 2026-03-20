@@ -2,7 +2,7 @@
 
 > **A production-ready, trait-based Laravel Livewire datatable component with automatic optimization, N+1 prevention, and 98% query reduction.**
 
-**Version:** 1.5.2 | **Status:** ✅ Production Ready | **PHP:** 8.2+ | **Laravel:** 11+ | **Livewire:** 3+ | **Site:** https://artflow.pk
+**Version:** 1.8.0 | **Status:** ✅ Production Ready | **PHP:** 8.2+ | **Laravel:** 12+ | **Livewire:** 4.2+ | **Blaze:** 1.0+ | **Site:** https://artflow.pk
 
 ---
 
@@ -17,6 +17,9 @@ ArtFlow Table is a **trait-based Livewire component** that builds powerful, perf
 - ✅ **Export functionality** - CSV, Excel, PDF support
 - ✅ **Responsive design** - Works on mobile & desktop
 - ✅ **Zero configuration** - Sensible defaults, override when needed
+- ✅ **`#[Computed]` caching** - Livewire 4 native memoization, no manual hash logic
+- ✅ **Deferred pagination island** - `@island(defer: true)` keeps initial paint fast
+- ✅ **Blaze compilation** - Child Blade components folded at compile time for instant sub-component rendering
 
 **Perfect for:** Admin panels, data management, reports, dashboards
 
@@ -28,7 +31,9 @@ ArtFlow Table is a **trait-based Livewire component** that builds powerful, perf
 composer require artflow-studio/table
 ```
 
-That's it! Package auto-registers with Laravel.
+That's it! Package auto-registers with Laravel. `livewire/blaze` is bundled as a dependency and activates automatically — no configuration needed.
+
+> **Optional:** Set `BLAZE_ENABLED=false` in your `.env` to disable Blaze's Blade compilation step.
 
 ---
 
@@ -291,6 +296,57 @@ User sees sorted table
 
 ---
 
+## 🖨️ Isolated Print Window
+
+Enable `printable: true` to show a **Print** button that opens an isolated pop-up window containing only the table — no surrounding layout.
+
+```php
+@livewire('aftable', [
+    'model'       => App\Models\User::class,
+    'columns'     => [...],
+    'printable'   => true,
+    'printConfig' => [
+        'title'       => 'User Report',
+        'header'      => '<p>Confidential — Internal Use Only</p>',
+        'footer'      => 'HR Department',
+        'fontSize'    => 11,          // pt (default 11)
+        'orientation' => 'landscape', // portrait | landscape
+        'paperSize'   => 'A4',
+        'showDate'    => true,
+        'showPageNum' => true,
+        'tableClass'  => 'table-striped',
+    ],
+])
+```
+
+> **Note:** Requires the browser to allow pop-ups for your domain.
+
+---
+
+## 🔧 Three Syntax Options
+
+All three are equivalent — pick the one that fits your workflow:
+
+```blade
+{{-- 1. Blade helper (most common) --}}
+@livewire('aftable', ['model' => App\Models\User::class, 'columns' => [...]])
+
+{{-- 2. Livewire tag syntax --}}
+<livewire:aftable :model="App\Models\User::class" :columns="$columns" />
+
+{{-- 3. @aftable directive with optional custom table markup --}}
+@aftable(['model' => App\Models\User::class, 'columns' => [...]])
+    <table class="table table-hover my-custom-theme">
+        <thead class="bg-dark text-white"><tr></tr></thead>
+        <tbody></tbody>
+    </table>
+@endaftable
+```
+
+The live code generator at `index.html` supports all three via the **Output Syntax** radio group.
+
+---
+
 ## ⚠️ Important Usage Rules
 
 ### ✅ CORRECT - Use in Blade Views
@@ -356,6 +412,8 @@ class MyComponent extends Component {
 | **AI_USAGE_GUIDE.md** | How to use (non-technical) | Users, AI agents |
 | **AI_TECHNICAL_REFERENCE.md** | How it works (technical) | Developers, AI agents |
 | **FEATURE_RECOMMENDATIONS.md** | Future features & roadmap | Architects, Planners |
+| **CHANGELOG_V1.8.0.md** | v1.8.0 release notes (Blaze, #[Computed], @island) | Developers |
+| **CHANGELOG_V1.6.0.md** | v1.6.0 & v1.7.0 release notes | Developers |
 
 ---
 
@@ -374,9 +432,9 @@ This package is open-source and available under the MIT license.
 
 ---
 
-**ArtFlow Table 1.5.2 - Where Performance Meets Simplicity** ⚡
+**ArtFlow Table 1.8.0 - Where Performance Meets Simplicity** ⚡
 
 Make datatables **simple** and **fast** with automatic optimization!
 
-**Last Updated:** November 23, 2025  
+**Last Updated:** July 2025  
 **Status:** ✅ Production Ready

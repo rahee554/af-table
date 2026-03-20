@@ -13,7 +13,7 @@ The ArtFlow Table is a **Livewire datatable component** that displays data with 
 - Eager loading (no N+1 queries)
 - Count aggregations
 
-**Version:** 1.5.2 | **Site:** https://artflow.pk
+**Version:** 1.6.0 | **Site:** https://artflow.pk
 
 **Use it in Blade views with:** `@livewire('aftable', [...])`
 
@@ -450,7 +450,95 @@ A: Use `withTrashed()` or `onlyTrashed()` in custom query.
 
 ---
 
-**Version:** v1.6 Optimized  
-**Last Updated:** November 23, 2025  
+**Version:** 1.6.0  
+**Last Updated:** July 2025  
 **For:** AI Agents & Developers  
 **Status:** Production Ready ✅
+
+---
+
+## 🆕 v1.6.0 New Features
+
+### Static / Foreach Mode
+
+Pass any PHP array or Laravel Collection — no Eloquent model needed:
+
+```blade
+@php
+$employees = [
+    ['name' => 'Alice', 'dept' => 'Engineering', 'salary' => 5000],
+    ['name' => 'Bob',   'dept' => 'Design',      'salary' => 4500],
+];
+@endphp
+
+@livewire('aftable', [
+    'data'    => $employees,
+    'vars'    => ['currency' => 'USD'],
+    'columns' => [
+        ['key' => 'name',   'label' => 'Name'],
+        ['key' => 'dept',   'label' => 'Department'],
+        ['key' => 'salary', 'label' => 'Salary',
+         'raw' => '{{ $currency }} {{ number_format($row->salary, 2) }}'],
+    ],
+])
+```
+
+### Closure / Callable Raw Columns (faster — no Blade overhead)
+
+```blade
+@livewire('aftable', [
+    'model'   => App\Models\User::class,
+    'vars'    => ['currency' => 'USD'],
+    'columns' => [
+        ['key' => 'name', 'label' => 'Name'],
+        // Closure receives ($row, $vars)
+        ['key' => 'status', 'label' => 'Status',
+         'raw' => fn($row) => $row->active
+             ? '<span class="badge bg-success">Active</span>'
+             : '<span class="badge bg-danger">Inactive</span>'],
+        ['key' => 'salary', 'label' => 'Salary',
+         'raw' => fn($row, $vars) => e($vars['currency']).' '.number_format($row->salary, 2)],
+    ],
+])
+```
+
+### Custom Table Template — `@aftable` / `@endaftable`
+
+Wrap your own `<table>` markup to apply your app's theme to the table:
+
+```blade
+@aftable(['model' => App\Models\User::class, 'columns' => [
+    ['key' => 'name',  'label' => 'Name'],
+    ['key' => 'email', 'label' => 'Email'],
+]])
+    <table class="table table-hover table-striped my-theme">
+        <thead class="bg-dark text-white"><tr></tr></thead>
+        <tbody></tbody>
+    </table>
+@endaftable
+```
+
+Or pass it directly:
+
+```blade
+@livewire('aftable', [
+    'model'          => App\Models\User::class,
+    'columns'        => [...],
+    'customTemplate' => '<table class="table table-hover my-theme" id="myTable">',
+])
+```
+
+### `classCondition` — no `eval()` (security fix)
+
+```php
+'classCondition' => [
+    // Closure — most flexible
+    'text-success fw-bold' => fn($row) => $row->active,
+    // String shorthand — truthy check on field
+    'border-primary'       => 'featured',
+    // Negation shorthand — !$row->active
+    'text-muted'           => '!active',
+    // Equality shorthand — $row->status === 'inactive'
+    'text-danger'          => 'status:inactive',
+],
+```

@@ -3,6 +3,9 @@
 namespace ArtflowStudio\Table\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use ArtflowStudio\Table\Testing\ComponentTestRunner;
 use ArtflowStudio\Table\Testing\PerformanceTestRunner;
 use ArtflowStudio\Table\Testing\RelationshipTestRunner;
@@ -283,14 +286,83 @@ class AFTableTestCommand extends Command
     {
         $this->info('🛠️ Setting up test environment...');
         
-        // Basic test environment setup
-        $this->line('  • Checking Laravel installation...');
-        $this->line('  • Verifying Livewire components...');
-        $this->line('  • Testing database connection...');
-        $this->line('  • Loading test models...');
-        
-        $this->info('✅ Test environment setup completed successfully!');
-        return 0;
+        try {
+            // Step 1: Check Laravel installation
+            $this->line('  • Checking Laravel installation...');
+            if (!app()->version()) {
+                $this->error('❌ Laravel installation not found!');
+                return 1;
+            }
+            $this->line('    ✓ Laravel ' . app()->version());
+
+            // Step 2: Verify database connection
+            $this->line('  • Testing database connection...');
+            try {
+                DB::connection()->getPDO();
+                $this->line('    ✓ Database connection successful');
+            } catch (\Exception $e) {
+                $this->error('❌ Database connection failed: ' . $e->getMessage());
+                return 1;
+            }
+
+            // Step 3: Run migrations with seed
+            $this->line('  • Running AF Table migrations...');
+            try {
+                $exitCode = Artisan::call('af-table:migrate', [
+                    '--seed' => true,
+                    '--force' => true,
+                ]);
+                
+                if ($exitCode !== 0) {
+                    $this->error('❌ Migration failed!');
+                    return 1;
+                }
+                $this->line('    ✓ Migrations and seeding completed');
+            } catch (\Exception $e) {
+                $this->error('❌ Migration error: ' . $e->getMessage());
+                return 1;
+            }
+
+            // Step 4: Verify test tables exist
+            $this->line('  • Verifying test tables...');
+            $tablesToCheck = [
+                'test_companies',
+                'test_departments',
+                'test_employees',
+                'test_projects',
+                'test_tasks',
+                'test_employee_project',
+                'test_clients',
+                'test_invoices',
+                'test_timesheets',
+                'test_documents',
+            ];
+
+            $tablesFound = 0;
+            foreach ($tablesToCheck as $table) {
+                if (Schema::hasTable($table)) {
+                    $count = DB::table($table)->count();
+                    $this->line("    ✓ {$table} ({$count} records)");
+                    $tablesFound++;
+                } else {
+                    $this->warn("    ⚠ {$table} not found");
+                }
+            }
+
+            if ($tablesFound === count($tablesToCheck)) {
+                $this->info('✅ Test environment setup completed successfully!');
+                $this->line('');
+                $this->info('🎉 Ready to run tests! Use: php artisan af-table:test');
+                return 0;
+            } else {
+                $this->error("⚠️  Only {$tablesFound}/" . count($tablesToCheck) . " tables were created");
+                return 1;
+            }
+
+        } catch (\Exception $e) {
+            $this->error('❌ Setup failed: ' . $e->getMessage());
+            return 1;
+        }
     }
 
     /**
@@ -300,13 +372,40 @@ class AFTableTestCommand extends Command
     {
         $this->info('🧹 Cleaning up test data...');
         
-        // Basic cleanup operations
-        $this->line('  • Clearing test caches...');
-        $this->line('  • Resetting component state...');
-        $this->line('  • Cleaning temporary files...');
-        
-        $this->info('✅ Test data cleanup completed successfully!');
-        return 0;
+        try {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
+            $tables = [
+                'test_documents',
+                'test_timesheets',
+                'test_invoices',
+                'test_clients',
+                'test_employee_project',
+                'test_tasks',
+                'test_projects',
+                'test_employees',
+                'test_departments',
+                'test_companies',
+            ];
+
+            foreach ($tables as $table) {
+                if (Schema::hasTable($table)) {
+                    $this->line('  • Truncating ' . $table . '...');
+                    DB::table($table)->truncate();
+                    $this->line('    ✓ Cleared');
+                }
+            }
+
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+            $this->info('✅ Test data cleanup completed successfully!');
+            return 0;
+
+        } catch (\Exception $e) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            $this->error('❌ Cleanup failed: ' . $e->getMessage());
+            return 1;
+        }
     }
 
     /**

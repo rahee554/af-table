@@ -5,82 +5,65 @@ namespace ArtflowStudio\Table\Traits\Advanced;
 trait HasUtilities
 {
     /**
-     * Get dynamic CSS class for column based on conditions
+     * Get dynamic CSS class for column based on conditions.
+     *
+     * Accepts a closure condition (preferred) or a string shorthand:
+     *   - Closure: fn($row) => $row->active — returns bool
+     *   - String shorthand: 'active', '!active', 'status:published' (key:value equality)
+     *
+     * Example column config:
+     *   'classCondition' => [
+     *       'text-success' => fn($row) => $row->active,
+     *       'text-danger'  => fn($row) => !$row->active,
+     *       'fw-bold'      => 'featured',           // truthy check: $row->featured
+     *       'badge-red'    => 'status:inactive',    // equality check
+     *   ]
      */
-    public function getDynamicClass($column, $row)
+    public function getDynamicClass($column, $row): string
     {
         $classes = [];
-        
-        if (isset($column['classCondition']) && is_array($column['classCondition'])) {
-            foreach ($column['classCondition'] as $class => $condition) {
-                try {
-                    if (eval("return $condition;")) {
-                        $classes[] = $class;
-                    }
-                } catch (\Exception $e) {
-                    // Log error and continue
-                    \Illuminate\Support\Facades\Log::warning('Dynamic class condition error: ' . $e->getMessage(), [
-                        'condition' => $condition,
-                        'column' => $column,
-                        'row_id' => $row->id ?? 'unknown'
-                    ]);
-                }
-            }
-        }
-        
-        return implode(' ', $classes);
-    }
 
-    /**
-     * Sanitize HTML content for safe output
-     */
-    protected function sanitizeHtmlContent($content): string
-    {
-        if (empty($content)) {
+        if (! isset($column['classCondition']) || ! is_array($column['classCondition'])) {
             return '';
         }
-        
-        // Allow basic HTML tags that are commonly used in datatables
-        $allowedTags = '<a><span><div><strong><b><em><i><u><br><p><small>';
-        
-        return strip_tags($content, $allowedTags);
-    }
 
-    /**
-     * Validate JSON path syntax
-     */
-    protected function validateJsonPath($jsonPath): bool
-    {
-        if (empty($jsonPath)) {
-            return false;
+        foreach ($column['classCondition'] as $class => $condition) {
+            try {
+                $matches = false;
+
+                if ($condition instanceof \Closure) {
+                    $matches = (bool) $condition($row);
+                } elseif (is_callable($condition)) {
+                    $matches = (bool) call_user_func($condition, $row);
+                } elseif (is_string($condition)) {
+                    // Negation shorthand: '!fieldName'
+                    if (str_starts_with($condition, '!')) {
+                        $field = substr($condition, 1);
+                        $matches = empty($row->{$field} ?? null);
+                    } elseif (str_contains($condition, ':')) {
+                        // Equality shorthand: 'fieldName:expectedValue'
+                        [$field, $expected] = explode(':', $condition, 2);
+                        $matches = (string) ($row->{$field} ?? '') === $expected;
+                    } else {
+                        // Truthy shorthand: 'fieldName'
+                        $matches = ! empty($row->{$condition} ?? null);
+                    }
+                } elseif (is_bool($condition)) {
+                    $matches = $condition;
+                }
+
+                if ($matches) {
+                    $classes[] = htmlspecialchars($class, ENT_QUOTES, 'UTF-8');
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('getDynamicClass condition error: '.$e->getMessage(), [
+                    'class' => $class,
+                    'row_id' => $row->id ?? 'unknown',
+                ]);
+            }
         }
-        
-        // Check for basic path format (alphanumeric, dots, underscores)
-        return preg_match('/^[a-zA-Z0-9_.]+$/', $jsonPath) === 1;
-    }
 
-    /**
-     * Validate relation string format
-     */
-    protected function validateRelationString($relationString): bool
-    {
-        if (empty($relationString)) {
-            return false;
-        }
-        
-        // Check for proper relation format (relation:attribute)
-        return strpos($relationString, ':') !== false;
-    }
-
-    /**
-     * Validate export format
-     */
-    protected function validateExportFormat($format): string
-    {
-        $allowedFormats = ['csv', 'xlsx', 'pdf', 'json'];
-        $format = strtolower(trim($format));
-        
-        return in_array($format, $allowedFormats) ? $format : 'csv';
+        return implode(' ', $classes);
     }
 
     /**
@@ -98,27 +81,6 @@ trait HasUtilities
         
         // Limit length to prevent abuse
         return substr($search, 0, 255);
-    }
-
-    /**
-     * Sanitize filter value
-     */
-    protected function sanitizeFilterValue($value)
-    {
-        if (is_null($value) || $value === '') {
-            return $value;
-        }
-        
-        if (is_string($value)) {
-            // Remove HTML tags and escape special characters
-            $value = strip_tags($value);
-            $value = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-            
-            // Limit length
-            return substr($value, 0, 255);
-        }
-        
-        return $value;
     }
 
     /**

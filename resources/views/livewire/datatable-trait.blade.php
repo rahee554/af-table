@@ -323,7 +323,23 @@
     </div>
 
     <div class="table-responsive rounded {{ (isset($data) && count($data) < 5) ? 'h-500px' : '' }}">
-        <table class="table table-bordered p-2 " id="myTable">
+        @php
+            // Allow @aftable/@endaftable to pass a custom <table> tag with user's theme classes.
+            // We extract its attributes and apply them to our table element, keeping all
+            // thead/tbody rendering intact. Falls back to the default Bootstrap table.
+            $customTableOpen = '<table class="table table-bordered p-2" id="myTable">';
+            if (! empty($customTemplate)) {
+                if (preg_match('/<table([^>]*)>/i', $customTemplate, $_m)) {
+                    $_attrs = trim($_m[1] ?? '');
+                    if (! str_contains($_attrs, 'id=')) {
+                        $_attrs .= ' id="myTable"';
+                    }
+                    $customTableOpen = '<table'.(strlen($_attrs) ? ' '.$_attrs : '').'>';
+                }
+                unset($_m, $_attrs);
+            }
+        @endphp
+        {!! $customTableOpen !!}
             <thead>
                 <tr>
                     @if ($checkbox)

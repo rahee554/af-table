@@ -2,11 +2,14 @@
 
 namespace ArtflowStudio\Table\Traits\Core;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Trait HasQueryBuilding
- * 
+ *
  * Handles all query building operations including custom constraints,
  * filters, search, sorting, and query optimization
  * Consolidates query logic moved from main DatatableTrait
@@ -14,30 +17,9 @@ use Illuminate\Support\Facades\Log;
 trait HasQueryBuilding
 {
     /**
-     * Build query (DEPRECATED - use buildUnifiedQuery)
-     * Moved from DatatableTrait.php line 333
-     * @deprecated Use buildUnifiedQuery() instead for better performance
+     * Apply custom query constraints.
      */
-    protected function buildQuery()
-    {
-        return $this->buildUnifiedQuery();
-    }
-
-    /**
-     * Get query builder instance (DEPRECATED - use buildUnifiedQuery)
-     * Moved from DatatableTrait.php line 1717
-     * @deprecated Use buildUnifiedQuery() instead for better performance
-     */
-    protected function query(): \Illuminate\Database\Eloquent\Builder
-    {
-        return $this->buildUnifiedQuery();
-    }
-
-    /**
-     * Apply custom query constraints
-     * Moved from DatatableTrait.php line 1823
-     */
-    protected function applyCustomQueryConstraints(\Illuminate\Database\Eloquent\Builder $query): void
+    protected function applyCustomQueryConstraints(Builder $query): void
     {
         if (is_array($this->query)) {
             // Apply array-based constraints
@@ -59,7 +41,7 @@ trait HasQueryBuilding
             try {
                 call_user_func($this->query, $query);
             } catch (\Exception $e) {
-                Log::error('Custom query constraint error: ' . $e->getMessage());
+                Log::error('Custom query constraint error: '.$e->getMessage());
                 throw $e;
             }
         }
@@ -69,7 +51,7 @@ trait HasQueryBuilding
      * Apply filters to query
      * Moved from DatatableTrait.php line 1675
      */
-    protected function applyFilters(\Illuminate\Database\Eloquent\Builder $query)
+    protected function applyFilters(Builder $query)
     {
         if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
             // Get the filter type for the current filter column
@@ -92,7 +74,7 @@ trait HasQueryBuilding
     /**
      * Apply column-specific filter
      */
-    protected function applyColumnFilter(\Illuminate\Database\Eloquent\Builder $query, $column, $operator, $value)
+    protected function applyColumnFilter(Builder $query, $column, $operator, $value)
     {
         // Find the column configuration
         $columnConfig = null;
@@ -103,7 +85,7 @@ trait HasQueryBuilding
             }
         }
 
-        if (!$columnConfig) {
+        if (! $columnConfig) {
             return;
         }
 
@@ -120,9 +102,9 @@ trait HasQueryBuilding
     /**
      * Apply relation filter
      */
-    protected function applyRelationFilter(\Illuminate\Database\Eloquent\Builder $query, string $relationString, string $operator, $value)
+    protected function applyRelationFilter(Builder $query, string $relationString, string $operator, $value)
     {
-        if (!$this->validateRelationString($relationString)) {
+        if (! $this->validateRelationString($relationString)) {
             return;
         }
 
@@ -130,7 +112,7 @@ trait HasQueryBuilding
 
         $query->whereHas($relationName, function ($q) use ($column, $operator, $value) {
             if ($operator === 'like' || $operator === 'LIKE') {
-                $q->where($column, 'LIKE', '%' . $value . '%');
+                $q->where($column, 'LIKE', '%'.$value.'%');
             } else {
                 $q->where($column, $operator, $value);
             }
@@ -140,13 +122,13 @@ trait HasQueryBuilding
     /**
      * Apply JSON filter
      */
-    protected function applyJsonFilter(\Illuminate\Database\Eloquent\Builder $query, string $jsonColumn, ?string $jsonPath, string $operator, $value)
+    protected function applyJsonFilter(Builder $query, string $jsonColumn, ?string $jsonPath, string $operator, $value)
     {
         $path = $jsonPath ?? 'data';
-        $fullPath = $jsonColumn . '->' . $path;
+        $fullPath = $jsonColumn.'->'.$path;
 
         if ($operator === 'like' || $operator === 'LIKE') {
-            $query->where($fullPath, 'LIKE', '%' . $value . '%');
+            $query->where($fullPath, 'LIKE', '%'.$value.'%');
         } else {
             $query->where($fullPath, $operator, $value);
         }
@@ -155,107 +137,12 @@ trait HasQueryBuilding
     /**
      * Apply regular column filter
      */
-    protected function applyRegularFilter(\Illuminate\Database\Eloquent\Builder $query, string $column, string $operator, $value)
+    protected function applyRegularFilter(Builder $query, string $column, string $operator, $value)
     {
         if ($operator === 'like' || $operator === 'LIKE') {
-            $query->where($column, 'LIKE', '%' . $value . '%');
+            $query->where($column, 'LIKE', '%'.$value.'%');
         } else {
             $query->where($column, $operator, $value);
-        }
-    }
-
-    /**
-     * Apply optimized search to query
-     * Moved from DatatableTrait.php line 1888
-     */
-    protected function applyOptimizedSearch(\Illuminate\Database\Eloquent\Builder $query): void
-    {
-        $search = $this->sanitizeSearch($this->search);
-
-        $query->where(function ($query) use ($search) {
-            $hasSearchableColumns = false;
-
-            foreach ($this->columns as $columnKey => $column) {
-                if ($this->isColumnSearchable($column)) {
-                    $hasSearchableColumns = true;
-                    $this->applyColumnSearch($query, $columnKey, $search);
-                }
-            }
-
-            // If no searchable columns found, search on default columns
-            if (!$hasSearchableColumns) {
-                $this->applyDefaultSearch($query, $search);
-            }
-        });
-    }
-
-    /**
-     * Apply column-specific search
-     * Moved from DatatableTrait.php line 1906
-     */
-    protected function applyColumnSearch(\Illuminate\Database\Eloquent\Builder $query, $columnKey, $search)
-    {
-        $column = $this->columns[$columnKey] ?? null;
-        if (!$column) {
-            return;
-        }
-
-        $search = $this->sanitizeSearch($search);
-
-        // Remove 3-character limit, always search with LIKE %search%
-        if ($search === '') {
-            return;
-        }
-
-        $query->orWhere(function ($q) use ($column, $search) {
-            if (isset($column['relation'])) {
-                $this->applyRelationSearch($q, $column['relation'], $search);
-            } elseif (isset($column['json'])) {
-                $this->applyJsonSearch($q, $column['json'], $column['json_path'] ?? null, $search);
-            } elseif (isset($column['key']) && $this->isValidColumn($column['key'])) {
-                $q->where($column['key'], 'LIKE', '%' . $search . '%');
-            }
-        });
-    }
-
-    /**
-     * Apply relation search
-     */
-    protected function applyRelationSearch(\Illuminate\Database\Eloquent\Builder $query, string $relationString, string $search)
-    {
-        if (!$this->validateRelationString($relationString)) {
-            return;
-        }
-
-        [$relationName, $column] = explode(':', $relationString, 2);
-
-        $query->whereHas($relationName, function ($q) use ($column, $search) {
-            $q->where($column, 'LIKE', '%' . $search . '%');
-        });
-    }
-
-    /**
-     * Apply JSON search
-     */
-    protected function applyJsonSearch(\Illuminate\Database\Eloquent\Builder $query, string $jsonColumn, ?string $jsonPath, string $search)
-    {
-        $path = $jsonPath ?? 'data';
-        $fullPath = $jsonColumn . '->' . $path;
-
-        $query->where($fullPath, 'LIKE', '%' . $search . '%');
-    }
-
-    /**
-     * Apply default search on common columns
-     */
-    protected function applyDefaultSearch(\Illuminate\Database\Eloquent\Builder $query, string $search)
-    {
-        $defaultSearchColumns = ['name', 'title', 'description', 'email'];
-
-        foreach ($defaultSearchColumns as $column) {
-            if ($this->isValidColumn($column)) {
-                $query->orWhere($column, 'LIKE', '%' . $search . '%');
-            }
         }
     }
 
@@ -263,7 +150,7 @@ trait HasQueryBuilding
      * Apply optimized sorting to query
      * Moved from DatatableTrait.php line 1937
      */
-    protected function applyOptimizedSorting(\Illuminate\Database\Eloquent\Builder $query): void
+    protected function applyOptimizedSorting(Builder $query): void
     {
         // First try to find by key (backward compatibility)
         $sortColumnConfig = null;
@@ -275,13 +162,13 @@ trait HasQueryBuilding
         }
 
         // If not found by key, try to find by the full column identifier (for JSON columns)
-        if (!$sortColumnConfig) {
+        if (! $sortColumnConfig) {
             $sortColumnConfig = $this->columns[$this->sortColumn] ?? null;
         }
 
         // Validate sort direction
         $direction = strtolower($this->sortDirection);
-        if (!in_array($direction, ['asc', 'desc'])) {
+        if (! in_array($direction, ['asc', 'desc'])) {
             $direction = 'asc';
         }
 
@@ -300,9 +187,9 @@ trait HasQueryBuilding
     /**
      * Apply relation sorting
      */
-    protected function applyRelationSorting(\Illuminate\Database\Eloquent\Builder $query, string $relationString, string $direction)
+    protected function applyRelationSorting(Builder $query, string $relationString, string $direction)
     {
-        if (!$this->validateRelationString($relationString)) {
+        if (! $this->validateRelationString($relationString)) {
             return;
         }
 
@@ -320,7 +207,7 @@ trait HasQueryBuilding
                 $this->applyJoinSorting($query, $relationObj, $attribute, $direction);
             }
         } catch (\Exception $e) {
-            Log::error('Relation sorting error: ' . $e->getMessage(), [
+            Log::error('Relation sorting error: '.$e->getMessage(), [
                 'relation' => $relationName,
                 'attribute' => $attribute,
             ]);
@@ -333,14 +220,14 @@ trait HasQueryBuilding
      * Apply join sorting for relations
      * Moved from DatatableTrait.php line 1991
      */
-    protected function applyJoinSorting(\Illuminate\Database\Eloquent\Builder $query, $relationObj, $attribute, $direction = 'asc'): void
+    protected function applyJoinSorting(Builder $query, $relationObj, $attribute, $direction = 'asc'): void
     {
         $modelInstance = new ($this->model);
         $relationTable = $relationObj->getRelated()->getTable();
         $parentTable = $modelInstance->getTable();
 
         // Create unique table alias to prevent join conflicts
-        $tableAlias = $relationTable . '_sort_' . uniqid();
+        $tableAlias = $relationTable.'_sort_'.uniqid();
 
         // Get relation name for eager loading (extract from relation object)
         $relationName = null;
@@ -348,7 +235,7 @@ trait HasQueryBuilding
             $relationName = $relationObj->getRelationName();
         } else {
             // Fallback: extract from backtrace or use a generic approach
-            $relationName = 'relation_' . uniqid();
+            $relationName = 'relation_'.uniqid();
         }
 
         // Check if this join already exists to prevent duplicates
@@ -362,31 +249,31 @@ trait HasQueryBuilding
             }
         }
 
-        if (!$joinExists) {
+        if (! $joinExists) {
             // Determine join type and keys based on relation type
-            if ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+            if ($relationObj instanceof BelongsTo) {
                 $foreignKey = $relationObj->getForeignKeyName();
                 $ownerKey = $relationObj->getOwnerKeyName();
-                $query->leftJoin($relationTable . ' as ' . $tableAlias, $parentTable . '.' . $foreignKey, '=', $tableAlias . '.' . $ownerKey);
-            } elseif ($relationObj instanceof \Illuminate\Database\Eloquent\Relations\HasOne) {
+                $query->leftJoin($relationTable.' as '.$tableAlias, $parentTable.'.'.$foreignKey, '=', $tableAlias.'.'.$ownerKey);
+            } elseif ($relationObj instanceof HasOne) {
                 $foreignKey = $relationObj->getForeignKeyName();
                 $localKey = $relationObj->getLocalKeyName();
-                $query->leftJoin($relationTable . ' as ' . $tableAlias, $parentTable . '.' . $localKey, '=', $tableAlias . '.' . $foreignKey);
+                $query->leftJoin($relationTable.' as '.$tableAlias, $parentTable.'.'.$localKey, '=', $tableAlias.'.'.$foreignKey);
             } else {
                 // For other relation types, try to infer keys
-                $foreignKey = $relationName . '_id';
-                $query->leftJoin($relationTable . ' as ' . $tableAlias, $parentTable . '.' . $foreignKey, '=', $tableAlias . '.id');
+                $foreignKey = $relationName.'_id';
+                $query->leftJoin($relationTable.' as '.$tableAlias, $parentTable.'.'.$foreignKey, '=', $tableAlias.'.id');
             }
         }
 
         // Validate sort direction
         $direction = strtolower($direction);
-        if (!in_array($direction, ['asc', 'desc'])) {
+        if (! in_array($direction, ['asc', 'desc'])) {
             $direction = 'asc';
         }
 
         // Apply sorting with table alias
-        $query->orderBy($tableAlias . '.' . $attribute, $direction);
+        $query->orderBy($tableAlias.'.'.$attribute, $direction);
 
         // Use DISTINCT to prevent duplicate results from joins instead of GROUP BY
         // This is better for MySQL strict mode (ONLY_FULL_GROUP_BY)
@@ -395,7 +282,7 @@ trait HasQueryBuilding
         // Only modify select if no columns are currently selected
         // This prevents overriding the carefully constructed select columns
         if (empty($query->getQuery()->columns)) {
-            $query->select($parentTable . '.*');
+            $query->select($parentTable.'.*');
         }
     }
 
@@ -403,24 +290,24 @@ trait HasQueryBuilding
      * Apply subquery sorting for nested relations
      * Moved from DatatableTrait.php line 2090
      */
-    protected function applySubquerySorting(\Illuminate\Database\Eloquent\Builder $query, $relationPath, $attribute, $direction = 'asc'): void
+    protected function applySubquerySorting(Builder $query, $relationPath, $attribute, $direction = 'asc'): void
     {
         try {
             $modelInstance = new ($this->model);
             $relations = explode('.', $relationPath);
-            
+
             // Build the nested relation query
             $currentModel = $modelInstance;
             $subquery = null;
-            
+
             foreach ($relations as $i => $relationName) {
-                if (!method_exists($currentModel, $relationName)) {
+                if (! method_exists($currentModel, $relationName)) {
                     throw new \Exception("Relation {$relationName} not found");
                 }
-                
+
                 $relationObj = $currentModel->$relationName();
                 $currentModel = $relationObj->getRelated();
-                
+
                 if ($i === 0) {
                     // First relation
                     $subquery = $relationObj->getQuery();
@@ -433,7 +320,7 @@ trait HasQueryBuilding
                     break;
                 }
             }
-            
+
             // Apply the subquery ordering
             if ($subquery) {
                 $query->orderBy(
@@ -441,13 +328,13 @@ trait HasQueryBuilding
                     $direction
                 );
             }
-            
+
         } catch (\Exception $e) {
-            Log::error('Subquery sorting error: ' . $e->getMessage(), [
+            Log::error('Subquery sorting error: '.$e->getMessage(), [
                 'relation_path' => $relationPath,
                 'attribute' => $attribute,
             ]);
-            
+
             // Fallback to simple ordering
             $query->orderBy('id', $direction);
         }
@@ -457,7 +344,10 @@ trait HasQueryBuilding
      * Abstract methods that must be implemented in the main class or other traits
      */
     abstract protected function validateRelationString($relationString): bool;
+
     abstract protected function isColumnSearchable($column): bool;
+
     abstract protected function isValidColumn($column): bool;
+
     abstract protected function sanitizeSearch($search): string;
 }

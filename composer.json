@@ -11,7 +11,8 @@
   "require": {
     "php": "*",
     "livewire/livewire": "^4.0",
-    "illuminate/view": "*"
+    "illuminate/view": "*",
+    "livewire/blaze": "*"
   },
   "extra": {
     "laravel": {
@@ -43,7 +44,7 @@
     "source": "https://github.com/artflow-studio/table"
   },
   "suggest": {
-    "maatwebsite/excel": "For Excel export support",
+    "maatwebsite/excel": "For Excel export support (CSV/Excel download)",
     "barryvdh/laravel-snappy": "For PDF export support"
   },
   "minimum-stability": "stable",

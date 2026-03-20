@@ -1,8 +1,8 @@
 # 📖 ArtFlow Table - Complete Usage Stub & Examples
 
-**Version:** 1.5.2  
+**Version:** 1.6.0  
 **Developer Site:** https://artflow.pk  
-**Date:** November 23, 2025
+**Date:** July 2025
 
 ---
 
@@ -570,6 +570,42 @@ This document provides complete method signatures and usage examples for the Art
 
 ---
 
-**Version:** 1.5.2  
-**Last Updated:** November 23, 2025  
+**Version:** 1.6.0  
+**Last Updated:** July 2025  
 **Status:** Production Ready ✅
+
+---
+
+## 🆕 v1.6.0 New Parameters
+
+```php
+@livewire('aftable', [
+    // --- Static / Foreach Mode ---
+    'data'           => $arrayOrCollection,  // Pass rows directly (no model required)
+    'vars'           => ['key' => 'value'],  // Extra vars available in all raw templates
+
+    // --- Custom Table Template ---
+    'customTemplate' => '<table class="my-theme" id="myTable">', // Override default <table> tag
+
+    // Raw column Closure (v1.6.0 — faster, no Blade)
+    // 'raw' => fn($row, $vars) => '<span>'.$row->name.'</span>',
+
+    // classCondition — closure or shorthand (no eval)
+    // 'classCondition' => [
+    //     'text-success' => fn($row) => $row->active,   // closure
+    //     'text-muted'   => '!active',                  // negation shorthand
+    //     'text-danger'  => 'status:inactive',          // equality shorthand
+    // ],
+])
+```
+
+### `@aftable` / `@endaftable` paired directives
+
+```blade
+@aftable(['model' => App\Models\User::class, 'columns' => [...]])
+    <table class="table table-hover my-theme">
+        <thead class="bg-dark text-white"><tr></tr></thead>
+        <tbody></tbody>
+    </table>
+@endaftable
+```
