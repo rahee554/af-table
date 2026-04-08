@@ -1,27 +1,27 @@
-# 🎯 ArtFlow Table - Laravel Livewire Datatable Component
+# 🎯 ArtFlow Table — Laravel Livewire Datatable Component
 
-> **A production-ready, trait-based Laravel Livewire datatable component with automatic optimization, N+1 prevention, and 98% query reduction.**
+> **A production-ready, trait-based Laravel Livewire 4 datatable component with automatic optimization, N+1 prevention, and zero-config setup.**
 
-**Version:** 1.8.0 | **Status:** ✅ Production Ready | **PHP:** 8.2+ | **Laravel:** 12+ | **Livewire:** 4.2+ | **Blaze:** 1.0+ | **Site:** https://artflow.pk
+**Version:** 1.5.6 | **PHP:** 8.2+ | **Laravel:** 12+ | **Livewire:** 4.x | **Tailwind/Bootstrap:** Compatible
 
 ---
 
 ## ✨ What Is ArtFlow Table?
 
-ArtFlow Table is a **trait-based Livewire component** that builds powerful, performant datatables with:
+ArtFlow Table is a **Livewire 4 component** that builds powerful, performant datatables with:
 
-- ✅ **Automatic sorting, searching, pagination** - Built-in, no config needed
-- ✅ **N+1 query prevention** - Single query for 50+ items
-- ✅ **Eager loading** - Relationships pre-loaded automatically
-- ✅ **Count aggregations** - Relationship counts without loading items
-- ✅ **Export functionality** - CSV, Excel, PDF support
-- ✅ **Responsive design** - Works on mobile & desktop
-- ✅ **Zero configuration** - Sensible defaults, override when needed
-- ✅ **`#[Computed]` caching** - Livewire 4 native memoization, no manual hash logic
-- ✅ **Deferred pagination island** - `@island(defer: true)` keeps initial paint fast
-- ✅ **Blaze compilation** - Child Blade components folded at compile time for instant sub-component rendering
-
-**Perfect for:** Admin panels, data management, reports, dashboards
+- ✅ **Automatic sorting, searching, pagination** — Built-in, zero config
+- ✅ **N+1 query prevention** — Relations eager-loaded automatically
+- ✅ **`raw` column templates** — Full Blade & PHP expression support (`{{ }}`, `{!! !!}`, closures)
+- ✅ **Livewire 4 native** — `#[Computed]` caching, `#[On]` events, `wire:model.live`
+- ✅ **Static / Array mode** — No model needed; pass any array or Collection
+- ✅ **Count aggregations** — `withCount()` without loading relations
+- ✅ **Export** — CSV, Excel, PDF (optional)
+- ✅ **Column visibility** — Toggle columns client-side
+- ✅ **Interactive filters** — per-column with type-specific operators
+- ✅ **Date range filtering** — built-in `dateColumn` support
+- ✅ **Responsive** — works on mobile & desktop
+- ✅ **Docs & Generator** — visit `/aftable/generator` for interactive docs
 
 ---
 
@@ -133,21 +133,100 @@ That's it! Package auto-registers with Laravel. `livewire/blaze` is bundled as a
 
 ---
 
-## 🔧 Common Configuration Options
+## 🔧 Common Options
 
 ```blade
 @livewire('aftable', [
-    'model' => 'App\Models\Item',                 # Eloquent model
-    'columns' => [...],                           # Column definitions
-    'records' => 50,                              # Items per page
-    'showSearch' => true,                         # Show search box
-    'showPagination' => true,                     # Show pagination
-    'showColumnVisibility' => true,               # Show column toggles
-    'showExport' => true,                         # Show export button
-    'exportFormats' => ['csv', 'excel', 'pdf'],  # Available export types
-    'customQuery' => Item::active(),              # Custom query builder
+    'model'         => App\Models\User::class,
+    'columns'       => [...],
+    'perPage'       => 25,
+    'sortBy'        => 'created_at',
+    'sortDirection' => 'desc',
+    'searchable'    => true,
+    'exportable'    => false,
+    'printable'     => false,
+    'checkbox'      => false,
+    'index'         => false,
+    'colvisBtn'     => true,
+    'refreshBtn'    => false,
+    'extraVars'     => ['currency' => 'PKR'],
+    'dateColumn'    => 'created_at',
 ])
 ```
+
+---
+
+## 🎨 Raw Column Templates
+
+`raw` columns support full **Blade syntax** and **PHP expressions**. The current row is available as `$row`.
+
+### Blade expressions (`{{ }}` and `{!! !!}`)
+
+```blade
+// Date formatting
+['key' => 'date', 'label' => 'Date',
+ 'raw' => '{{ \Carbon\Carbon::parse($row->date)->format("d M Y") }}']
+
+// Status badge with unescaped HTML
+['key' => 'active', 'label' => 'Status',
+ 'raw' => '{!! $row->active
+     ? "<span class=\"badge badge-light-success\">Active</span>"
+     : "<span class=\"badge badge-light-warning\">Inactive</span>" !!}']
+
+// Calculated value
+['key' => 'amount', 'label' => 'Total',
+ 'raw' => 'PKR {{ number_format($row->qty * $row->price, 2) }}']
+```
+
+> **Livewire 4 note:** `raw` templates use `compileString() + eval()` internally, bypassing Livewire 4's `ExtendedCompilerEngine` which caused compiled PHP to appear as raw text. Both `{{ }}` (escaped) and `{!! !!}` (unescaped) work correctly.
+
+### PHP Closures (fastest, no Blade overhead)
+
+```blade
+['key' => 'status', 'label' => 'Status',
+ 'raw' => fn($row) => '<span class="badge bg-'.($row->status === 'active' ? 'success' : 'danger').'">'.e($row->status).'</span>']
+```
+
+### Extra variables in raw templates
+
+```blade
+@livewire('aftable', [
+    'model'     => App\Models\Order::class,
+    'extraVars' => ['currency' => 'USD', 'locale' => 'en'],
+    'columns'   => [
+        ['key' => 'total', 'raw' => '{{ $currency }} {{ number_format($row->total, 2) }}'],
+    ],
+])
+```
+
+---
+
+## 🆕 Livewire 4 Compatibility
+
+| Feature | Old (LW3) | New (LW4) |
+|---------|-----------|-----------|
+| Event listeners | `protected $listeners = [...]` | `#[On('event')]` attribute |
+| Reactive updates | `wire:model` | `wire:model.live` |
+| Computed data | Manual caching | `#[Computed]` auto-caching |
+| `raw` rendering | `Blade::render()` | `compileString() + eval()` |
+| Alpine.js | External import | Bundled with Livewire |
+
+### Events (Livewire 4)
+
+| Event | How to dispatch |
+|-------|----------------|
+| `refreshTable` | `Livewire.dispatch('refreshTable')` |
+| `dateRangeSelected` | `Livewire.dispatch('dateRangeSelected', {startDate, endDate})` |
+
+---
+
+## 📚 Documentation &amp; Generator
+
+Visit **`/aftable/generator`** in your application to:
+
+- 📖 Browse full interactive documentation
+- ⚡ Generate `@livewire()` column code with a visual builder
+- 👁 Preview all column types and templates
 
 ---
 
@@ -239,7 +318,7 @@ User sees sorted table
 ```blade
 @livewire('aftable', [
     'model' => 'App\Models\User',
-    'records' => 25,
+    'perPage' => 25,
     'columns' => [
         ['key' => 'name', 'label' => 'Name'],
         ['key' => 'email', 'label' => 'Email'],
@@ -269,28 +348,32 @@ User sees sorted table
 
 ## 🎨 Customization
 
-### CSS Classes
+### Custom Query (restrict rows)
 ```blade
 @livewire('aftable', [
-    'tableClass' => 'w-full border-collapse',
-    'theadClass' => 'bg-gray-100',
-    'rowClass' => 'hover:bg-gray-50',
+    'model' => App\Models\Item::class,
+    'query' => Item::query()->where('tenant_id', auth()->user()->tenant_id)->active(),
 ])
 ```
 
-### Custom Query
+### Export & Print
 ```blade
 @livewire('aftable', [
-    'model' => 'App\Models\Item',
-    'customQuery' => Item::active()->whereTenantId(auth()->user()->tenant_id),
+    'model'      => App\Models\User::class,
+    'columns'    => [...],
+    'exportable' => true,   // CSV / Excel export button
+    'printable'  => true,   // Print button (isolated pop-up window)
 ])
 ```
 
-### Export Formats
+### Extra Variables in Raw Templates
 ```blade
 @livewire('aftable', [
-    'showExport' => true,
-    'exportFormats' => ['csv', 'excel', 'pdf'],
+    'model'   => App\Models\Order::class,
+    'vars'    => ['currency' => 'USD'],  // available as $currency in raw templates
+    'columns' => [
+        ['key' => 'total', 'raw' => '{{ $currency }} {{ number_format($row->total, 2) }}'],
+    ],
 ])
 ```
 
@@ -343,7 +426,7 @@ All three are equivalent — pick the one that fits your workflow:
 @endaftable
 ```
 
-The live code generator at `index.html` supports all three via the **Output Syntax** radio group.
+The live code generator at `/aftable/generator` supports all three via the **Output Syntax** radio group.
 
 ---
 
@@ -407,13 +490,14 @@ class MyComponent extends Component {
 
 | File | Purpose | Audience |
 |------|---------|----------|
-| **README.md** | This file - Overview | Everyone |
+| **README.md** | This file — Overview & API reference | Everyone |
 | **USAGE_STUB.md** | Complete method reference | Developers, AI agents |
-| **AI_USAGE_GUIDE.md** | How to use (non-technical) | Users, AI agents |
-| **AI_TECHNICAL_REFERENCE.md** | How it works (technical) | Developers, AI agents |
-| **FEATURE_RECOMMENDATIONS.md** | Future features & roadmap | Architects, Planners |
-| **CHANGELOG_V1.8.0.md** | v1.8.0 release notes (Blaze, #[Computed], @island) | Developers |
-| **CHANGELOG_V1.6.0.md** | v1.6.0 & v1.7.0 release notes | Developers |
+| **AI_USAGE_GUIDE.md** | Non-technical usage guide | Users, AI agents |
+| **AI_TECHNICAL_REFERENCE.md** | Architecture deep-dive | Developers, AI agents |
+| **CHANGELOG_V2.0.0.md** | v2.0.0 Livewire 4 upgrade notes | Developers |
+| **CHANGELOG_V1.8.0.md** | v1.8.0 release notes | Developers |
+
+> **Interactive docs:** visit `/aftable/generator` in your running app for a live docs browser and column code generator.
 
 ---
 
@@ -432,9 +516,9 @@ This package is open-source and available under the MIT license.
 
 ---
 
-**ArtFlow Table 1.8.0 - Where Performance Meets Simplicity** ⚡
+**ArtFlow Table 2.0.0 - Where Performance Meets Simplicity** ⚡
 
 Make datatables **simple** and **fast** with automatic optimization!
 
 **Last Updated:** July 2025  
-**Status:** ✅ Production Ready
+**Status:** ✅ Production Ready (Livewire 4 / Laravel 12)

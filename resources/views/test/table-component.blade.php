@@ -9,12 +9,13 @@
         'tableId' => $tableId,
         'searchable' => true,
         'exportable' => true,
-        'printable' => $printable ?? false,
+        'printable' => $printable ?? true,
         'printConfig' => $printConfig ?? [],
         'colvisBtn' => true,
         'colSort' => true,
         'records' => 25,
-        'checkbox' => false,
+        'checkbox' => $checkbox ?? true,
+        'refreshBtn' => true,
         'index' => true,
     ])
 </div>

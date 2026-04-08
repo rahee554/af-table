@@ -81,7 +81,7 @@ PHP;
         ], 'views');
 
         $this->publishes([
-            __DIR__.'/resources/assets' => public_path('vendor/artflow-studio/table/assets'),
+            __DIR__.'/../resources/assets' => public_path('vendor/artflow-studio/table/assets'),
         ], 'assets');
 
         // Blaze optimization — speeds up anonymous Blade components in the package.

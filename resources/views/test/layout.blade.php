@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>AFTable Test Environment</title>
+    <title>AFTable v1.5.6</title>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -17,6 +17,9 @@
     
     <!-- Custom Styles -->
     <style>
+        html, body {
+            overflow-x: hidden;
+        }
         body {
             background: #f8f9fa;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -101,15 +104,17 @@
         }
     </style>
     
-    @livewireStyles
+    @unless(View::hasSection('withoutLivewireAssets'))
+        @livewireStyles
+    @endunless
     @stack('styles')
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ route('aftable.test') }}">
-                <i class="fas fa-table me-2"></i>AFTable Test Environment
+            <a class="navbar-brand" href="{{ route('aftable.docs') }}">
+                <i class="fas fa-table me-2"></i>AFTable <span style="opacity:.75;font-weight:400;">v1.5.6</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -117,13 +122,18 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ route('aftable.test') }}">
-                            <i class="fas fa-home me-1"></i>Test Home
+                        <a class="nav-link" href="{{ route('aftable.docs') }}">
+                            <i class="fas fa-book me-1"></i>Documentation
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="https://github.com/artflow-studio/table" target="_blank">
-                            <i class="fab fa-github me-1"></i>Documentation
+                        <a class="nav-link" href="{{ route('aftable.generator') }}">
+                            <i class="fas fa-magic me-1"></i>Generator
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('aftable.test') }}">
+                            <i class="fas fa-flask me-1"></i>Test Env
                         </a>
                     </li>
                 </ul>
@@ -143,7 +153,7 @@
                 <strong>AFTable Test Environment</strong> - Performance Testing & Validation Suite
             </p>
             <p class="mb-0 text-muted small">
-                Laravel Livewire Datatable Package v1.5.1
+                AFTable v1.5.6 &mdash; Laravel Livewire 4 Datatable Package
             </p>
         </div>
     </footer>
@@ -160,7 +170,9 @@
     <!-- Date Range Picker -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
     
-    @livewireScripts
+    @unless(View::hasSection('withoutLivewireAssets'))
+        @livewireScripts
+    @endunless
     @stack('scripts')
 </body>
 </html>

@@ -25,8 +25,9 @@ class TestTableComponent extends Component
             'filters' => $config['filters'],
             'actions' => $config['actions'],
             'tableId' => $config['tableId'],
-            'printable' => $config['printable'] ?? false,
+            'printable' => $config['printable'] ?? true,
             'printConfig' => $config['printConfig'] ?? [],
+            'checkbox' => $config['checkbox'] ?? true,
         ]);
     }
 

@@ -1,22 +1,37 @@
 @push('styles')
     @once
-        <!-- Livewire Styles -->
-        @livewireStyles
+    <style>
+        .aftable-table-loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s ease; }
+    </style>
     @endonce
-    <link rel="stylesheet" href="{{ asset('vendor/artflow-studio/table/assets/style.css') }}">
 @endpush
 
-@push('scripts')
-    @once
-        <!-- Livewire Scripts -->
-        @livewireScripts
-    @endonce
+{{-- Package assets (CSS + JS). Set assets=false on the @livewire call to disable when your theme covers these. --}}
+@if($assets)
+@assets
+<style>
+/* ── AF Table Package styles ─────────────────────────────────────── */
+.aftable-skeleton .placeholder { animation: aft-pulse 1.4s ease-in-out infinite; }
+@keyframes aft-pulse { 0%,100%{ opacity:.35 } 50%{ opacity:.7 } }
+.table-responsive { border-radius:.375rem; }
+#myTable { margin-bottom:0; background:#fff; }
+#myTable th { background:#f8f9fa !important; border-top:1px solid #dee2e6; font-weight:600;
+              font-size:.875rem; color:#495057; white-space:nowrap; }
+#myTable th[style*="cursor:pointer"] { user-select:none; transition:background-color .15s ease-in-out; }
+#myTable th[style*="cursor:pointer"]:hover { background:#e9ecef !important; }
+#myTable th span { display:inline-flex; align-items:center; gap:.25rem; }
+#myTable tbody tr { transition:background-color .15s ease-in-out; }
+#myTable tbody tr:hover { background:#f8f9fa; }
+.filter-indicator.active { border-color:#0d6efd !important; background:rgba(13,110,253,.05); }
+.table-fade { animation:aft-table-fade .18s ease; }
+@keyframes aft-table-fade { from{ opacity:.5; transform:translateY(2px) } to{ opacity:1; transform:none } }
+.dropdown-menu { max-height:400px; overflow-y:auto; }
+.dropdown-menu .form-check { padding:.5rem 1rem; margin:0; border-bottom:1px solid #f1f3f4; }
+</style>
+@endassets
+@endif
 
-    <!-- Your custom JS for this component -->
-    <script src="{{ asset('vendor/artflow-studio/table/assets/scripts.js') }}"></script>
-@endpush
-
-<div>
+<div class="aftable-wrapper">
     @if (!empty($filters))
         <div class="mb-3">
             {{-- Main Filter Row --}}
@@ -323,7 +338,18 @@
         </div>
     </div>
 
-    <div class="table-responsive rounded {{ (isset($data) && count($data) < 5) ? 'h-500px' : '' }}">
+    {{-- Single island containing table + pagination footer: when records/sort/page changes inside, the whole island re-renders with fresh data --}}
+    @island(name: 'aftable-data', always: true)
+        @php
+            // Island renders bypass render() and don't get the $data view variable;
+            // fall back to the #[Computed] property so data is always available.
+            $data ??= $this->tableData;
+        @endphp
+
+    <div class="table-responsive rounded aftable-table-wrap {{ (isset($data) && count($data) < 5) ? 'h-500px' : '' }}"
+         wire:loading.class="aftable-table-loading"
+         wire:loading.attr="aria-busy"
+    >
         @php
             // Allow @aftable/@endaftable to pass a custom <table> tag with user's theme classes.
             // We extract its attributes and apply them to our table element, keeping all
@@ -346,14 +372,14 @@
                     @if ($checkbox)
                         <th class="fw-bold bg-light">
                             <div class="form-check">
-                                <input class="form-check-input" wire:model="selectAll" type="checkbox"
-                                    data-kt-check-target="#myTable .form-check-input" />
+                                <input class="form-check-input" wire:model.live="selectAll" type="checkbox"
+                                    data-kt-check-target="#{{ $tableId ?? 'myTable' }} .form-check-input" />
                             </div>
                         </th>
                     @endif
 
                     @if (!isset($index) || $index)
-                        <th class="fw-bold bg-light" wire:click="toggleSort('updated_at')" style="cursor:pointer;">
+                        <th class="fw-bold bg-light" wire:click.preserve-scroll="toggleSort('updated_at')" style="cursor:pointer;">
                             <span class="d-inline-flex align-items-center">
                                 #
                                 @if ($sortBy == 'updated_at')
@@ -387,7 +413,7 @@
                             @endphp
                             <th class="fw-bold bg-light position-relative {{ $column['th_class'] ?? $column['class'] ?? '' }}"
                                 @if($isSortable)
-                                    wire:click="toggleSort('{{ $column['key'] }}')" style="cursor:pointer;"
+                                    wire:click.preserve-scroll="toggleSort('{{ $column['key'] }}')" style="cursor:pointer;"
                                 @endif
                             >
                                 <span class="d-inline-flex align-items-center">
@@ -415,28 +441,12 @@
             </thead>
             <tbody id="datatable-tbody">
                 @if (!isset($data) || count($data) === 0)
-                    <tr>
-                        <td colspan="{{ 
-                            ($checkbox ? 1 : 0) +
-                            ((!isset($index) || $index) ? 1 : 0) +
-                            collect($columns)->filter(fn($col, $key) => $visibleColumns[$key] ?? false)->count() +
-                            (!empty($actions) ? 1 : 0)
-                        }}" class="text-center align-middle py-5">
-                            <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 200px;">
-                                <svg width="64" height="64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect width="64" height="64" rx="12" fill="#F3F6F9"/>
-                                    <path d="M20 28h24v16H20z" fill="#7E8299"/>
-                                    <path d="M20 20h8l4 4h12a2 2 0 0 1 2 2v18a2 2 0 0 1-2 2H20a2 2 0 0 1-2-2V22a2 2 0 0 1 2-2z" fill="#FFA800"/>
-                                </svg>
-                                <div class="mt-3 fs-5 text-muted">No data found</div>
-                            </div>
-                        </td>
-                    </tr>
+                    <x-artflow-table::empty-state />
                 @else
                     @foreach ($data as $row)
-                        <tr>
+                        <tr wire:key="row-{{ $row->id ?? $loop->index }}">
                             @if ($checkbox)
-                                <td><input type="checkbox" wire:model="selectedRows" value="{{ $row->id }}" class="form-check-input"></td>
+                                <td><input type="checkbox" wire:model.live="selectedRows" value="{{ $row->id }}" class="form-check-input"></td>
                             @endif
 
                             @if (!isset($index) || $index)
@@ -631,31 +641,14 @@
         </table>
     </div>
 
-    {{--
-        Livewire 4 @island — deferred pagination footer.
-        Loads asynchronously after the main table is painted, keeping
-        the page interactive immediately even on large datasets where
-        COUNT(*) queries can be expensive.
-    --}}
-    @island(defer: true, name: 'pagination-footer')
-        @placeholder
-            <div class="d-flex gap-2 mt-2 align-items-center" aria-hidden="true">
-                <div class="placeholder-glow flex-grow-1">
-                    <span class="placeholder col-4 rounded"></span>
-                </div>
-                <div class="placeholder-glow">
-                    <span class="placeholder col-2 rounded"></span>
-                </div>
-            </div>
-        @endplaceholder
-
+        {{-- Pagination footer: inside the same island so records change re-renders both table and pagination together --}}
         <div>
             @if(isset($data))
                 {{ $data->links('artflow-table::livewire.pagination') }}
             @endif
             @if(isset($data) && $data->total() > 10)
                 <div class="w-100px">
-                    <select wire:model.change="records" id="records" class="form-select form-select-sm">
+                    <select wire:model.live="records" id="records" class="form-select form-select-sm">
                         <option value="10">10</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
@@ -668,136 +661,128 @@
     @endisland
 </div>
 
-@push('scripts')
-    @once
-    <script>
-    /**
-     * AftableComponent — isolated print window
-     *
-     * Opens a child window containing only the table (no surrounding layout).
-     * Reads the current DOM so the printed output always matches what the user sees.
-     *
-     * @param {string} tableId     – id attribute of the <table> element
-     * @param {object} cfg         – printConfig from the Livewire component
-     */
-    function aftablePrint(tableId, cfg) {
-        cfg = Object.assign({
-            title: '', header: '', footer: '',
-            fontSize: 11, orientation: 'portrait', paperSize: 'A4',
-            showDate: true, showPageNum: true, tableClass: ''
-        }, cfg || {});
+@assets
+<script>
+/**
+ * AftableComponent — isolated print window
+ *
+ * Opens a child window containing only the table (no surrounding layout).
+ * Reads the current DOM so the printed output always matches what the user sees.
+ *
+ * @param {string} tableId     – id attribute of the <table> element
+ * @param {object} cfg         – printConfig from the Livewire component
+ */
+function aftablePrint(tableId, cfg) {
+    cfg = Object.assign({
+        title: '', header: '', footer: '',
+        fontSize: 11, orientation: 'portrait', paperSize: 'A4',
+        showDate: true, showPageNum: true, tableClass: ''
+    }, cfg || {});
 
-        var table = document.getElementById(tableId);
-        if (!table) { alert('Table not found: ' + tableId); return; }
+    var table = document.getElementById(tableId);
+    if (!table) { alert('Table not found: ' + tableId); return; }
 
-        // Clone the visible table so we don't disturb the live DOM
-        var clone = table.cloneNode(true);
-        // Remove action-column cells (last column if it contains links/buttons)
-        clone.querySelectorAll('th:last-child, td:last-child').forEach(function (cell) {
-            if (cell.querySelector('a,button,form')) { cell.remove(); }
-        });
-        // Strip wire: and x- attributes from the clone to keep HTML clean
-        clone.querySelectorAll('[wire\\:click],[wire\\:model],[x-data]').forEach(function (el) {
-            Array.from(el.attributes).forEach(function (attr) {
-                if (attr.name.startsWith('wire:') || attr.name.startsWith('x-')) {
-                    el.removeAttribute(attr.name);
-                }
-            });
-        });
-
-        var dateStr = cfg.showDate ? new Date().toLocaleDateString() : '';
-        var titleHtml = cfg.title
-            ? '<h2 style="margin:0 0 4px 0;font-size:14pt;">' + cfg.title + '</h2>'
-            : '';
-        var headerHtml = cfg.header
-            ? '<div class="print-custom-header">' + cfg.header + '</div>'
-            : '';
-        var footerHtml = cfg.footer
-            ? '<div class="print-custom-footer">' + cfg.footer + '</div>'
-            : '';
-
-        var tableHtml = clone.outerHTML.replace(/<table/, '<table class="aft-print-table ' + (cfg.tableClass || '') + '"');
-
-        var doc = [
-            '<!DOCTYPE html><html><head>',
-            '<meta charset="utf-8">',
-            '<title>' + (cfg.title || 'Table Print') + '</title>',
-            '<style>',
-            '  @page { size: ' + cfg.paperSize + ' ' + cfg.orientation + '; margin: 1.5cm; }',
-            '  * { box-sizing: border-box; }',
-            '  body { font-family: Arial, Helvetica, sans-serif; font-size: ' + cfg.fontSize + 'pt; color: #111; margin: 0; padding: 0; }',
-            '  .print-header { border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; }',
-            '  .print-header-left {}',
-            '  .print-header-date { font-size: 9pt; color: #555; }',
-            '  .print-footer { border-top: 1px solid #aaa; margin-top: 12px; padding-top: 6px; font-size: 9pt; color: #555; display: flex; justify-content: space-between; }',
-            '  .print-custom-header, .print-custom-footer { margin: 8px 0; }',
-            '  .aft-print-table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }',
-            '  .aft-print-table th, .aft-print-table td { border: 1px solid #bbb; padding: 5px 8px; text-align: left; vertical-align: top; }',
-            '  .aft-print-table thead tr { background: #f0f0f0; }',
-            '  .aft-print-table tr { page-break-inside: avoid; page-break-after: auto; }',
-            '  .aft-print-table tbody tr:nth-child(even) { background: #fafafa; }',
-            '  /* hide non-table UI elements that may end up in the clone */',
-            '  .dropdown, .btn, .form-check, [wire\\:click], [x-data] { display: none !important; }',
-            '  @media print {',
-            '    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-            '    .no-print { display: none !important; }',
-            '  }',
-            '<' + '/style>',
-            '<' + '/head><body>',
-            '<div class="print-header">',
-            '  <div class="print-header-left">' + titleHtml + headerHtml + '</div>',
-            '  <div class="print-header-date">' + dateStr + '</div>',
-            '</div>',
-            tableHtml,
-            '<div class="print-footer">',
-            '  <div>' + footerHtml + '</div>',
-            cfg.showPageNum ? '  <div class="page-num">Page <span id="pn"></span></div>' : '<div></div>',
-            '</div>',
-            cfg.showPageNum ? '<script>document.getElementById("pn").textContent=1;<\/script>' : '',
-            '<' + '/body><' + '/html>'
-        ].join('\n');
-
-        var win = window.open('', '_blank', 'width=960,height=720,scrollbars=yes,resizable=yes');
-        if (!win) { alert('Pop-up blocked — please allow pop-ups for this page to use the print feature.'); return; }
-        win.document.open();
-        win.document.write(doc);
-        win.document.close();
-        win.focus();
-        setTimeout(function () { win.print(); }, 400);
-    }
-    </script>
-    @endonce
-@endpush
-
-@push('scripts')
-    @once
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // Re-trigger table fade animation after every Livewire update
-        window.addEventListener('livewire:update', function () {
-            const tbody = document.querySelector('#myTable tbody');
-            if (tbody) {
-                tbody.classList.remove('table-fade');
-                setTimeout(() => { tbody.classList.add('table-fade'); }, 10);
-            }
-
-            // Keep the column visibility dropdown open after toggling a checkbox
-            const dropdownToggle = document.getElementById('columnVisibilityDropdown');
-            const dropdownMenu = dropdownToggle?.nextElementSibling;
-            if (window._keepColumnDropdownOpen) {
-                dropdownMenu?.classList.add('show');
-                dropdownToggle?.setAttribute('aria-expanded', 'true');
-                window._keepColumnDropdownOpen = false;
-            }
-        });
-
-        // Flag set so the dropdown stays open when a visibility checkbox is clicked
-        document.getElementById('columnVisibilityDropdownWrapper')?.addEventListener('click', function (e) {
-            if (e.target && e.target.matches('.form-check-input')) {
-                window._keepColumnDropdownOpen = true;
+    // Clone the visible table so we don't disturb the live DOM
+    var clone = table.cloneNode(true);
+    // Remove action-column cells (last column if it contains links/buttons)
+    clone.querySelectorAll('th:last-child, td:last-child').forEach(function (cell) {
+        if (cell.querySelector('a,button,form')) { cell.remove(); }
+    });
+    // Strip wire: and x- attributes from the clone to keep HTML clean
+    clone.querySelectorAll('[wire\\:click],[wire\\:model],[x-data]').forEach(function (el) {
+        Array.from(el.attributes).forEach(function (attr) {
+            if (attr.name.startsWith('wire:') || attr.name.startsWith('x-')) {
+                el.removeAttribute(attr.name);
             }
         });
     });
-    </script>
-    @endonce
-@endpush
+
+    var dateStr = cfg.showDate ? new Date().toLocaleDateString() : '';
+    var titleHtml = cfg.title
+        ? '<h2 style="margin:0 0 4px 0;font-size:14pt;">' + cfg.title + '</h2>'
+        : '';
+    var headerHtml = cfg.header
+        ? '<div class="print-custom-header">' + cfg.header + '</div>'
+        : '';
+    var footerHtml = cfg.footer
+        ? '<div class="print-custom-footer">' + cfg.footer + '</div>'
+        : '';
+
+    var tableHtml = clone.outerHTML.replace(/<table/, '<table class="aft-print-table ' + (cfg.tableClass || '') + '"');
+
+    var doc = [
+        '<!DOCTYPE html><html><head>',
+        '<meta charset="utf-8">',
+        '<title>' + (cfg.title || 'Table Print') + '</title>',
+        '<style>',
+        '  @page { size: ' + cfg.paperSize + ' ' + cfg.orientation + '; margin: 1.5cm; }',
+        '  * { box-sizing: border-box; }',
+        '  body { font-family: Arial, Helvetica, sans-serif; font-size: ' + cfg.fontSize + 'pt; color: #111; margin: 0; padding: 0; }',
+        '  .print-header { border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; }',
+        '  .print-header-left {}',
+        '  .print-header-date { font-size: 9pt; color: #555; }',
+        '  .print-footer { border-top: 1px solid #aaa; margin-top: 12px; padding-top: 6px; font-size: 9pt; color: #555; display: flex; justify-content: space-between; }',
+        '  .print-custom-header, .print-custom-footer { margin: 8px 0; }',
+        '  .aft-print-table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }',
+        '  .aft-print-table th, .aft-print-table td { border: 1px solid #bbb; padding: 5px 8px; text-align: left; vertical-align: top; }',
+        '  .aft-print-table thead tr { background: #f0f0f0; }',
+        '  .aft-print-table tr { page-break-inside: avoid; page-break-after: auto; }',
+        '  .aft-print-table tbody tr:nth-child(even) { background: #fafafa; }',
+        '  /* hide non-table UI elements that may end up in the clone */',
+        '  .dropdown, .btn, .form-check, [wire\\:click], [x-data] { display: none !important; }',
+        '  @media print {',
+        '    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+        '    .no-print { display: none !important; }',
+        '  }',
+        '<' + '/style>',
+        '<' + '/head><body>',
+        '<div class="print-header">',
+        '  <div class="print-header-left">' + titleHtml + headerHtml + '</div>',
+        '  <div class="print-header-date">' + dateStr + '</div>',
+        '</div>',
+        tableHtml,
+        '<div class="print-footer">',
+        '  <div>' + footerHtml + '</div>',
+        cfg.showPageNum ? '  <div class="page-num">Page <span id="pn"></span></div>' : '<div></div>',
+        '</div>',
+        cfg.showPageNum ? '<script>document.getElementById("pn").textContent=1;<\/script>' : '',
+        '<' + '/body><' + '/html>'
+    ].join('\n');
+
+    var win = window.open('', '_blank', 'width=960,height=720,scrollbars=yes,resizable=yes');
+    if (!win) { alert('Pop-up blocked — please allow pop-ups for this page to use the print feature.'); return; }
+    win.document.open();
+    win.document.write(doc);
+    win.document.close();
+    win.focus();
+    setTimeout(function () { win.print(); }, 400);
+}
+</script>
+@endassets
+
+@script
+    // Re-trigger table fade animation after every Livewire update
+    window.addEventListener('livewire:update', function () {
+        const tbody = document.querySelector('#myTable tbody');
+        if (tbody) {
+            tbody.classList.remove('table-fade');
+            setTimeout(() => { tbody.classList.add('table-fade'); }, 10);
+        }
+
+        // Keep the column visibility dropdown open after toggling a checkbox
+        const dropdownToggle = document.getElementById('columnVisibilityDropdown');
+        const dropdownMenu = dropdownToggle?.nextElementSibling;
+        if (window._keepColumnDropdownOpen) {
+            dropdownMenu?.classList.add('show');
+            dropdownToggle?.setAttribute('aria-expanded', 'true');
+            window._keepColumnDropdownOpen = false;
+        }
+    });
+
+    // Flag set so the dropdown stays open when a visibility checkbox is clicked
+    document.getElementById('columnVisibilityDropdownWrapper')?.addEventListener('click', function (e) {
+        if (e.target && e.target.matches('.form-check-input')) {
+            window._keepColumnDropdownOpen = true;
+        }
+    });
+@endscript

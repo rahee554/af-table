@@ -10,13 +10,22 @@ Route::middleware(['web'])->prefix('aftable')->group(function () {
         return view('artflow-table::test.index');
     })->name('aftable.test');
 
+    // Documentation page — full API reference, guides, and feature explanations
+    Route::get('/docs', function () {
+        return view('artflow-table::docs');
+    })->name('aftable.docs');
+
+    // Generator page — interactive Blade code generator only
+    Route::get('/generator', function () {
+        return view('artflow-table::generator');
+    })->name('aftable.generator');
+
     // Run performance tests endpoint
     Route::post('/test/run-performance', function () {
         try {
-            // Run the performance test suite
             Artisan::call('af-table:test-trait', ['--suite' => 'performance']);
             $output = Artisan::output();
-            
+
             return response()->json([
                 'success' => true,
                 'output' => $output,

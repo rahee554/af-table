@@ -37,12 +37,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Livewire\Attributes\Async;
 use Livewire\Attributes\Computed;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -247,15 +245,15 @@ class AftableComponent extends Component
 
     /** Print window configuration */
     public array $printConfig = [
-        'title'       => '',
-        'header'      => '',
-        'footer'      => '',
-        'fontSize'    => 11,
+        'title' => '',
+        'header' => '',
+        'footer' => '',
+        'fontSize' => 11,
         'orientation' => 'portrait',
-        'paperSize'   => 'A4',
-        'showDate'    => true,
+        'paperSize' => 'A4',
+        'showDate' => true,
         'showPageNum' => true,
-        'tableClass'  => '',
+        'tableClass' => '',
     ];
 
     public $colSort = true;
@@ -263,6 +261,15 @@ class AftableComponent extends Component
     public $sort = 'desc';
 
     public $refreshBtn = false;
+
+    /**
+     * Whether to inject the package's own CSS and JS assets.
+     * Set to false when your theme already provides the needed styles and you want
+     * zero extra network requests from this package.
+     *
+     * Usage: @livewire('aftable', ['assets' => false, ...])
+     */
+    public bool $assets = true;
 
     // *----------- Query String Parameters -----------*//
     public $queryString = [
@@ -282,12 +289,6 @@ class AftableComponent extends Component
     public $enableSessionPersistence = true;
 
     public $enableQueryStringSupport = true;
-
-    // *----------- Event Listeners -----------*//
-    protected $listeners = [
-        'dateRangeSelected' => 'applyDateRange',
-        'refreshTable' => '$refresh',
-    ];
 
     // *----------- INITIALIZATION AND CONFIGURATION METHODS -----------*//
 
@@ -934,6 +935,38 @@ class AftableComponent extends Component
     // *----------- USER ACTION DELEGATES -----------*//
 
     /**
+     * Handle the 'dateRangeSelected' Livewire event.
+     * Livewire 4: uses #[On] attribute instead of $listeners array.
+     */
+    #[On('dateRangeSelected')]
+    public function applyDateRange($startDate, $endDate): void
+    {
+        $this->startDate = $startDate;
+        $this->endDate = $endDate;
+        $this->resetPage();
+        $this->invalidateQueryCache();
+    }
+
+    /**
+     * Handle the 'refreshTable' Livewire event.
+     * Livewire 4: uses #[On] attribute instead of $listeners array.
+     */
+    #[On('refreshTable')]
+    public function refreshTableHandler(): void
+    {
+        $this->invalidateQueryCache();
+    }
+
+    /**
+     * Refresh the table data - button action.
+     * Invalidates the computed cache so the next render fetches fresh data.
+     */
+    public function refreshTable(): void
+    {
+        $this->invalidateQueryCache();
+    }
+
+    /**
      * Add a new filter instance
      */
     public function addFilterInstance()
@@ -1152,7 +1185,7 @@ class AftableComponent extends Component
     }
 
     /**
-     * Handle export - Delegates to HasExportFeatures
+     * Handle export - Delegates to HasExportFeatures.
      */
     public function handleExport($format = 'csv', $filename = null)
     {
@@ -1500,9 +1533,65 @@ class AftableComponent extends Component
     // *----------- TRAIT CONFLICT RESOLUTION -----------*//
 
     /**
-     * Clear selection - Resolves conflict between HasActions and HasBulkActions
+     * Livewire lifecycle hook — fires when the selectAll header checkbox is toggled.
+     * Selects or deselects all rows currently visible on the page.
      */
-    public function clearSelection()
+    public function updatedSelectAll(bool $value): void
+    {
+        if ($value) {
+            $this->selectAllOnPage();
+        } else {
+            $this->selectedRows = [];
+        }
+    }
+
+    /**
+     * Select all rows on the current page by collecting their IDs.
+     */
+    public function selectAllOnPage(): void
+    {
+        $data = $this->tableData ?? collect();
+        $this->selectedRows = $data->pluck('id')->map(fn ($id) => (string) $id)->toArray();
+        $this->selectAll = true;
+    }
+
+    /**
+     * Clear bulk selection state.
+     */
+    public function clearBulkSelection(): void
+    {
+        $this->selectedRows = [];
+        $this->selectAll = false;
+    }
+
+    /**
+     * Clear action-level selection state (alias kept for backward compatibility).
+     */
+    public function clearActionSelection(): void
+    {
+        $this->clearActionSelectedRows();
+    }
+
+    /**
+     * Return the number of bulk-selected rows.
+     */
+    public function getBulkSelectedCount(): int
+    {
+        return count($this->selectedRows ?? []);
+    }
+
+    /**
+     * Return the number of action-selected rows (same set as bulk for this component).
+     */
+    public function getActionSelectedCount(): int
+    {
+        return count($this->selectedRows ?? []);
+    }
+
+    /**
+     * Clear all selections.
+     */
+    public function clearSelection(): void
     {
         $this->clearBulkSelection();
         $this->clearActionSelection();
@@ -1510,14 +1599,11 @@ class AftableComponent extends Component
     }
 
     /**
-     * Get selected count - Resolves conflict between HasActions and HasBulkActions
+     * Return the total number of selected rows.
      */
     public function getSelectedCount(): int
     {
-        $bulkCount = $this->getBulkSelectedCount();
-        $actionCount = $this->getActionSelectedCount();
-
-        return max($bulkCount, $actionCount);
+        return $this->getBulkSelectedCount();
     }
 
     /**
@@ -1797,6 +1883,8 @@ class AftableComponent extends Component
      *
      * 1. Blade string (Blade syntax — recommended):
      *      'raw' => '<span class="badge">{{ $row->status }}</span>'
+     *      'raw' => '<span class="badge">{!! $row->status !!}</span>'
+     *      'raw' => '{{ \Carbon\Carbon::parse($row->date)->format("d M Y") }}'
      *      'raw' => '{{ number_format($row->price * $row->qty, 2) }}'
      *
      * 2. Callable / Closure (zero Blade overhead, best for complex logic):
@@ -1811,6 +1899,13 @@ class AftableComponent extends Component
      *
      * PHP calculation example:
      *      'raw' => '{{ number_format($row->price * $row->quantity, 2) }}'
+     *
+     * NOTE: Compiles via compileString() then evaluates via a temp file include.
+     * PHP 8 does not support <?php re-entry tags inside eval() strings, so we
+     * write to a temp .php file (cached by template hash) and include it instead.
+     * Livewire 4's ExtendedCompilerEngine binds templates to the component scope,
+     * which would break output buffering for nested Blade::render() calls — this
+     * approach is fully isolated from Livewire's rendering engine.
      */
     public function renderRawHtml($rawTemplate, $row): string
     {
@@ -1819,7 +1914,7 @@ class AftableComponent extends Component
             try {
                 return (string) $rawTemplate($row, $this->extraVars);
             } catch (\Throwable $e) {
-                Log::warning('DatatableTrait renderRawHtml callable error: '.$e->getMessage(), [
+                Log::warning('AftableComponent renderRawHtml callable error: '.$e->getMessage(), [
                     'row_id' => is_object($row) ? ($row->id ?? 'unknown') : 'array-row',
                 ]);
 
@@ -1832,25 +1927,77 @@ class AftableComponent extends Component
             return '';
         }
 
-        // Strip accidental PHP open tags so Blade::render doesn't choke
-        $template = preg_replace('/^\s*<\?php\s*/i', '', $rawTemplate);
-        $template = preg_replace('/\?>\s*$/', '', $template);
+        // NOTE: When raw templates are defined inside a @livewire() call in a Blade
+        // file, Laravel's Blade compiler processes {{ }} before passing the string to
+        // the component. So $rawTemplate may already contain compiled PHP code with
+        // opening php tags. We must NOT strip those tags — doing so
+        // produces bare "echo e(...);" code which PHP's file include treats as
+        // HTML text and outputs literally.
 
         // Merge component-level extraVars so templates can access keys directly
         $data = array_merge(['row' => $row, 'vars' => $this->extraVars], $this->extraVars);
 
         try {
-            return Blade::render($template, $data);
+            // Resolve (or create) a temp PHP file containing the compiled Blade.
+            // We cache by md5 hash so each unique template is only compiled and
+            // written to disk once per process lifetime.
+            $path = $this->resolveCompiledTemplatePath($rawTemplate);
+
+            // Include the file in an isolated static closure so $this is never
+            // bound to the Livewire component, preventing scope leakage.
+            $evaluate = static function (string $__path, array $__data): string {
+                extract($__data, EXTR_SKIP);
+                ob_start();
+                try {
+                    include $__path;
+                } catch (\Throwable $e) {
+                    ob_end_clean();
+                    throw $e;
+                }
+
+                return (string) ob_get_clean();
+            };
+
+            return $evaluate($path, $data);
         } catch (\Throwable $e) {
-            Log::warning('DatatableTrait renderRawHtml error: '.$e->getMessage(), [
+            Log::warning('AftableComponent renderRawHtml error: '.$e->getMessage(), [
                 'template_preview' => substr($rawTemplate, 0, 120),
                 'row_id' => is_object($row) ? ($row->id ?? 'unknown') : 'array-row',
             ]);
 
-            // Fallback: escape and show raw to signal the problem without exposing server internals
+            // Fallback: show template preview with error hint as tooltip
             return '<span class="text-danger" title="'.htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8').'">'.
-                   htmlspecialchars(substr($rawTemplate, 0, 60), ENT_QUOTES, 'UTF-8').
+                   htmlspecialchars(substr($rawTemplate, 0, 80), ENT_QUOTES, 'UTF-8').
                    '</span>';
         }
     }
+
+    /**
+     * Compile a raw Blade template string and cache it as a temp PHP file.
+     * Returns the absolute path to the ready-to-include PHP file.
+     * Files are re-used across rows (same template string → same file).
+     */
+    private function resolveCompiledTemplatePath(string $template): string
+    {
+        $hash = md5($template);
+
+        if (isset(self::$rawTemplateCache[$hash])) {
+            return self::$rawTemplateCache[$hash];
+        }
+
+        // If the template is already compiled PHP (Blade pre-compiled {{ }} in @livewire args),
+        // use it as-is. Otherwise compile Blade syntax to PHP first.
+        $compiled = str_contains($template, '<?php') || str_contains($template, '<?=')
+            ? $template
+            : app('blade.compiler')->compileString($template);
+
+        $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'aftable_tpl_'.$hash.'.php';
+
+        file_put_contents($path, $compiled, LOCK_EX);
+
+        return self::$rawTemplateCache[$hash] = $path;
+    }
+
+    /** @var array<string, string> Compiled template path cache (hash → file path). */
+    private static array $rawTemplateCache = [];
 }
