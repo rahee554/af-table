@@ -2,40 +2,29 @@
 
 namespace ArtflowStudio\Table\Http\Livewire;
 
-// Core Unified Traits - Consolidated for conflict resolution
-use ArtflowStudio\Table\Traits\Advanced\HasApiEndpoint;
-use ArtflowStudio\Table\Traits\Advanced\HasAutoOptimization;
-use ArtflowStudio\Table\Traits\Advanced\HasCountAggregations;
-use ArtflowStudio\Table\Traits\Advanced\HasExportFeatures;
-// Essential Core Traits - No conflicts detected
-use ArtflowStudio\Table\Traits\Advanced\HasPerformanceMonitoring;
-use ArtflowStudio\Table\Traits\Advanced\HasQueryOptimization;
-use ArtflowStudio\Table\Traits\Advanced\HasQueryStringSupport;
-use ArtflowStudio\Table\Traits\Advanced\HasSessionManagement;
-use ArtflowStudio\Table\Traits\Advanced\HasUnifiedOptimization;
-use ArtflowStudio\Table\Traits\Advanced\HasUtilities;
-use ArtflowStudio\Table\Traits\Core\HasActionHandling;
-use ArtflowStudio\Table\Traits\Core\HasBasicFeatures;
-use ArtflowStudio\Table\Traits\Core\HasColumnManagement;
-// UI & Interaction Traits - Reduced conflict footprint
-use ArtflowStudio\Table\Traits\Core\HasDataValidation;
-use ArtflowStudio\Table\Traits\Core\HasJsonFile;
-use ArtflowStudio\Table\Traits\Core\HasJsonSupport;
-// Advanced Features Traits - Performance & API
-use ArtflowStudio\Table\Traits\Core\HasQueryBuilding;
-use ArtflowStudio\Table\Traits\Core\HasRelationships;
-use ArtflowStudio\Table\Traits\Core\HasSorting;
-use ArtflowStudio\Table\Traits\Core\HasTemplateRendering;
-use ArtflowStudio\Table\Traits\Core\HasUnifiedCaching;
-use ArtflowStudio\Table\Traits\Core\HasUnifiedSearch;
-use ArtflowStudio\Table\Traits\Core\HasUnifiedValidation;
-use ArtflowStudio\Table\Traits\UI\HasColumnVisibility;
-use ArtflowStudio\Table\Traits\UI\HasEventListeners;
-use ArtflowStudio\Table\Traits\UI\HasSortingUI;
+use ArtflowStudio\Table\Concerns\BuildsQueries;
+use ArtflowStudio\Table\Concerns\CachesResults;
+use ArtflowStudio\Table\Concerns\DispatchesEvents;
+use ArtflowStudio\Table\Concerns\ExportsData;
+use ArtflowStudio\Table\Concerns\HandlesActions;
+use ArtflowStudio\Table\Concerns\ManagesColumns;
+use ArtflowStudio\Table\Concerns\PersistsState;
+use ArtflowStudio\Table\Concerns\RendersCells;
+use ArtflowStudio\Table\Concerns\SearchesRows;
+use ArtflowStudio\Table\Concerns\SortsRows;
+use ArtflowStudio\Table\Concerns\ValidatesInput;
+use ArtflowStudio\Table\Exports\ArrayExport;
+use ArtflowStudio\Table\Support\RelationPath;
+use ArtflowStudio\Table\Support\SchemaCache;
+use ArtflowStudio\Table\Support\TableCache;
+use ArtflowStudio\Table\Support\Theme;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\Snappy\Facades\SnappyPdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -43,105 +32,35 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AftableComponent extends Component
 {
-    use HasActionHandling {
-        HasActionHandling::executeAction insteadof HasDataValidation;
-        HasActionHandling::clearSelectedRows as clearActionSelectedRows;
-    }
-    use HasApiEndpoint;
-    use HasAutoOptimization;
-
-    // Remaining traits with no conflicts
-    use HasBasicFeatures;
-    use HasColumnManagement;
-    use HasColumnVisibility {
-        HasColumnVisibility::getDefaultVisibleColumns insteadof HasColumnManagement;
-        HasColumnVisibility::getValidatedVisibleColumns insteadof HasColumnManagement, HasSessionManagement;
-        HasColumnVisibility::getColumnVisibilitySessionKey insteadof HasSessionManagement;
-        HasColumnVisibility::getUserIdentifierForSession insteadof HasSessionManagement;
-    }
-    use HasCountAggregations;
-
-    // Essential traits - minimal conflicts
-    use HasDataValidation {
-        HasDataValidation::isValidColumn insteadof HasColumnManagement;
-        HasDataValidation::isAllowedColumn insteadof HasColumnManagement;
-    }
-    use HasEventListeners;
-    use HasExportFeatures {
-        HasExportFeatures::exportWithChunking as exportWithChunks;
-        HasExportFeatures::export as exportUnified;
-    }
-    use HasJsonFile {
-        HasJsonFile::applyJsonFilter insteadof HasQueryBuilding;
-    }
-    use HasJsonSupport {
-        HasTemplateRendering::getNestedValue insteadof HasJsonSupport;
-    }
-    use HasPerformanceMonitoring;
-
-    // Legacy traits with conflict resolution
-    use HasQueryBuilding {
-        HasQueryBuilding::applyOptimizedSorting insteadof HasSorting;
-        HasQueryBuilding::applyJoinSorting insteadof HasSorting;
-        HasUnifiedSearch::applyOptimizedSearch insteadof HasQueryBuilding;
-        HasUnifiedSearch::applyColumnSearch insteadof HasQueryBuilding;
-        HasUnifiedSearch::applyRelationSearch insteadof HasQueryBuilding;
-        HasUnifiedSearch::applyJsonSearch insteadof HasQueryBuilding;
-        HasUnifiedSearch::sanitizeSearch insteadof HasQueryBuilding;
-    }
-    use HasQueryOptimization {
-        HasQueryBuilding::applyOptimizedSorting insteadof HasQueryOptimization;
-    }
-    use HasQueryStringSupport;
-    use HasRelationships {
-        HasRelationships::validateRelationColumns insteadof HasDataValidation;
-        HasRelationships::validateRelationString insteadof HasUtilities;
-    }
-    use HasSessionManagement {
-        HasSessionManagement::autoSaveState as autoSaveSessionState;
-    }
-    use HasSorting {
-        HasSorting::toggleSort as toggleUnifiedSort;
-        HasSorting::getSortIcon insteadof HasSortingUI;
-        HasSorting::getSortableColumns insteadof HasSortingUI;
-        HasSorting::getSortState insteadof HasSortingUI;
-    }
-    use HasSortingUI {
-        HasSortingUI::isSorted insteadof HasSorting;
-    }
-    use HasTemplateRendering {
-        HasTemplateRendering::renderCellValue insteadof HasDataValidation;
-        HasTemplateRendering::processTemplate as processUnifiedTemplate;
-    }
-    use HasUnifiedCaching {
-        HasUnifiedCaching::getColumnDistinctValues as getCachedColumnDistinctValues;
-        HasUnifiedCaching::getRelationDistinctValues as getCachedRelationDistinctValues;
-    }
-    use HasUnifiedOptimization;
-    // *----------- Unified Traits - Conflict Resolution Complete -----------*//
-
-    // Core unified traits - these replace multiple conflicting traits
-    use HasUnifiedSearch {
-        HasUnifiedSearch::applyOptimizedSearch as searchApplyOptimized;
-        HasUnifiedSearch::sanitizeSearch as searchSanitize;
-        HasUnifiedSearch::clearSearch as clearUnifiedSearch;
-    }
-    use HasUnifiedValidation {
-        HasUnifiedValidation::validateColumn insteadof HasDataValidation;
-        HasUnifiedValidation::validateAction as validateUnifiedAction;
-    }
-    use HasUtilities {
-        HasDataValidation::sanitizeHtmlContent insteadof HasUtilities;
-        HasDataValidation::validateJsonPath insteadof HasUtilities;
-        HasDataValidation::validateExportFormat insteadof HasUtilities;
-        HasDataValidation::sanitizeFilterValue insteadof HasUtilities;
-        HasUtilities::sanitizeUtilitySearch as sanitizeSearchFromUtilities;
-        HasUtilities::generateBasicCacheKey as generateUtilityCacheKey;
-    }
+    /*
+     * Composition
+     * -----------
+     * Eleven concerns, no `insteadof`, no aliases.
+     *
+     * Until 1.6.0 this was 27 traits joined by 40+ conflict-resolution clauses,
+     * with 14 method names declared by more than one trait. PHP cannot warn you
+     * when two such implementations disagree, and one pair genuinely did: two
+     * traits declared getNestedValue() with the arguments in opposite orders,
+     * the `insteadof` picked the wrong one, and every JSON column fataled.
+     *
+     * The rule now is simply that no two concerns may declare the same method
+     * name. `CodeHealthRegressionTest` enforces it.
+     */
+    use BuildsQueries;
+    use CachesResults;
+    use DispatchesEvents;
+    use ExportsData;
+    use HandlesActions;
+    use ManagesColumns;
+    use PersistsState;
+    use RendersCells;
+    use SearchesRows;
+    use SortsRows;
+    use ValidatesInput;
     use WithPagination;
 
     // *----------- Properties -----------*//
@@ -231,7 +150,12 @@ class AftableComponent extends Component
 
     protected $distinctValuesCacheTime = 300;
 
-    protected $maxDistinctValues = 1000;
+    /**
+     * Per-instance override for the distinct-value cap. null = use
+     * `aftable.query.max_distinct_values`. It used to default to 1000, which
+     * meant the config value could never take effect.
+     */
+    protected ?int $maxDistinctValues = null;
 
     // Phase 1 Performance Optimizations — replaced by #[Computed] tableData()
     protected $distinctValuesCache = [];
@@ -261,6 +185,40 @@ class AftableComponent extends Component
     public $sort = 'desc';
 
     public $refreshBtn = false;
+
+    /**
+     * Named theme preset: 'bootstrap' (default), 'tailwind', 'none', or one
+     * registered with Theme::register(). null uses `aftable.theme.preset`.
+     */
+    public ?string $theme = null;
+
+    /**
+     * Per-slot class overrides for THIS table, e.g.
+     *   'classes' => ['table' => 'table table-sm my-theme', 'th' => 'sticky-top']
+     * Merged over the preset, so you only name what you want to change.
+     *
+     * @var array<string, string>
+     */
+    public array $classes = [];
+
+    /**
+     * Defer the first data query until the rows scroll into view.
+     *
+     * The toolbar, filters and column menu render immediately; only the data
+     * island waits. On a page with several heavy tables this turns one slow
+     * response into a fast shell plus parallel fills.
+     *
+     * NOT named `lazy`: that is a RESERVED Livewire mount parameter. Livewire
+     * strips `lazy` and `defer` from the params and uses them to defer the
+     * WHOLE component — so a property by that name can never be set, and
+     * passing it silently gets you component-level lazy loading (blank shell,
+     * no toolbar) instead of this.
+     *
+     * Both are useful; they just do different things:
+     *   ['deferData' => true]  fast shell, rows arrive on scroll   <- this
+     *   ['lazy' => true]       Livewire defers the entire component
+     */
+    public bool $deferData = false;
 
     /**
      * Whether to inject the package's own CSS and JS assets.
@@ -305,37 +263,115 @@ class AftableComponent extends Component
         $initialized = [];
 
         foreach ($columns as $key => $config) {
+            // --- normalise every supported shape to [$columnKey, $config] ---
             if (is_string($config)) {
-                // Simple string configuration: 'user_name' => 'user_name'
+                // Shorthand: 'first_name'
                 $columnKey = $config;
-                $initialized[$columnKey] = [
-                    'key' => $config,
-                    'label' => ucfirst(str_replace('_', ' ', $config)),
-                    // sortable/searchable auto-enabled by autoOptimizeColumns()
-                ];
-            } elseif (is_array($config)) {
-                // Array configuration - check if it's a direct array or named array
-                if (isset($config['key'])) {
-                    // Direct array format: ['key' => 'id', 'label' => 'ID']
-                    $columnKey = $config['key'];
-                    $initialized[$columnKey] = array_merge([
-                        'key' => $columnKey,
-                        'label' => ucfirst(str_replace('_', ' ', $columnKey)),
-                        // sortable/searchable auto-enabled by autoOptimizeColumns()
-                    ], $config);
-                } else {
-                    // Named array format: 'id' => ['label' => 'ID'] (legacy support)
-                    $columnKey = $key;
-                    $initialized[$columnKey] = array_merge([
-                        'key' => $columnKey,
-                        'label' => ucfirst(str_replace('_', ' ', $columnKey)),
-                        // sortable/searchable auto-enabled by autoOptimizeColumns()
-                    ], $config);
+                $config = ['key' => $config];
+            } elseif (! is_array($config)) {
+                continue;
+            } elseif (isset($config['key'])) {
+                // Direct array: ['key' => 'id', 'label' => 'ID']
+                $columnKey = $config['key'];
+            } elseif (is_int($key)) {
+                // Direct array WITHOUT a 'key' - e.g. ['relation' => 'department:name'].
+                // Using the numeric array index here (the old behaviour) breaks
+                // sorting, the visibility checkbox id and session persistence,
+                // and silently renumbers when columns are reordered.
+                // See AUDIT.md BUG-06.
+                $columnKey = $this->deriveColumnKey($config, $key);
+            } else {
+                // Legacy named array: 'id' => ['label' => 'ID']
+                $columnKey = $key;
+            }
+
+            // Two columns can legitimately read the SAME underlying database
+            // column - two JSON paths out of one document, or a raw and a plain
+            // rendering of one value. Keying purely on 'key' made the later one
+            // overwrite the earlier, so the table silently lost a column.
+            // See AUDIT.md BUG-34.
+            $columnKey = $this->uniqueColumnKey($columnKey, $config, $initialized);
+
+            $initialized[$columnKey] = array_merge([
+                'key' => $config['key'] ?? $columnKey,
+                'label' => ucfirst(str_replace('_', ' ', $columnKey)),
+                // sortable/searchable auto-enabled by autoOptimizeColumns()
+            ], $config);
+        }
+
+        return $initialized;
+    }
+
+    /**
+     * Ensure a column key is not already taken, disambiguating by what makes
+     * the column different rather than by a bare counter where possible.
+     *
+     * @param  array<string, mixed>  $taken
+     */
+    protected function uniqueColumnKey(string $columnKey, array $config, array $taken): string
+    {
+        if (! array_key_exists($columnKey, $taken)) {
+            return $columnKey;
+        }
+
+        // `preferences` + json `theme` -> `preferences_theme`
+        foreach (['json', 'function'] as $hint) {
+            if (! empty($config[$hint]) && is_string($config[$hint])) {
+                $suffix = preg_replace('/[^A-Za-z0-9_]+/', '_', $config[$hint]);
+                $candidate = $columnKey.'_'.trim($suffix, '_');
+
+                if (! array_key_exists($candidate, $taken)) {
+                    return $candidate;
                 }
             }
         }
 
-        return $initialized;
+        // `department_name` + relation `department:code` -> `department_name_code`
+        if (! empty($config['relation']) && is_string($config['relation'])) {
+            $parsed = RelationPath::tryParse($config['relation']);
+
+            if ($parsed !== null) {
+                $candidate = $columnKey.'_'.$parsed->attribute;
+
+                if (! array_key_exists($candidate, $taken)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        $suffix = 2;
+        while (array_key_exists($columnKey.'_'.$suffix, $taken)) {
+            $suffix++;
+        }
+
+        return $columnKey.'_'.$suffix;
+    }
+
+    /**
+     * Derive a stable key for a column declared without one.
+     *
+     * Preference order: the relation name, then the JSON path, then the
+     * function name - anything but the array index, which changes whenever a
+     * column is reordered.
+     */
+    protected function deriveColumnKey(array $config, int $index): string
+    {
+        if (isset($config['relation']) && is_string($config['relation'])) {
+            $parsed = RelationPath::tryParse($config['relation']);
+
+            if ($parsed !== null) {
+                // department.company:name -> department_company_name
+                return str_replace('.', '_', $parsed->path).'_'.$parsed->attribute;
+            }
+        }
+
+        foreach (['json', 'function'] as $hint) {
+            if (isset($config[$hint]) && is_string($config[$hint]) && $config[$hint] !== '') {
+                return preg_replace('/[^A-Za-z0-9_]+/', '_', $config[$hint]);
+            }
+        }
+
+        return 'column_'.$index;
     }
 
     /**
@@ -360,29 +396,51 @@ class AftableComponent extends Component
         $relations = [];
 
         foreach ($columns as $column) {
-            if (! is_array($column)) {
+            if (! is_array($column) || ! isset($column['relation'])) {
                 continue;
             }
 
-            if (isset($column['relation'])) {
-                $relationString = $column['relation'];
-                [$relationPath, $attribute] = explode(':', $relationString);
+            // One parser, one place that knows the 'a.b:column' format. The old
+            // inline explode(':') emitted "Undefined array key 1" whenever a
+            // relation string was missing its colon.
+            $parsed = RelationPath::tryParse((string) $column['relation']);
 
-                // Add all nested relation paths
-                // e.g., 'student.user:name' => ['student', 'student.user']
-                $parts = explode('.', $relationPath);
-                $path = '';
+            if ($parsed === null) {
+                Log::warning('AftableComponent: ignoring malformed relation', [
+                    'relation' => $column['relation'],
+                ]);
 
-                foreach ($parts as $part) {
-                    $path = $path ? "{$path}.{$part}" : $part;
-                    if (! in_array($path, $relations)) {
-                        $relations[] = $path;
-                    }
-                }
+                continue;
+            }
+
+            // Every intermediate path, so 'a.b.c' eager loads a, a.b and a.b.c.
+            foreach ($parsed->eagerLoads as $path) {
+                $relations[$path] = true;
             }
         }
 
-        return $relations;
+        return array_keys($relations);
+    }
+
+    /**
+     * Relations this table needs eager loaded.
+     *
+     * MUST be derived from $this->columns rather than read from a stored
+     * property: $cachedRelations is protected, and Livewire only persists
+     * PUBLIC properties. It was therefore null on every request after mount,
+     * so applyOptimizedEagerLoading() added no with() and each relation column
+     * lazy-loaded once per row - an N+1 that appeared only after the first
+     * interaction, which is why it survived so long. See AUDIT.md BUG-38.
+     *
+     * @return list<string>
+     */
+    protected function requiredRelations(): array
+    {
+        if ($this->cachedRelations === null || $this->cachedRelations === []) {
+            $this->cachedRelations = $this->calculateRequiredRelations($this->columns ?? []);
+        }
+
+        return $this->cachedRelations;
     }
 
     /**
@@ -431,8 +489,13 @@ class AftableComponent extends Component
      * Component Initialization - Core Livewire method
      * PERFORMANCE FIX: Pre-load distinct values on mount
      */
-    public function mount($model = null, $columns = [], $filters = [], $actions = [], $index = false, $tableId = null, $query = null, $countAggregations = [], $sortBy = null, $sortDirection = null, $sort = null, $data = null, $vars = [], $customTemplate = null)
+    public function mount($model = null, $columns = [], $filters = [], $actions = [], $index = false, $tableId = null, $query = null, $countAggregations = [], $sortBy = null, $sortDirection = null, $sort = null, $data = null, $vars = [], $customTemplate = null, $theme = null, $classes = [], $deferData = false)
     {
+        // ---- Presentation ----
+        $this->theme = is_string($theme) && $theme !== '' ? $theme : null;
+        $this->classes = is_array($classes) ? array_filter($classes, 'is_string') : [];
+        $this->deferData = (bool) $deferData;
+
         // ---- Static / foreach mode detection ----
         $this->extraVars = is_array($vars) ? $vars : [];
         $this->customTemplate = is_string($customTemplate) && $customTemplate !== '' ? $customTemplate : null;
@@ -541,6 +604,40 @@ class AftableComponent extends Component
      */
     protected function getStaticPaginatedData(): LengthAwarePaginator
     {
+        $collection = $this->getStaticFilteredRows();
+
+        $perPage = $this->getPerPageValue();
+        $page = $this->getPage();
+        $total = $collection->count();
+
+        // Cast each plain array back to stdClass so `$row->property` works in views and raw templates
+        $items = $collection->forPage($page, $perPage)
+            ->map(fn (array $r) => (object) $r)
+            ->values();
+
+        return new LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            ['path' => Paginator::resolveCurrentPath()]
+        );
+    }
+
+    /**
+     * The static rows with the active search, filter and sort applied, but no
+     * pagination.
+     *
+     * Split out of getStaticPaginatedData() so export can reuse it. Export
+     * previously called buildUnifiedQuery() unconditionally, which does
+     * `$this->model::query()` — and in static mode `$this->model` is the
+     * '__static__' sentinel, so exporting a foreach-mode table was a fatal
+     * `Class "__static__" not found`. See AUDIT.md BUG-47.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    protected function getStaticFilteredRows(): Collection
+    {
         $collection = collect($this->staticRows);
 
         // --- Search (in-memory) ---
@@ -592,22 +689,7 @@ class AftableComponent extends Component
                 : $collection->sortBy(fn (array $r) => $r[$sortKey] ?? null)->values();
         }
 
-        $perPage = $this->getPerPageValue();
-        $page = $this->page ?? 1;
-        $total = $collection->count();
-
-        // Cast each plain array back to stdClass so `$row->property` works in views and raw templates
-        $items = $collection->forPage($page, $perPage)
-            ->map(fn (array $r) => (object) $r)
-            ->values();
-
-        return new LengthAwarePaginator(
-            $items,
-            $total,
-            $perPage,
-            $page,
-            ['path' => Paginator::resolveCurrentPath()]
-        );
+        return $collection;
     }
 
     /**
@@ -664,8 +746,11 @@ class AftableComponent extends Component
                 return $this->getStaticDistinctValues($filterKey);
             }
 
-            // Use the existing cached method from traits
-            return $this->getCachedColumnDistinctValues($filterKey);
+            // getCachedDistinctValues() is the method that actually caches.
+            // The `getCachedColumnDistinctValues` alias points at the RAW query
+            // implementation, so using it here re-queried the database on every
+            // single mount. See AUDIT.md BUG-33.
+            return $this->getCachedDistinctValues($filterKey);
         } catch (\Exception $e) {
             Log::warning("Error loading distinct values for {$filterKey}: ".$e->getMessage());
 
@@ -717,7 +802,8 @@ class AftableComponent extends Component
     protected function applyAllFilters(Builder $query): void
     {
         // Primary filter
-        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
+        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== ''
+            && $this->isAllowedFilterColumn($this->filterColumn)) {
             if (isset($this->filters[$this->filterColumn]['relation'])) {
                 $this->applyRelationFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
             } else {
@@ -745,7 +831,21 @@ class AftableComponent extends Component
     public function getPerPageValue(): int
     {
         // Use records if set (from template), otherwise use perPage
-        return $this->records ?? $this->perPage ?? 10;
+        $requested = (int) ($this->records ?? $this->perPage ?? 10);
+
+        // `records` and `perPage` are both query-string properties, so this is
+        // user input: `?records=999999` used to make the server select, hydrate
+        // and serialise the entire table into the Livewire snapshot on every
+        // request. Clamp to the largest configured page size. A host app that
+        // genuinely wants bigger pages raises `per_page_options`.
+        // See AUDIT.md BUG-49.
+        $options = array_filter(array_map('intval', (array) config(
+            'aftable.query.per_page_options', [10, 25, 50, 100, 500]
+        )));
+
+        $ceiling = $options === [] ? 500 : max($options);
+
+        return max(1, min($requested, $ceiling));
     }
 
     /**
@@ -791,12 +891,38 @@ class AftableComponent extends Component
      */
     public function render()
     {
-        return view('artflow-table::livewire.aftable-component', [
-            'data' => $this->tableData,
+        $data = [
             'index' => $this->index,
             'customTemplate' => $this->customTemplate,
-        ]);
+            'ui' => $this->themeClasses(),
+        ];
+
+        // Touching $this->tableData here would run the query even when the data
+        // island is only going to render its placeholder, which defeats the
+        // whole point of deferData. The island re-resolves it from the component
+        // when it actually renders, so leaving it out is enough.
+        if (! $this->deferData) {
+            $data['data'] = $this->tableData;
+        }
+
+        return view('artflow-table::livewire.aftable-component', $data);
     }
+
+    /**
+     * The resolved class map for this table.
+     *
+     * Cached per request: the template asks for a slot on every row, and
+     * re-merging three arrays each time is pure waste.
+     *
+     * @return array<string, string>
+     */
+    public function themeClasses(): array
+    {
+        return $this->resolvedTheme ??= Theme::resolve($this->theme, $this->classes);
+    }
+
+    /** @var array<string, string>|null */
+    protected ?array $resolvedTheme = null;
 
     /**
      * Invalidate the computed tableData cache.
@@ -812,22 +938,33 @@ class AftableComponent extends Component
 
     // *----------- LIVEWIRE LIFECYCLE METHODS -----------*//
 
+    /** Previous search term, captured before Livewire overwrites $search. */
+    protected ?string $previousSearch = null;
+
+    /**
+     * Runs BEFORE $search is overwritten, so it is the only place the old value
+     * is still available.
+     */
+    public function updatingSearch($value): void
+    {
+        $this->previousSearch = (string) $this->search;
+    }
+
     /**
      * Handle search updates - Core Livewire lifecycle
-     * PERFORMANCE FIX: Only trigger events and reset page when value actually changed
      */
     public function updatedSearch($value)
     {
-        // Skip if value hasn't changed
-        if ($value === $this->search) {
-            return;
-        }
-
-        $oldValue = $this->search;
+        // NOTE: Livewire assigns the property BEFORE calling updated*(), so
+        // $this->search already equals $value here. The previous
+        // `if ($value === $this->search) return;` guard was therefore always
+        // true and this whole method was dead code. See AUDIT.md BUG-04.
+        // updatingSearch() captures the previous value for us.
+        $oldValue = $this->previousSearch ?? '';
         $this->search = $value;
 
         // Only reset page and invalidate cache if search is meaningful
-        if (strlen(trim($value)) >= 3 || strlen(trim($oldValue)) >= 3) {
+        if (strlen(trim((string) $value)) >= 3 || strlen(trim((string) $oldValue)) >= 3) {
             $this->resetPage();
             $this->invalidateQueryCache();
         }
@@ -898,16 +1035,24 @@ class AftableComponent extends Component
         }
     }
 
+    /** Previous page size, captured before Livewire overwrites $perPage. */
+    protected ?int $previousPerPage = null;
+
+    public function updatingPerPage($value): void
+    {
+        $this->previousPerPage = (int) $this->perPage;
+    }
+
     /**
      * Handle per page changes - Core Livewire lifecycle
      */
     public function updatedPerPage($value)
     {
-        $oldValue = $this->perPage;
+        $oldValue = $this->previousPerPage ?? $value;
         $this->perPage = $value;
         $this->resetPage();
 
-        $this->triggerPaginationEvent(1, $value, $this->page, $oldValue);
+        $this->triggerPaginationEvent(1, $value, $this->getPage(), $oldValue);
 
         if ($this->enableSessionPersistence) {
             $this->savePerPageToSession($value);
@@ -984,9 +1129,13 @@ class AftableComponent extends Component
      */
     public function removeFilterInstance($instanceId)
     {
-        $this->filterInstances = array_filter($this->filterInstances, function ($instance) use ($instanceId) {
-            return $instance['id'] !== $instanceId;
-        });
+        // array_values(): array_filter() preserves keys, which turns the
+        // property into a JSON object on the wire and makes the next
+        // $filterInstances[] append at the wrong index. See AUDIT.md BUG-23.
+        $this->filterInstances = array_values(array_filter(
+            $this->filterInstances,
+            fn ($instance) => $instance['id'] !== $instanceId
+        ));
         $this->resetPage();
     }
 
@@ -1013,6 +1162,11 @@ class AftableComponent extends Component
     {
         foreach ($this->filterInstances as $filterInstance) {
             if (! $filterInstance['column'] || $filterInstance['value'] === null || $filterInstance['value'] === '') {
+                continue;
+            }
+
+            // Same client-controlled-column problem as the primary filter.
+            if (! $this->isAllowedFilterColumn($filterInstance['column'])) {
                 continue;
             }
 
@@ -1131,6 +1285,9 @@ class AftableComponent extends Component
      */
     protected function applyOperatorCondition(Builder $query, string $column, string $operator, $value): void
     {
+        // Qualify so a relation-sort join cannot make this ambiguous.
+        $column = $this->qualifyColumn($column);
+
         switch ($operator) {
             case '=':
                 $query->where($column, $value);
@@ -1151,7 +1308,7 @@ class AftableComponent extends Component
                 $query->where($column, '<=', $value);
                 break;
             case 'like':
-                $query->where($column, 'LIKE', '%'.$value.'%');
+                $this->whereContains($query, $column, (string) $value);
                 break;
             default:
                 $query->where($column, $value);
@@ -1190,11 +1347,10 @@ class AftableComponent extends Component
     public function handleExport($format = 'csv', $filename = null)
     {
         try {
-            // Build query with current filters
-            $query = $this->buildUnifiedQuery();
-
-            // Get all data without pagination
-            $data = $query->get();
+            // Static mode has no query to build; the rows are already here.
+            $data = $this->isStaticMode
+                ? $this->getStaticFilteredRows()->map(fn (array $r) => (object) $r)->values()
+                : $this->buildUnifiedQuery()->get();
 
             if ($data->isEmpty()) {
                 $this->dispatch('showAlert', [
@@ -1207,22 +1363,24 @@ class AftableComponent extends Component
 
             // Prepare filename
             if (! $filename) {
-                $modelName = class_basename($this->model);
+                // class_basename('__static__') is '__static__', which is not a
+                // filename anyone wants to receive.
+                $modelName = $this->isStaticMode ? 'table' : class_basename($this->model);
                 $filename = strtolower($modelName).'_export_'.date('Y-m-d_H-i-s');
             }
 
-            // Export based on format
-            switch (strtolower($format)) {
-                case 'csv':
-                    return $this->exportToCsv($data, $filename);
-                case 'excel':
-                case 'xlsx':
-                    return $this->exportToExcel($data, $filename);
-                default:
-                    return $this->exportToCsv($data, $filename);
-            }
+            // Export based on format. Every branch here must resolve to a
+            // method on THIS class - the HasExportFeatures trait declares
+            // one-parameter versions of the same names. See AUDIT.md BUG-08.
+            return match (strtolower($format)) {
+                'excel', 'xlsx' => $this->exportRowsToExcel($data, $filename),
+                'pdf' => $this->exportRowsToPdf($data, $filename),
+                default => $this->exportToCsv($data, $filename),
+            };
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // Throwable, not Exception: a bad model or column produces an
+            // \Error, which the old catch let through as a 500.
             Log::error('Export error: '.$e->getMessage());
             $this->dispatch('showAlert', [
                 'type' => 'error',
@@ -1232,60 +1390,218 @@ class AftableComponent extends Component
     }
 
     /**
+     * Which export formats can this installation actually produce?
+     *
+     * CSV is always available. Excel needs maatwebsite/excel and PDF needs one
+     * of the usual PDF packages; both are `suggest`, not `require`. The toolbar
+     * asks this so it can stop advertising a format that would fail - the old
+     * dropdown always offered all three. See AUDIT.md BUG-10.
+     *
+     * @return array<string, bool>
+     */
+    public function availableExportFormats(): array
+    {
+        return [
+            'csv' => true,
+            'xlsx' => class_exists(Excel::class),
+            'pdf' => class_exists(SnappyPdf::class)
+                || class_exists(Pdf::class),
+        ];
+    }
+
+    /**
+     * Excel export. Falls back to CSV-with-a-warning rather than pretending.
+     */
+    protected function exportRowsToExcel($data, string $filename)
+    {
+        if (! $this->availableExportFormats()['xlsx']) {
+            $this->dispatch('showAlert', [
+                'type' => 'warning',
+                'message' => 'Excel export needs maatwebsite/excel. Exporting CSV instead.',
+            ]);
+
+            return $this->exportToCsv($data, $filename);
+        }
+
+        $rows = $this->exportRows($data);
+
+        return Excel::download(
+            new ArrayExport($rows['headings'], $rows['rows']),
+            $filename.'.xlsx'
+        );
+    }
+
+    /**
+     * PDF export. Falls back to CSV-with-a-warning rather than pretending.
+     */
+    protected function exportRowsToPdf($data, string $filename)
+    {
+        $formats = $this->availableExportFormats();
+
+        if (! $formats['pdf']) {
+            $this->dispatch('showAlert', [
+                'type' => 'warning',
+                'message' => 'PDF export needs barryvdh/laravel-snappy or barryvdh/laravel-dompdf. Exporting CSV instead.',
+            ]);
+
+            return $this->exportToCsv($data, $filename);
+        }
+
+        $rows = $this->exportRows($data);
+
+        $html = view('artflow-table::exports.pdf', [
+            'title' => $this->printConfig['title'] ?: class_basename($this->model),
+            'headings' => $rows['headings'],
+            'rows' => $rows['rows'],
+        ])->render();
+
+        if (class_exists(Pdf::class)) {
+            return Pdf::loadHTML($html)->download($filename.'.pdf');
+        }
+
+        return SnappyPdf::loadHTML($html)->download($filename.'.pdf');
+    }
+
+    /**
+     * Flatten the result set into headings + scalar rows, honouring column
+     * visibility and rendering relation / JSON / raw columns properly.
+     *
+     * The CSV writer used to emit an empty cell for every relation, JSON and
+     * raw column, and exported hidden columns too.
+     *
+     * @return array{headings: list<string>, rows: list<list<string>>}
+     */
+    protected function exportRows($data): array
+    {
+        $columns = [];
+
+        foreach ($this->columns as $columnKey => $config) {
+            if (! is_array($config)) {
+                $config = ['key' => $columnKey];
+            }
+
+            // Respect what the user can actually see.
+            $visible = $this->visibleColumns[$columnKey] ?? ! ($config['hide'] ?? false);
+
+            if (! $visible) {
+                continue;
+            }
+
+            $columns[$columnKey] = $config;
+        }
+
+        $headings = [];
+        foreach ($columns as $columnKey => $config) {
+            $headings[] = $config['label'] ?? ucfirst(str_replace('_', ' ', $columnKey));
+        }
+
+        $rows = [];
+        foreach ($data as $row) {
+            $line = [];
+
+            foreach ($columns as $columnKey => $config) {
+                $line[] = $this->exportCellValue($row, $columnKey, $config);
+            }
+
+            $rows[] = $line;
+        }
+
+        return ['headings' => $headings, 'rows' => $rows];
+    }
+
+    /**
+     * Resolve one cell to a plain scalar suitable for a spreadsheet.
+     */
+    protected function exportCellValue($row, string $columnKey, array $config): string
+    {
+        try {
+            if (isset($config['json'], $config['key'])) {
+                $value = $this->extractJsonValue($row, $columnKey, $config['json']);
+
+                return $this->stringifyForExport($value);
+            }
+
+            if (isset($config['relation'])) {
+                $parsed = RelationPath::tryParse($config['relation']);
+
+                if ($parsed !== null) {
+                    return $this->stringifyForExport(
+                        data_get($row, $parsed->path.'.'.$parsed->attribute)
+                    );
+                }
+            }
+
+            if (isset($config['function']) && is_object($row) && method_exists($row, $config['function'])) {
+                return $this->stringifyForExport($row->{$config['function']}());
+            }
+
+            if (isset($config['raw'])) {
+                // Render, then strip markup - a spreadsheet cell wants the text.
+                $rendered = $this->renderRawHtml($config['raw'], $row);
+
+                return trim(html_entity_decode(strip_tags($rendered), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            }
+
+            if (isset($config['key'])) {
+                return $this->stringifyForExport(data_get($row, $config['key']));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Export cell failed', ['column' => $columnKey, 'error' => $e->getMessage()]);
+        }
+
+        return '';
+    }
+
+    protected function stringifyForExport($value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        if (is_array($value) || $value instanceof \JsonSerializable) {
+            return (string) json_encode($value);
+        }
+
+        if (is_object($value) && ! method_exists($value, '__toString')) {
+            return (string) json_encode($value);
+        }
+
+        return (string) $value;
+    }
+
+    /**
      * Export data to CSV
      */
     protected function exportToCsv($data, $filename)
     {
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'.csv"',
-        ];
+        $prepared = $this->exportRows($data);
 
-        return response()->streamDownload(function () use ($data) {
+        return response()->streamDownload(function () use ($prepared) {
             $output = fopen('php://output', 'w');
 
-            // Get headers from first row
-            if ($data->isNotEmpty()) {
-                $firstRow = $data->first();
-                $headers = [];
+            // UTF-8 BOM so Excel opens accented and non-Latin text correctly
+            // instead of mojibake.
+            fwrite($output, chr(0xEF).chr(0xBB).chr(0xBF));
 
-                // Extract headers from column configuration
-                foreach ($this->columns as $columnKey => $columnConfig) {
-                    if (is_string($columnConfig)) {
-                        $headers[] = ucfirst(str_replace('_', ' ', $columnKey));
-                    } elseif (is_array($columnConfig)) {
-                        $headers[] = $columnConfig['label'] ?? ucfirst(str_replace('_', ' ', $columnKey));
-                    }
-                }
+            fputcsv($output, $prepared['headings']);
 
-                // Write headers
-                fputcsv($output, $headers);
-
-                // Write data rows
-                foreach ($data as $row) {
-                    $rowData = [];
-                    foreach ($this->columns as $columnKey => $columnConfig) {
-                        if (is_string($columnConfig)) {
-                            $rowData[] = $row->{$columnKey} ?? '';
-                        } elseif (is_array($columnConfig)) {
-                            // For columns with keys, use the key value
-                            if (isset($columnConfig['key']) && ! empty($columnConfig['key'])) {
-                                $value = data_get($row, $columnConfig['key']);
-                                $rowData[] = $value ?? '';
-                            }
-                            // For raw columns without keys, try to extract meaningful data
-                            else {
-                                // Skip computed/raw columns for export
-                                $rowData[] = '';
-                            }
-                        }
-                    }
-                    fputcsv($output, $rowData);
-                }
+            foreach ($prepared['rows'] as $row) {
+                fputcsv($output, $row);
             }
 
             fclose($output);
-        }, $filename.'.csv', $headers);
+        }, $filename.'.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'.csv"',
+        ]);
     }
 
     /**
@@ -1327,7 +1643,19 @@ class AftableComponent extends Component
      */
     public function getComponentStats(): array
     {
-        return $this->getPerformanceStats();
+        // HasPerformanceMonitoring carried 423 lines to produce this, of which
+        // exactly one method was ever reached. Build the useful part directly.
+        return [
+            'table_id' => $this->tableId,
+            'model' => is_object($this->model) ? get_class($this->model) : $this->model,
+            'mode' => $this->isStaticMode ? 'static' : 'eloquent',
+            'columns' => count($this->columns ?? []),
+            'visible_columns' => count(array_filter($this->visibleColumns ?? [])),
+            'eager_loads' => $this->requiredRelations(),
+            'per_page' => $this->getPerPageValue(),
+            'memory_mb' => round(memory_get_peak_usage(true) / 1048576, 1),
+            'cache' => TableCache::describe(),
+        ];
     }
 
     /**
@@ -1375,10 +1703,10 @@ class AftableComponent extends Component
                 return $values;
             }
 
-            // Eloquent mode — query the database
-            $values = isset($this->filters[$columnKey]['relation'])
-                ? $this->getCachedRelationDistinctValues($columnKey)
-                : $this->getCachedColumnDistinctValues($columnKey);
+            // Eloquent mode. getCachedDistinctValues() dispatches to the
+            // relation or plain-column implementation itself, and caches the
+            // result — see AUDIT.md BUG-33.
+            $values = $this->getCachedDistinctValues($columnKey);
 
             $this->distinctValuesCache[$columnKey] = $values;
 
@@ -1393,6 +1721,170 @@ class AftableComponent extends Component
         }
     }
 
+    /**
+     * Prefix a bare column name with the model's table.
+     *
+     * Relation sorting adds a leftJoin, and from that point on any unqualified
+     * column in a WHERE or ORDER BY is ambiguous whenever both tables share the
+     * name - `id`, `name`, `status` and `created_at` being the obvious ones.
+     * Sorting by a relation and then searching produced:
+     *
+     *     SQLSTATE[HY000]: General error: 1 ambiguous column name: id
+     *
+     * Qualifying unconditionally is correct with or without a join, so there is
+     * no need to detect one. See AUDIT.md BUG-39.
+     */
+    protected function qualifyColumn(string $column): string
+    {
+        // Already qualified, a JSON path, or an expression - leave it alone.
+        if ($column === '' || str_contains($column, '.') || str_contains($column, '->')
+            || str_contains($column, '(')) {
+            return $column;
+        }
+
+        $table = SchemaCache::tableFor($this->model);
+
+        return $table === null ? $column : $table.'.'.$column;
+    }
+
+    /**
+     * Is this column one the host application actually declared as filterable?
+     *
+     * `filterColumn`, `filterInstances[*]['column']` and `dateColumn` are public
+     * Livewire properties bound with wire:model and exposed in the query string,
+     * so their values are attacker-controlled. Without this check a crafted
+     * request can filter on ANY column of the underlying table — an oracle over
+     * columns the table never displays. See AUDIT.md SEC-04.
+     */
+    protected function isAllowedFilterColumn($column): bool
+    {
+        if (! is_string($column) || $column === '') {
+            return false;
+        }
+
+        // Declared as a filter, or at least declared as a column of this table.
+        return array_key_exists($column, $this->filters ?? [])
+            || array_key_exists($column, $this->columns ?? []);
+    }
+
+    // *----------- HELPERS THE DELEGATING METHODS ABOVE DEPEND ON -----------*//
+    //
+    // Each of these was called but never defined, so the corresponding public
+    // action threw BadMethodCallException the moment a user triggered it.
+    // See AUDIT.md BUG-09.
+
+    /**
+     * Constrain the query to a date range on a validated date column.
+     *
+     * Called from applyAllFilters() when dateColumn + startDate + endDate are set.
+     */
+    protected function applyDateRangeFilter(Builder $query, string $column, $startDate, $endDate): void
+    {
+        if (! $this->isAllowedFilterColumn($column) && ! $this->isValidColumn($column)) {
+            Log::warning('AftableComponent: refusing date range on unknown column', ['column' => $column]);
+
+            return;
+        }
+
+        try {
+            $start = Carbon::parse($startDate)->startOfDay();
+            $end = Carbon::parse($endDate)->endOfDay();
+        } catch (\Throwable $e) {
+            Log::warning('AftableComponent: unparseable date range', [
+                'start' => $startDate, 'end' => $endDate, 'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        if ($start->greaterThan($end)) {
+            [$start, $end] = [$end, $start];
+        }
+
+        $query->whereBetween($column, [$start, $end]);
+    }
+
+    /**
+     * Reset every filter: the primary one, the extra instances and the date range.
+     */
+    public function clearFilters(): void
+    {
+        $this->filterColumn = null;
+        $this->filterOperator = '=';
+        $this->filterValue = null;
+        $this->filterInstances = [];
+        $this->dateColumn = null;
+        $this->startDate = null;
+        $this->endDate = null;
+
+        $this->resetPage();
+        $this->invalidateQueryCache();
+
+        if ($this->enableSessionPersistence) {
+            $this->saveFiltersToSession();
+        }
+    }
+
+    /**
+     * Reset the search box.
+     */
+    public function clearSearchInput(): void
+    {
+        $this->search = '';
+
+        $this->resetPage();
+        $this->invalidateQueryCache();
+
+        if ($this->enableSessionPersistence) {
+            session()->forget($this->getSessionKey('current_search'));
+        }
+    }
+
+    /**
+     * Snapshot of the component's state, for debugging and bug reports.
+     */
+    protected function getComponentDebugInfo(): array
+    {
+        return [
+            'model' => is_object($this->model) ? get_class($this->model) : $this->model,
+            'tableId' => $this->tableId,
+            'mode' => $this->isStaticMode ? 'static' : 'eloquent',
+            'columns' => array_keys($this->columns),
+            'visibleColumns' => array_keys(array_filter($this->visibleColumns)),
+            'eagerLoads' => $this->cachedRelations ?? [],
+            'search' => $this->search,
+            'sort' => ['column' => $this->sortColumn, 'direction' => $this->sortDirection],
+            'filters' => [
+                'column' => $this->filterColumn,
+                'operator' => $this->filterOperator,
+                'value' => $this->filterValue,
+                'instances' => count($this->filterInstances ?? []),
+                'dateRange' => array_filter([
+                    'column' => $this->dateColumn,
+                    'start' => $this->startDate,
+                    'end' => $this->endDate,
+                ]),
+            ],
+            'pagination' => ['perPage' => $this->getPerPageValue(), 'page' => $this->getPage()],
+            'selection' => count($this->selectedRows ?? []),
+            'flags' => [
+                'searchable' => $this->searchable,
+                'exportable' => $this->exportable,
+                'printable' => $this->printable,
+                'sessionPersistence' => $this->enableSessionPersistence,
+                'queryStringSupport' => $this->enableQueryStringSupport,
+            ],
+        ];
+    }
+
+    /**
+     * The query-string map Livewire should bind, honouring $enableQueryStringSupport.
+     */
+    protected function getQueryStringConfiguration(): array
+    {
+        return $this->queryString;
+    }
+
     // *----------- SEARCH SUPPORT METHODS -----------*//
 
     /**
@@ -1404,12 +1896,31 @@ class AftableComponent extends Component
         $searchableColumns = [];
 
         foreach ($this->columns as $columnKey => $column) {
-            if ($this->isColumnSearchable($columnKey)) {
-                $searchableColumns[] = $columnKey;
+            if (! $this->isColumnSearchable($columnKey)) {
+                continue;
             }
+
+            // JSON columns are searched through getSearchableJsonColumns(),
+            // which builds the driver's JSON extraction expression. Including
+            // them here too would search the same document twice.
+            if (is_array($column) && ! empty($column['json'])) {
+                continue;
+            }
+
+            // The array key is a UI identifier, NOT necessarily a database
+            // column. Two columns reading `preferences` become `preferences`
+            // and `preferences_language`, and the second one is not a column
+            // that exists — searching it produced
+            // `Unknown column 'test_employees.preferences_language'`, a 500 on
+            // the most common interaction there is. Search the column the
+            // config names, not the identifier the table renders under.
+            // See AUDIT.md BUG-52.
+            $searchableColumns[] = is_array($column) && ! empty($column['key'])
+                ? $column['key']
+                : $columnKey;
         }
 
-        return $searchableColumns;
+        return array_values(array_unique($searchableColumns));
     }
 
     /**
@@ -1435,12 +1946,16 @@ class AftableComponent extends Component
                 continue;
             }
 
-            $relationString = $column['relation'];
-            [$relationPath, $attribute] = explode(':', $relationString);
+            $parsed = RelationPath::tryParse((string) $column['relation']);
 
-            // Parse the relation path
-            $relationParts = explode('.', $relationPath);
-            $firstRelation = $relationParts[0];
+            if ($parsed === null) {
+                continue;
+            }
+
+            $relationPath = $parsed->path;
+            $attribute = $parsed->attribute;
+            $relationParts = $parsed->segments;
+            $firstRelation = $parsed->firstSegment();
 
             if (! isset($relationColumns[$firstRelation])) {
                 $relationColumns[$firstRelation] = [];
@@ -1569,7 +2084,8 @@ class AftableComponent extends Component
      */
     public function clearActionSelection(): void
     {
-        $this->clearActionSelectedRows();
+        // Was the clearActionSelectedRows alias before the 1.6.0 consolidation.
+        $this->clearSelectedRows();
     }
 
     /**
@@ -1649,18 +2165,14 @@ class AftableComponent extends Component
             return $columnConfig['searchable'] ?? ($hasKey && ! $hasFunction);
         }
 
-        // Eloquent mode: verify the column actually exists in the table
+        // Eloquent mode: verify the column actually exists in the table.
+        //
+        // This used to call Schema::getColumnListing() directly - once per
+        // column, from several call sites, on EVERY request. A five-column
+        // table issued 20 schema queries per search/sort/page. SchemaCache
+        // memoises per process and caches across requests. See AUDIT.md BUG-37.
         if ($hasKey) {
-            try {
-                $tableName = (new $this->model)->getTable();
-                $columns = Schema::getColumnListing($tableName);
-
-                return in_array($columnConfig['key'], $columns);
-            } catch (\Exception $e) {
-                Log::warning('Could not check column existence for search: '.$e->getMessage());
-
-                return false;
-            }
+            return SchemaCache::hasColumn($this->model, $columnConfig['key']);
         }
 
         return $columnConfig['searchable'] ?? true;
@@ -1671,9 +2183,20 @@ class AftableComponent extends Component
      */
     protected function applyColumnOptimization(Builder $query): Builder
     {
-        // Use cached select columns if available
-        if (! empty($this->cachedSelectColumns)) {
-            $query->select($this->cachedSelectColumns);
+        // Deliberately a no-op for the default ['*'] case.
+        //
+        // This used to run $query->select($this->cachedSelectColumns) where
+        // cachedSelectColumns is hard-coded to ['*']. select() REPLACES the
+        // column list, so it silently discarded the withCount() subselects
+        // applyCountAggregations() had added one line earlier - which is why
+        // every {relation}_count came back null. See AUDIT.md BUG-03.
+        //
+        // Narrowing the select list is still worth doing one day, but it must
+        // use addSelect() and must not clobber aggregates.
+        $columns = $this->cachedSelectColumns ?? [];
+
+        if ($columns !== [] && $columns !== ['*']) {
+            $query->addSelect($columns);
         }
 
         return $query;
@@ -1685,17 +2208,10 @@ class AftableComponent extends Component
      */
     protected function applyOptimizedEagerLoading(Builder $query): Builder
     {
-        // Use cached relations if available
-        if (! empty($this->cachedRelations)) {
-            // Log for debugging N+1 issues
-            if (config('app.debug')) {
-                Log::debug('DatatableTrait: Eager loading relations', [
-                    'relations' => $this->cachedRelations,
-                    'model' => is_object($this->model) ? get_class($this->model) : $this->model,
-                ]);
-            }
+        $relations = $this->requiredRelations();
 
-            $query->with($this->cachedRelations);
+        if ($relations !== []) {
+            $query->with($relations);
         }
 
         return $query;
@@ -1780,35 +2296,15 @@ class AftableComponent extends Component
     }
 
     /**
-     * Implementation of abstract method from HasExportFeatures
-     */
-    protected function exportInChunks(string $format, int $chunkSize): StreamedResponse
-    {
-        $data = [];
-
-        $query = $this->buildUnifiedQuery();
-        $query->chunk($chunkSize, function ($chunk) use (&$data) {
-            foreach ($chunk as $row) {
-                $data[] = $row->toArray();
-            }
-        });
-
-        $filename = 'export_'.date('Y-m-d_H-i-s').'.'.$format;
-
-        return response()->streamDownload(function () use ($data) {
-            $output = fopen('php://output', 'w');
-            if (! empty($data)) {
-                fputcsv($output, array_keys($data[0]));
-                foreach ($data as $row) {
-                    fputcsv($output, $row);
-                }
-            }
-            fclose($output);
-        }, $filename, ['Content-Type' => 'text/csv']);
-    }
-
-    /**
-     * Implementation of abstract method from HasQueryBuilding
+     * Normalise a search term.
+     *
+     * Deliberately does NOT strip characters. Laravel binds LIKE values as query
+     * parameters, so `where($col, 'LIKE', "%{$term}%")` is already injection-safe;
+     * the old `preg_replace('/[^\w\s\-_@.]/i', ...)` bought nothing and broke
+     * real searches — apostrophes ("O'Brien"), percent signs, "C++", "#tag" and,
+     * worst of all, every non-Latin script: without the /u modifier `\w` is
+     * ASCII-only, so an Arabic or Urdu term was stripped to the empty string and
+     * the table silently returned every row. See AUDIT.md BUG-18.
      */
     protected function sanitizeSearch($search): string
     {
@@ -1816,13 +2312,12 @@ class AftableComponent extends Component
             return '';
         }
 
-        // Remove potentially dangerous characters and trim
+        // strip_tags() is kept: a search term is never markup, and dropping tags
+        // avoids storing something odd in the session/search history.
         $sanitized = trim(strip_tags($search));
 
-        // Remove SQL injection patterns
-        $sanitized = preg_replace('/[^\w\s\-_@.]/i', '', $sanitized);
-
-        return $sanitized;
+        // Cap the length so a huge term cannot be used to hammer LIKE scans.
+        return mb_substr($sanitized, 0, 255);
     }
 
     /**
@@ -1887,9 +2382,11 @@ class AftableComponent extends Component
      *      'raw' => '{{ \Carbon\Carbon::parse($row->date)->format("d M Y") }}'
      *      'raw' => '{{ number_format($row->price * $row->qty, 2) }}'
      *
-     * 2. Callable / Closure (zero Blade overhead, best for complex logic):
-     *      'raw' => fn($row, $vars) => '<b>'.e($row->name).'</b>'
-     *      'raw' => fn($row) => view('partials.badge', ['row' => $row])->render()
+     * NOT supported: a Closure. $columns is a public Livewire property, so its
+     * contents must survive JSON serialisation into the component snapshot, and
+     * a Closure cannot — Livewire rejects it with "Property type not supported".
+     * The callable branch below is reachable only from internal callers that
+     * never round-trip through a snapshot. See AUDIT.md BUG-07.
      *
      * Available Blade variables:
      *  - $row       — current row (stdClass in static mode, Eloquent model in DB mode)
@@ -1900,6 +2397,11 @@ class AftableComponent extends Component
      * PHP calculation example:
      *      'raw' => '{{ number_format($row->price * $row->quantity, 2) }}'
      *
+     * SECURITY: this method compiles and evaluates its first argument as a Blade
+     * template. It MUST stay protected — Livewire exposes every public method as
+     * an action a visitor can invoke with arbitrary arguments, which would make
+     * this a remote code execution primitive. See AUDIT.md SEC-01.
+     *
      * NOTE: Compiles via compileString() then evaluates via a temp file include.
      * PHP 8 does not support <?php re-entry tags inside eval() strings, so we
      * write to a temp .php file (cached by template hash) and include it instead.
@@ -1907,9 +2409,9 @@ class AftableComponent extends Component
      * which would break output buffering for nested Blade::render() calls — this
      * approach is fully isolated from Livewire's rendering engine.
      */
-    public function renderRawHtml($rawTemplate, $row): string
+    protected function renderRawHtml($rawTemplate, $row): string
     {
-        // --- Callable / Closure path (fast, no Blade overhead) ---
+        // --- Callable path (internal callers only; see the note above) ---
         if (is_callable($rawTemplate)) {
             try {
                 return (string) $rawTemplate($row, $this->extraVars);
@@ -1981,7 +2483,11 @@ class AftableComponent extends Component
     {
         $hash = md5($template);
 
-        if (isset(self::$rawTemplateCache[$hash])) {
+        // Only trust the memo while the file is still there. Clearing the cache
+        // (af-table:clear-phantom-columns, a deploy wiping storage, an OS temp
+        // sweep) removes these files out from under a warm process; returning a
+        // stale path then makes every raw column render an include() error.
+        if (isset(self::$rawTemplateCache[$hash]) && is_file(self::$rawTemplateCache[$hash])) {
             return self::$rawTemplateCache[$hash];
         }
 
@@ -1991,11 +2497,49 @@ class AftableComponent extends Component
             ? $template
             : app('blade.compiler')->compileString($template);
 
-        $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'aftable_tpl_'.$hash.'.php';
+        $path = static::rawTemplateCachePath().DIRECTORY_SEPARATOR.'aftable_tpl_'.$hash.'.php';
 
-        file_put_contents($path, $compiled, LOCK_EX);
+        if (! is_file($path)) {
+            // Write to a unique temp name in the SAME directory, then rename.
+            // rename() is atomic on POSIX and on NTFS, so a concurrent request
+            // can only ever include a complete file — file_put_contents(LOCK_EX)
+            // does not give that guarantee to readers.
+            $tmp = $path.'.'.bin2hex(random_bytes(6)).'.tmp';
+
+            if (file_put_contents($tmp, $compiled) === false) {
+                throw new \RuntimeException("Unable to write compiled raw template to [{$tmp}].");
+            }
+
+            if (! @rename($tmp, $path)) {
+                // Another request won the race and already published the file.
+                @unlink($tmp);
+            }
+        }
 
         return self::$rawTemplateCache[$hash] = $path;
+    }
+
+    /**
+     * Directory holding compiled `raw` column templates.
+     *
+     * Deliberately NOT sys_get_temp_dir(): that directory is shared and
+     * world-writable on most hosts, and the filenames here are a predictable
+     * md5() of the template text — so a local attacker could pre-create the
+     * exact .php file this component is about to include. Keeping the cache
+     * under storage/ puts it inside the application's own trust boundary,
+     * alongside Blade's compiled views. See AUDIT.md SEC-02.
+     */
+    protected static function rawTemplateCachePath(): string
+    {
+        $path = function_exists('storage_path')
+            ? storage_path('framework/cache/aftable')
+            : sys_get_temp_dir().DIRECTORY_SEPARATOR.'aftable';
+
+        if (! is_dir($path)) {
+            @mkdir($path, 0755, true);
+        }
+
+        return $path;
     }
 
     /** @var array<string, string> Compiled template path cache (hash → file path). */

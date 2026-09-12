@@ -1,52 +1,76 @@
 {
-  "name": "artflow-studio/table",
-  "description": "A custom package to render Livewire components using the @AFtable directive.",
-  "autoload": {
-    "psr-4": {
-      "ArtflowStudio\\Table\\": "src/",
-      "ArtflowStudio\\Table\\Database\\Seeders\\": "database/seeders/",
-      "ArtflowStudio\\Table\\Tests\\Models\\": "tests/Models/"
+    "name": "artflow-studio/table",
+    "description": "A Livewire 4 datatable for Laravel: relations, JSON columns, filtering, export and theming, with eager loading handled for you.",
+    "autoload": {
+        "psr-4": {
+            "ArtflowStudio\\Table\\": "src/",
+            "ArtflowStudio\\Table\\Database\\Seeders\\": "database/seeders/",
+            "ArtflowStudio\\Table\\Tests\\Models\\": "src/Tests/Models/"
+        }
+    },
+    "require": {
+        "php": "^8.2",
+        "livewire/livewire": "^4.0",
+        "illuminate/support": "^12.0",
+        "illuminate/view": "^12.0",
+        "illuminate/database": "^12.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ArtflowStudio\\Table\\TableServiceProvider"
+            ]
+        }
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Artflow Studio",
+            "email": "support@artflowstudio.com",
+            "homepage": "https://artflowstudio.com",
+            "role": "Developer"
+        }
+    ],
+    "keywords": [
+        "laravel",
+        "livewire",
+        "datatable",
+        "table",
+        "component",
+        "artflow"
+    ],
+    "homepage": "https://github.com/artflow-studio/table",
+    "support": {
+        "issues": "https://github.com/artflow-studio/table/issues",
+        "source": "https://github.com/artflow-studio/table"
+    },
+    "suggest": {
+        "livewire/blaze": "Compiles the package's anonymous Blade components ahead of time",
+        "maatwebsite/excel": "Real .xlsx export (otherwise Excel falls back to CSV)",
+        "barryvdh/laravel-dompdf": "PDF export (otherwise PDF falls back to CSV)",
+        "ext-redis": "Lets the package auto-detect Redis and use cache tags for precise invalidation"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "autoload-dev": {
+        "psr-4": {
+            "ArtflowStudio\\Table\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "laravel/pint": "^1.30",
+        "livewire/blaze": "^1.0",
+        "mockery/mockery": "^1.6",
+        "orchestra/testbench": "^10.0",
+        "phpunit/phpunit": "^11.5"
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test:coverage": "vendor/bin/phpunit --coverage-text",
+        "lint": "vendor/bin/pint --test",
+        "lint:fix": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true
     }
-  },
-  "require": {
-    "php": "*",
-    "livewire/livewire": "^4.0",
-    "illuminate/view": "*",
-    "livewire/blaze": "*"
-  },
-  "extra": {
-    "laravel": {
-      "providers": [
-        "ArtflowStudio\\Table\\TableServiceProvider"
-      ]
-    }
-  },
-  "license": "MIT",
-  "authors": [
-    {
-      "name": "Artflow Studio",
-      "email": "support@artflowstudio.com",
-      "homepage": "https://artflowstudio.com",
-      "role": "Developer"
-    }
-  ],
-  "keywords": [
-    "laravel",
-    "livewire",
-    "datatable",
-    "table",
-    "component",
-    "artflow"
-  ],
-  "homepage": "https://github.com/artflow-studio/table",
-  "support": {
-    "issues": "https://github.com/artflow-studio/table/issues",
-    "source": "https://github.com/artflow-studio/table"
-  },
-  "suggest": {
-    "maatwebsite/excel": "For Excel export support (CSV/Excel download)",
-    "barryvdh/laravel-snappy": "For PDF export support"
-  },
-  "minimum-stability": "stable",
-  "prefer-stable": true
 }

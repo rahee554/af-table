@@ -21,10 +21,13 @@
         <table class="table table-bordered mb-0">
             <thead>
                 <tr>
+                    {{-- $loop only exists inside @foreach, not @for - this used
+                         to reference it and threw "Undefined variable "
+                         the first time the component was actually rendered. --}}
                     @for ($i = 0; $i < $cols; $i++)
                         <th class="bg-light">
                             <span class="placeholder-glow d-block">
-                                <span class="placeholder col-{{ $loop->first ? 1 : ($loop->last ? 3 : 6) }} rounded"></span>
+                                <span class="placeholder col-{{ $i === 0 ? 1 : ($i === $cols - 1 ? 3 : 6) }} rounded"></span>
                             </span>
                         </th>
                     @endfor

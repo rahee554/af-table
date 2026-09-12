@@ -1,5 +1,9 @@
 ﻿@extends('artflow-table::test.layout')
 
+@php
+    $schemaEnabled = \ArtflowStudio\Table\Support\SchemaIntrospector::enabled();
+@endphp
+
 @section('withoutLivewireAssets', '1')
 
 @push('styles')
@@ -73,7 +77,22 @@
                     </div>
                     <div class="col-sm-8" id="source-eloquent">
                         <label class="form-label small fw-semibold mb-1">Model Class <span class="text-danger">*</span></label>
+@if ($schemaEnabled)
+                        <div class="input-group input-group-sm">
+                            <select id="gen-model-picker" class="form-select form-select-sm" onchange="pickModel()">
+                                <option value="">&mdash; loading your models &mdash;</option>
+                            </select>
+                            <button class="btn btn-outline-primary" type="button" id="gen-schema-btn" onclick="loadSchema()" disabled>Load columns</button>
+                        </div>
+                        <input id="gen-model" type="text" class="form-control form-control-sm mt-1" placeholder="App\Models\User" value="App\Models\User">
+                        <div class="form-text" style="font-size:.68rem;" id="gen-schema-status">Reading your schema&hellip;</div>
+@else
                         <input id="gen-model" type="text" class="form-control form-control-sm" placeholder="App\Models\User" value="App\Models\User">
+                        <div class="form-text" style="font-size:.68rem;">
+                            Set <code>AFTABLE_GENERATOR_ENABLED=true</code> to pick from your own models and fill the
+                            column builder from the real schema.
+                        </div>
+@endif
                     </div>
                     <div class="col-sm-8" id="source-static" style="display:none">
                         <label class="form-label small fw-semibold mb-1">PHP Variable <span class="text-danger">*</span></label>
@@ -95,6 +114,10 @@
             {{-- 2. Columns --}}
             <div class="gen-card">
                 <h2>2. Columns</h2>
+                <div id="gen-relations" class="mb-2" style="display:none">
+                    <div class="form-label small fw-semibold mb-1">Relations on this model</div>
+                    <div id="gen-relations-list" class="d-flex flex-wrap gap-1 mb-2"></div>
+                </div>
                 <div id="columns-list" class="mb-2"></div>
                 <div class="col-btn-row">
                     <button class="btn btn-outline-primary"   onclick="addColumn('db')">+ DB Col</button>
@@ -356,6 +379,8 @@ function addColumn(type) {
     }
 
     document.getElementById('columns-list').appendChild(div);
+
+    return div;
 }
 
 function updateBadgeUI(rowId) {
@@ -721,6 +746,172 @@ function copyGenCode() {
 addColumn('db');
 addColumn('db');
 @endverbatim
+
+/* ── Schema introspection ────────────────────────────────────────────
+   Only wired up when aftable.generator.enabled is true; the endpoints
+   404 otherwise, so there is nothing to call. ─────────────────────── */
+@if ($schemaEnabled)
+@verbatim
+const GEN_SCHEMA = {
+    list: null, describe: null, current: null,
+};
+@endverbatim
+GEN_SCHEMA.list     = @json(route('aftable.generator.schema'));
+GEN_SCHEMA.describe = @json(route('aftable.generator.describe', ['x']));
+@verbatim
+
+/* route() gives us .../schema/x — swap the placeholder for the real class. */
+function describeUrl(model) {
+    return GEN_SCHEMA.describe.replace(/\/x$/, '/' + model.split('\').join('/'));
+}
+
+function schemaStatus(text, tone) {
+    const el = document.getElementById('gen-schema-status');
+    if (!el) return;
+    el.innerHTML = text;
+    el.style.color = tone === 'bad' ? '#b91c1c' : (tone === 'good' ? '#15803d' : '');
+}
+
+async function initSchema() {
+    const picker = document.getElementById('gen-model-picker');
+    if (!picker) return;
+
+    try {
+        const res = await fetch(GEN_SCHEMA.list, {headers: {'Accept': 'application/json'}});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        const {models} = await res.json();
+
+        picker.innerHTML = '<option value="">&mdash; pick a model &mdash;</option>'
+            + models.map(m => `<option value="${m}">${m.split('\').pop()} &mdash; ${m}</option>`).join('');
+
+        schemaStatus(models.length
+            ? `${models.length} model${models.length === 1 ? '' : 's'} found. Pick one, then <strong>Load columns</strong>.`
+            : 'No models found &mdash; check <code>aftable.generator.model_paths</code>.');
+    } catch (e) {
+        picker.innerHTML = '<option value="">&mdash; unavailable &mdash;</option>';
+        schemaStatus('Could not read the schema: ' + e.message, 'bad');
+    }
+}
+
+function pickModel() {
+    const picker = document.getElementById('gen-model-picker');
+    const chosen = picker.value;
+
+    if (chosen) document.getElementById('gen-model').value = chosen;
+
+    document.getElementById('gen-schema-btn').disabled = !chosen;
+}
+
+async function loadSchema() {
+    const model = document.getElementById('gen-model-picker').value;
+    if (!model) return;
+
+    const btn = document.getElementById('gen-schema-btn');
+    btn.disabled = true;
+    schemaStatus('Reading <code>' + model + '</code>&hellip;');
+
+    try {
+        const res = await fetch(describeUrl(model), {headers: {'Accept': 'application/json'}});
+        if (!res.ok) throw new Error((await res.json()).message || ('HTTP ' + res.status));
+
+        applySchema(await res.json());
+    } catch (e) {
+        schemaStatus('Could not read that model: ' + e.message, 'bad');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function applySchema(schema) {
+    GEN_SCHEMA.current = schema;
+
+    document.getElementById('columns-list').innerHTML = '';
+    document.getElementById('gen-model').value = schema.model;
+
+    let added = 0, needPath = 0, skipped = 0;
+
+    schema.columns.forEach(col => {
+        const s = col.suggested;
+
+        /* suggested === null means "sensitive or useless in a table". */
+        if (!s) { skipped++; return; }
+
+        if (s.kind === 'json') {
+            const row = addColumn('json');
+            setField(row, 'key', col.name);
+            setField(row, 'label', s.label);
+            needPath++;
+        } else {
+            const row = addColumn('db');
+            setField(row, 'key', col.name);
+            setField(row, 'label', s.label);
+            setField(row, 'format', {date: 'date', boolean: 'boolean', number: 'number'}[s.kind] || '');
+            setField(row, 'sortable', s.sortable === false ? 'false' : '');
+        }
+
+        added++;
+    });
+
+    /* First date-ish column becomes the date-range filter target. */
+    const firstDate = schema.columns.find(c => c.suggested && c.suggested.kind === 'date');
+    if (firstDate) document.getElementById('gen-date-col').value = firstDate.name;
+
+    renderRelations(schema.relations || []);
+
+    const notes = [`${added} column${added === 1 ? '' : 's'} from <code>${schema.table}</code>`];
+    if (needPath) notes.push(`${needPath} JSON column${needPath === 1 ? ' needs a' : 's need'} path`);
+    if (skipped)  notes.push(`${skipped} hidden/sensitive skipped`);
+
+    schemaStatus(notes.join(' &middot; '), 'good');
+}
+
+function setField(row, role, value) {
+    const el = row.querySelector(`[data-role="${role}"]`);
+    if (el) el.value = value;
+}
+
+/* Relations are offered, not added: a table with every relation eager-loaded
+   is exactly the N+1-adjacent thing this package exists to avoid. */
+function renderRelations(relations) {
+    const wrap = document.getElementById('gen-relations');
+    const list = document.getElementById('gen-relations-list');
+
+    if (!relations.length) { wrap.style.display = 'none'; return; }
+
+    const preferred = ['name', 'title', 'label', 'first_name', 'email', 'slug'];
+
+    list.innerHTML = relations.map((rel, i) => {
+        const target = preferred.find(p => rel.columns.includes(p)) || rel.columns[0] || 'id';
+        const verb   = rel.countable ? 'count' : target;
+
+        return `<button type="button" class="btn btn-sm btn-outline-success"
+                        style="font-size:.7rem;padding:.15rem .5rem;"
+                        onclick="addRelationColumn(${i})"
+                        title="${rel.type} &rarr; ${rel.related}">
+                    + ${rel.name}:${verb}
+                </button>`;
+    }).join('');
+
+    wrap.style.display = '';
+}
+
+function addRelationColumn(index) {
+    const rel = (GEN_SCHEMA.current?.relations || [])[index];
+    if (!rel) return;
+
+    const preferred = ['name', 'title', 'label', 'first_name', 'email', 'slug'];
+    const target = preferred.find(p => rel.columns.includes(p)) || rel.columns[0] || 'id';
+
+    const row = addColumn('relation');
+    setField(row, 'key', rel.name + '_' + target);
+    setField(row, 'label', rel.name.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+    setField(row, 'relation', rel.name + ':' + target);
+}
+
+initSchema();
+@endverbatim
+@endif
 
 </script>
 @endpush

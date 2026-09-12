@@ -17,29 +17,84 @@ class AftableTestSeeder extends Seeder
     private $clients = [];
     private $tasks = [];
 
+    /**
+     * Row counts at scale 1.0. Multiplied by $scale so the same seeder can
+     * produce a 118k-row performance fixture or a 1.2k-row CI fixture.
+     * See AUDIT.md BUG-21.
+     */
+    private const BASE_COUNTS = [
+        'companies' => 100,
+        'departments' => 500,
+        'employees' => 10000,
+        'projects' => 2000,
+        'tasks' => 15000,
+        'employeeProject' => 25000,
+        'clients' => 3000,
+        'invoices' => 8000,
+        'timesheets' => 50000,
+        'documents' => 5000,
+    ];
+
+    /** Multiplier applied to every BASE_COUNTS entry (minimum 1 row each). */
+    private float $scale = 1.0;
+
+    public function setScale(float $scale): self
+    {
+        $this->scale = max(0.0001, $scale);
+
+        return $this;
+    }
+
+    /** Resolve a scaled row count, never below 1. */
+    private function countFor(string $key): int
+    {
+        return max(1, (int) round(self::BASE_COUNTS[$key] * $this->scale));
+    }
+
+    /**
+     * Run a callback with foreign-key checks disabled, portably.
+     *
+     * The old code issued `SET FOREIGN_KEY_CHECKS` directly, which is MySQL-only
+     * and threw on SQLite/PostgreSQL/SQL Server. See AUDIT.md BUG-31.
+     */
+    private function withoutForeignKeyChecks(callable $callback): void
+    {
+        $schema = DB::getSchemaBuilder();
+        $schema->disableForeignKeyConstraints();
+
+        try {
+            $callback();
+        } finally {
+            $schema->enableForeignKeyConstraints();
+        }
+    }
+
     public function run(): void
     {
         $this->faker = Faker::create();
         
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        $this->truncateTables();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        $this->withoutForeignKeyChecks(fn () => $this->truncateTables());
 
         echo "🚀 Starting AF Table Test Data Generation...\n\n";
 
-        $this->seedCompanies(100); // 100 companies
-        $this->seedDepartments(500); // 500 departments
-        $this->seedEmployees(10000); // 10,000 employees
-        $this->seedProjects(2000); // 2,000 projects
-        $this->seedTasks(15000); // 15,000 tasks
-        $this->seedEmployeeProject(25000); // 25,000 project assignments
-        $this->seedClients(3000); // 3,000 clients
-        $this->seedInvoices(8000); // 8,000 invoices
-        $this->seedTimesheets(50000); // 50,000 timesheet entries
-        $this->seedDocuments(5000); // 5,000 documents
+        $counts = [];
+        foreach (array_keys(self::BASE_COUNTS) as $key) {
+            $counts[$key] = $this->countFor($key);
+        }
+
+        $this->seedCompanies($counts['companies']);
+        $this->seedDepartments($counts['departments']);
+        $this->seedEmployees($counts['employees']);
+        $this->seedProjects($counts['projects']);
+        $this->seedTasks($counts['tasks']);
+        $this->seedEmployeeProject($counts['employeeProject']);
+        $this->seedClients($counts['clients']);
+        $this->seedInvoices($counts['invoices']);
+        $this->seedTimesheets($counts['timesheets']);
+        $this->seedDocuments($counts['documents']);
 
         echo "\n✅ Test data generation complete!\n";
-        echo "📊 Total records: " . (100 + 500 + 10000 + 2000 + 15000 + 25000 + 3000 + 8000 + 50000 + 5000) . "\n";
+        echo "📊 Total records: " . array_sum($counts) . "\n";
     }
 
     private function truncateTables(): void

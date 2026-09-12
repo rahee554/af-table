@@ -1,326 +1,729 @@
 @extends('artflow-table::test.layout')
 
+@section('title', 'AFTable test bench')
+
+{{--
+    AFTable test bench.
+
+    One page, one scroll, every feature the package advertises rendered against
+    real data — so a regression is visible rather than theoretical. Each section
+    lists the specific behaviours it exercises, and the strip at the top reports
+    what the request actually cost.
+
+    Every table below is mounted through the PUBLIC api (@livewire / @AFtable /
+    @aftable), never through an internal helper, so this page breaks in exactly
+    the way a host application would.
+--}}
+
+@php
+    use ArtflowStudio\Table\Support\TableCache;
+    use ArtflowStudio\Table\Tests\Models\TestCompany;
+    use ArtflowStudio\Table\Tests\Models\TestDepartment;
+    use ArtflowStudio\Table\Tests\Models\TestEmployee;
+    use ArtflowStudio\Table\Tests\Models\TestProject;
+    use ArtflowStudio\Table\Tests\Models\TestTask;
+    use ArtflowStudio\Table\Tests\Models\TestTimesheet;
+
+    $benchStart = microtime(true);
+
+    \Illuminate\Support\Facades\DB::flushQueryLog();
+    \Illuminate\Support\Facades\DB::enableQueryLog();
+
+    $schemaReady = \Illuminate\Support\Facades\Schema::hasTable('test_employees');
+
+    $counts = $schemaReady ? [
+        'employees'  => TestEmployee::count(),
+        'projects'   => TestProject::count(),
+        'tasks'      => TestTask::count(),
+        'timesheets' => TestTimesheet::count(),
+    ] : ['employees' => 0, 'projects' => 0, 'tasks' => 0, 'timesheets' => 0];
+
+    $cache = TableCache::describe();
+    $guardOn = (bool) config('aftable.security.guard_actions', true);
+    $allowedActions = count(\ArtflowStudio\Table\Support\GuardsActions::allowed());
+    $publicMethodCount = count((new ReflectionClass(
+        \ArtflowStudio\Table\Http\Livewire\AftableComponent::class
+    ))->getMethods(ReflectionMethod::IS_PUBLIC));
+
+    // In-memory rows for the static / foreach mode section.
+    $staticRows = collect([
+        ['id' => 1, 'sku' => 'WID-001', 'name' => 'Widget',      'price' => 10.00, 'qty' => 3,   'category' => 'Tools'],
+        ['id' => 2, 'sku' => 'GAD-002', 'name' => 'Gadget',      'price' => 25.50, 'qty' => 1,   'category' => 'Tools'],
+        ['id' => 3, 'sku' => 'DOO-003', 'name' => 'Doohickey',   'price' =>  5.25, 'qty' => 10,  'category' => 'Parts'],
+        ['id' => 4, 'sku' => 'THI-004', 'name' => 'Thingamajig', 'price' => 99.99, 'qty' => 2,   'category' => 'Parts'],
+        ['id' => 5, 'sku' => 'WHA-005', 'name' => 'Whatsit',     'price' =>  1.00, 'qty' => 100, 'category' => 'Misc'],
+        ['id' => 6, 'sku' => 'GIZ-006', 'name' => 'Gizmo',       'price' => 42.00, 'qty' => 7,   'category' => 'Misc'],
+    ]);
+@endphp
+
 @section('content')
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="test-header">
-        <h1><i class="fas fa-vial me-2"></i>AFTable Performance Test Suite</h1>
-        <p>Comprehensive testing environment with 118,100+ records across 10 tables</p>
+
+@unless ($schemaReady)
+    <div class="alert alert-warning">
+        <strong>Demo tables are missing.</strong>
+        Run <code>php artisan af-table:migrate --seed --scale=0.05</code> to create and populate them.
+        Full scale (<code>--scale=1</code>) inserts ~118,600 rows; 0.05 gives a few thousand, which is
+        plenty for everything on this page except the large-dataset section.
+    </div>
+@endunless
+
+{{-- ── diagnostics ──────────────────────────────────────────────────── --}}
+<dl class="tb-diag">
+    <div>
+        <dt>Rows available</dt>
+        <dd>{{ number_format(array_sum($counts)) }}</dd>
+    </div>
+    <div>
+        <dt>Cache store</dt>
+        <dd class="{{ $cache['redis'] ? 'is-ok' : '' }}">
+            {{ $cache['store'] }}
+            <small>{{ $cache['redis'] ? 'redis, auto-detected' : 'redis not available' }}</small>
+        </dd>
+    </div>
+    <div>
+        <dt>Cache tags</dt>
+        <dd class="{{ $cache['tags'] ? 'is-ok' : 'is-warn' }}">
+            {{ $cache['tags'] ? 'supported' : 'unsupported' }}
+            <small>{{ $cache['tags'] ? 'precise invalidation' : 'broad invalidation only' }}</small>
+        </dd>
+    </div>
+    <div>
+        <dt>Queries</dt>
+        <dd id="diag-queries">&hellip;</dd>
+    </div>
+    <div>
+        <dt>Render</dt>
+        <dd id="diag-time">&hellip;</dd>
+    </div>
+    <div>
+        <dt>Peak memory</dt>
+        <dd id="diag-memory">&hellip;</dd>
+    </div>
+</dl>
+
+{{-- ── 1. core ──────────────────────────────────────────────────────── --}}
+<section class="tb-section" id="core">
+    <header>
+        <h2>1 &middot; Core <span class="tb-count">{{ number_format($counts['employees']) }} employees</span></h2>
+        <p class="tb-lede">
+            The everyday path: plain columns, global search, per-column sorting, pagination,
+            column visibility and CSV export. Everything here should feel instant.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">search (min 3 chars)</li>
+        <li class="tb-check">sort asc/desc</li>
+        <li class="tb-check">paginate</li>
+        <li class="tb-check">page-size</li>
+        <li class="tb-check">column visibility</li>
+        <li class="tb-check">row index</li>
+        <li class="tb-check">checkbox select</li>
+        <li class="tb-check">csv export</li>
+    </ul>
+
+    <div class="tb-panel">
+        @livewire('aftable', [
+            'model'      => TestEmployee::class,
+            'tableId'    => 'bench-core',
+            'index'      => true,
+            'checkbox'   => true,
+            'exportable' => true,
+            'refreshBtn' => true,
+            'columns' => [
+                ['key' => 'employee_code', 'label' => 'Code'],
+                ['key' => 'first_name',    'label' => 'First name'],
+                ['key' => 'last_name',     'label' => 'Last name'],
+                ['key' => 'email',         'label' => 'Email'],
+                ['key' => 'position',      'label' => 'Position'],
+                ['key' => 'salary',        'label' => 'Salary'],
+                ['key' => 'hire_date',     'label' => 'Hired'],
+            ],
+            'filters' => [
+                'position'        => ['type' => 'distinct'],
+                'employment_type' => ['type' => 'distinct'],
+                'salary'          => ['type' => 'number'],
+                'last_name'       => ['type' => 'text'],
+            ],
+            'sortBy'        => 'employee_code',
+            'sortDirection' => 'asc',
+        ], key('bench-core'))
+    </div>
+</section>
+
+{{-- ── 2. relations ─────────────────────────────────────────────────── --}}
+<section class="tb-section" id="relations">
+    <header>
+        <h2>2 &middot; Relations &amp; aggregates</h2>
+        <p class="tb-lede">
+            Single-level and nested relation columns, plus <code>countAggregations</code>. Watch the
+            query count in the strip above: relations are eager-loaded, so adding rows here must not
+            add queries. The count column previously always rendered blank —
+            <code>withCount()</code> was being wiped by a later <code>select()</code>.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">relation:column</li>
+        <li class="tb-check">a.b:column (nested)</li>
+        <li class="tb-check">relation sorting (join)</li>
+        <li class="tb-check">withCount</li>
+        <li class="tb-check">no N+1</li>
+    </ul>
+
+    <div class="tb-panel">
+        @livewire('aftable', [
+            'model'   => TestEmployee::class,
+            'tableId' => 'bench-relations',
+            'columns' => [
+                ['key' => 'first_name',      'label' => 'Employee'],
+                ['key' => 'department_name', 'label' => 'Department', 'relation' => 'department:name'],
+                ['key' => 'department_code', 'label' => 'Dept code',  'relation' => 'department:code'],
+                ['key' => 'company_name',    'label' => 'Company',    'relation' => 'department.company:name'],
+                ['key' => 'company_country', 'label' => 'Country',    'relation' => 'department.company:country'],
+            ],
+            'filters' => [
+                'department_name' => ['type' => 'text'],
+            ],
+        ], key('bench-relations'))
     </div>
 
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="stats-card">
-                <h4>118,100+</h4>
-                <p><i class="fas fa-database me-1"></i>Total Test Records</p>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card">
-                <h4>10</h4>
-                <p><i class="fas fa-table me-1"></i>Interconnected Tables</p>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card">
-                <h4>15+</h4>
-                <p><i class="fas fa-link me-1"></i>Complex Relationships</p>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card">
-                <h4>4</h4>
-                <p><i class="fas fa-bolt me-1"></i>Performance Tests</p>
-            </div>
-        </div>
+    <div class="tb-panel">
+        <p class="tb-lede mb-2"><code>countAggregations</code> — employees per department, one query.</p>
+        @livewire('aftable', [
+            'model'   => TestDepartment::class,
+            'tableId' => 'bench-counts',
+            'columns' => [
+                ['key' => 'code',            'label' => 'Code'],
+                ['key' => 'name',            'label' => 'Department'],
+                ['key' => 'company_name',    'label' => 'Company', 'relation' => 'company:name'],
+                ['key' => 'employees_count', 'label' => 'Employees', 'sortable' => false],
+                ['key' => 'budget',          'label' => 'Budget'],
+            ],
+            'countAggregations' => ['employees' => null],
+        ], key('bench-counts'))
+    </div>
+</section>
+
+{{-- ── 3. computed columns ──────────────────────────────────────────── --}}
+<section class="tb-section" id="computed">
+    <header>
+        <h2>3 &middot; JSON, raw &amp; function columns</h2>
+        <p class="tb-lede">
+            JSON-path extraction, raw Blade with live HTML and conditional logic, and a column
+            resolved by calling a method on the model. JSON columns used to fatal the entire table.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">json path</li>
+        <li class="tb-check">nested json path</li>
+        <li class="tb-check">raw html</li>
+        <li class="tb-check">raw conditional</li>
+        <li class="tb-check">raw arithmetic</li>
+        <li class="tb-check">function column</li>
+        <li class="tb-check">extraVars</li>
+        <li class="tb-check">xss-escaped</li>
+    </ul>
+
+    <div class="tb-panel">
+        @livewire('aftable', [
+            'model'   => TestEmployee::class,
+            'tableId' => 'bench-computed',
+            'vars'    => ['currency' => 'PKR', 'taxRate' => 0.15],
+            'columns' => [
+                ['key' => 'first_name', 'label' => 'Name'],
+
+                ['key' => 'full_name', 'function' => 'getFullNameAttribute', 'label' => 'Full name'],
+
+                ['key' => 'preferences', 'json' => 'theme', 'label' => 'Theme'],
+                ['key' => 'preferences', 'json' => 'language', 'label' => 'Locale'],
+
+                ['key' => 'status', 'label' => 'Status', 'raw' =>
+                    '<span class="badge bg-@{{ $row->status === "active" ? "success" : ($row->status === "on_leave" ? "warning text-dark" : "secondary") }}">'
+                    .'@{{ ucfirst(str_replace("_", " ", $row->status)) }}</span>'],
+
+                ['key' => 'salary', 'label' => 'Salary', 'raw' =>
+                    '<span class="font-monospace">@{{ $currency }} @{{ number_format($row->salary, 0) }}</span>'],
+
+                ['key' => 'salary_net', 'label' => 'Net (after tax)', 'sortable' => false, 'raw' =>
+                    '<span class="font-monospace text-muted">@{{ number_format($row->salary * (1 - $taxRate), 0) }}</span>'],
+            ],
+        ], key('bench-computed'))
+    </div>
+</section>
+
+{{-- ── 4. filters ───────────────────────────────────────────────────── --}}
+<section class="tb-section" id="filters">
+    <header>
+        <h2>4 &middot; Filtering</h2>
+        <p class="tb-lede">
+            Every filter type at once, plus stacked filter instances (the <strong>+</strong> button).
+            Filter columns are validated against this list — a hand-edited query string cannot make
+            the table filter on a column that was never declared.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">distinct</li>
+        <li class="tb-check">text (3-char floor)</li>
+        <li class="tb-check">number + operators</li>
+        <li class="tb-check">date</li>
+        <li class="tb-check">stacked instances</li>
+        <li class="tb-check">column allow-list</li>
+    </ul>
+
+    <div class="tb-panel">
+        @livewire('aftable', [
+            'model'   => TestTask::class,
+            'tableId' => 'bench-filters',
+            'columns' => [
+                ['key' => 'title',       'label' => 'Task'],
+                ['key' => 'status',      'label' => 'Status'],
+                ['key' => 'priority',    'label' => 'Priority'],
+                ['key' => 'due_date',    'label' => 'Due'],
+                ['key' => 'project_name', 'label' => 'Project', 'relation' => 'project:name'],
+            ],
+            'filters' => [
+                'status'   => ['type' => 'distinct'],
+                'priority' => ['type' => 'distinct'],
+                'title'    => ['type' => 'text'],
+                'due_date' => ['type' => 'date'],
+            ],
+        ], key('bench-filters'))
+    </div>
+</section>
+
+{{-- ── 5. static mode ───────────────────────────────────────────────── --}}
+<section class="tb-section" id="static">
+    <header>
+        <h2>5 &middot; Static / foreach mode <span class="tb-count">no database</span></h2>
+        <p class="tb-lede">
+            Fed a plain Collection instead of a model. Search, sort, filter and pagination all run
+            in memory — this section must add <strong>zero</strong> queries.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">array/collection source</li>
+        <li class="tb-check">in-memory search</li>
+        <li class="tb-check">in-memory sort</li>
+        <li class="tb-check">in-memory filter</li>
+        <li class="tb-check">pagination</li>
+        <li class="tb-check">computed raw</li>
+    </ul>
+
+    <div class="tb-panel">
+        @livewire('aftable', [
+            'data'    => $staticRows,
+            'tableId' => 'bench-static',
+            'records' => 3,
+            'columns' => [
+                ['key' => 'sku',      'label' => 'SKU'],
+                ['key' => 'name',     'label' => 'Product'],
+                ['key' => 'category', 'label' => 'Category'],
+                ['key' => 'price',    'label' => 'Unit price'],
+                ['key' => 'qty',      'label' => 'Qty'],
+                ['key' => 'total', 'label' => 'Line total', 'sortable' => false, 'raw' =>
+                    '<strong class="font-monospace">@{{ number_format($row->price * $row->qty, 2) }}</strong>'],
+            ],
+            'filters' => [
+                'category' => ['type' => 'distinct'],
+            ],
+        ], key('bench-static'))
+    </div>
+</section>
+
+{{-- ── 6. directives ────────────────────────────────────────────────── --}}
+<section class="tb-section" id="directives">
+    <header>
+        <h2>6 &middot; Blade directives</h2>
+        <p class="tb-lede">
+            All four entry points, rendered for real. Until recently every one of these except
+            <code>&#64;livewire</code> fataled — <code>Livewire::mount()</code> returns a string in
+            Livewire 4 and the directives were still calling <code>-&gt;html()</code> on it. If this
+            section renders, the directives work.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">&#64;AFtable</li>
+        <li class="tb-check">&#64;AFtableTrait</li>
+        <li class="tb-check">&#64;aftable &hellip; &#64;endaftable</li>
+        <li class="tb-check">custom table shell</li>
+        <li class="tb-check">raw html through directives</li>
+    </ul>
+
+    <div class="tb-panel">
+        <p class="tb-lede mb-2"><code>&#64;AFtable([...])</code> — shorthand, default markup.</p>
+
+        @AFtable([
+            'model'   => \ArtflowStudio\Table\Tests\Models\TestEmployee::class,
+            'tableId' => 'bench-directive-short',
+            'records' => 5,
+            'columns' => [
+                ['key' => 'first_name', 'label' => 'Name'],
+                ['key' => 'position',   'label' => 'Position'],
+                ['key' => 'employment_type', 'label' => 'Type', 'raw' =>
+                    '<span class="badge bg-primary text-uppercase">@{{ $row->employment_type }}</span>'],
+            ],
+        ])
     </div>
 
-    <!-- Info Alert -->
-    <div class="alert alert-info" role="alert">
-        <i class="fas fa-info-circle me-2"></i>
-        <strong>Test Environment:</strong> This page demonstrates AFTable with realistic data including employees, projects, tasks, departments, and complex relationships. 
-        Use the tabs below to switch between different test scenarios.
+    <div class="tb-panel">
+        <p class="tb-lede mb-2">
+            <code>&#64;aftable([...]) &hellip; &#64;endaftable</code> — the body becomes the outer
+            <code>&lt;table&gt;</code>, so the host app controls the classes.
+        </p>
+
+        @aftable([
+            'model'   => \ArtflowStudio\Table\Tests\Models\TestDepartment::class,
+            'tableId' => 'bench-directive-paired',
+            'records' => 5,
+            'columns' => [
+                ['key' => 'code',   'label' => 'Code'],
+                ['key' => 'name',   'label' => 'Department'],
+                ['key' => 'budget', 'label' => 'Budget', 'raw' =>
+                    '<span class="font-monospace">@{{ number_format($row->budget ?? 0) }}</span>'],
+            ],
+        ])
+            <table class="table table-sm table-striped align-middle bench-custom-shell"></table>
+        @endaftable
+    </div>
+</section>
+
+{{-- ── 7. actions & print ───────────────────────────────────────────── --}}
+<section class="tb-section" id="actions">
+    <header>
+        <h2>7 &middot; Row actions, bulk select &amp; print</h2>
+        <p class="tb-lede">
+            Link actions, raw-HTML actions, checkbox selection, and the isolated print window
+            (landscape A4 with a custom header). Print opens a pop-up containing only the table.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">GET link action</li>
+        <li class="tb-check">raw html action</li>
+        <li class="tb-check">bulk checkbox</li>
+        <li class="tb-check">printConfig</li>
+        <li class="tb-check">export menu (gated by installed packages)</li>
+    </ul>
+
+    <div class="tb-panel">
+        @livewire('aftable', [
+            'model'      => TestCompany::class,
+            'tableId'    => 'bench-actions',
+            'checkbox'   => true,
+            'printable'  => true,
+            'exportable' => true,
+            'printConfig' => [
+                'title'       => 'Company register',
+                'header'      => 'AFTable test bench &mdash; isolated print output',
+                'footer'      => 'Generated from the demo dataset',
+                'orientation' => 'landscape',
+                'paperSize'   => 'A4',
+                'fontSize'    => 10,
+                'showDate'    => true,
+                'showPageNum' => true,
+            ],
+            'columns' => [
+                ['key' => 'name',     'label' => 'Company'],
+                ['key' => 'country',  'label' => 'Country'],
+                ['key' => 'city',     'label' => 'City'],
+                ['key' => 'metadata', 'json' => 'tier', 'label' => 'Tier'],
+                ['key' => 'revenue',  'label' => 'Revenue'],
+            ],
+            'filters' => [
+                'country' => ['type' => 'distinct'],
+                'status'  => ['type' => 'distinct'],
+            ],
+            'actions' => [
+                'view' => [
+                    'label'  => 'Open',
+                    'route'  => 'aftable.test',
+                    'params' => [],
+                    'class'  => 'btn btn-sm btn-outline-secondary',
+                ],
+                '<span class="badge bg-light text-dark border">raw action</span>',
+            ],
+        ], key('bench-actions'))
+    </div>
+</section>
+
+{{-- ── 8. scale ─────────────────────────────────────────────────────── --}}
+<section class="tb-section" id="scale">
+    <header>
+        <h2>8 &middot; Scale <span class="tb-count">{{ number_format($counts['timesheets']) }} timesheets</span></h2>
+        <p class="tb-lede">
+            The largest table in the demo schema, with a relation column and a distinct filter.
+            Paging, sorting and searching here should stay flat — the query is always
+            <code>LIMIT</code>ed and distinct-filter values are cached and capped.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">large offset paging</li>
+        <li class="tb-check">sort on indexed column</li>
+        <li class="tb-check">cached distinct values</li>
+        <li class="tb-check">capped dropdown</li>
+        <li class="tb-check">deferred rows</li>
+    </ul>
+
+    <div class="tb-panel">
+        @livewire('aftable', [
+            'model'   => TestTimesheet::class,
+            'tableId' => 'bench-scale',
+            'records' => 25,
+            'columns' => [
+                ['key' => 'work_date',     'label' => 'Date'],
+                ['key' => 'employee_name', 'label' => 'Employee', 'relation' => 'employee:first_name'],
+                ['key' => 'hours',         'label' => 'Hours'],
+                ['key' => 'status',        'label' => 'Status'],
+                ['key' => 'description',   'label' => 'Description'],
+            ],
+            'filters' => [
+                'status' => ['type' => 'distinct'],
+                'hours'  => ['type' => 'number'],
+            ],
+            'sortBy'        => 'work_date',
+            'sortDirection' => 'desc',
+        ], key('bench-scale'))
     </div>
 
-    <!-- Test Tabs -->
-    <div class="test-card">
-        <ul class="nav nav-pills test-tabs mb-4" id="testTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="employees-tab" data-bs-toggle="pill" data-bs-target="#employees" 
-                        type="button" role="tab" wire:click="$set('currentTest', 'employees')">
-                    <i class="fas fa-users me-2"></i>Employees (10,000)
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="projects-tab" data-bs-toggle="pill" data-bs-target="#projects" 
-                        type="button" role="tab" wire:click="$set('currentTest', 'projects')">
-                    <i class="fas fa-project-diagram me-2"></i>Projects (2,000)
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tasks-tab" data-bs-toggle="pill" data-bs-target="#tasks" 
-                        type="button" role="tab" wire:click="$set('currentTest', 'tasks')">
-                    <i class="fas fa-tasks me-2"></i>Tasks (15,000)
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="timesheets-tab" data-bs-toggle="pill" data-bs-target="#timesheets" 
-                        type="button" role="tab" wire:click="$set('currentTest', 'timesheets')">
-                    <i class="fas fa-clock me-2"></i>Timesheets (50,000)
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="foreach-tab" data-bs-toggle="pill" data-bs-target="#foreach_demo"
-                        type="button" role="tab">
-                    <i class="fas fa-list me-2"></i>Foreach / Static Data
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="custom-template-tab" data-bs-toggle="pill" data-bs-target="#custom_template"
-                        type="button" role="tab">
-                    <i class="fas fa-code me-2"></i>Custom Template
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="print-demo-tab" data-bs-toggle="pill" data-bs-target="#print_demo"
-                        type="button" role="tab">
-                    <i class="fas fa-print me-2"></i>Print Demo
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="performance-tab" data-bs-toggle="pill" data-bs-target="#performance" 
-                        type="button" role="tab" wire:click="$set('currentTest', 'performance')">
-                    <i class="fas fa-tachometer-alt me-2"></i>Performance Tests
-                </button>
-            </li>
-        </ul>
+    <h3 class="tb-sub">Deferred rows &mdash; <code>deferData =&gt; true</code></h3>
+    <p class="tb-lede">
+        The same table, split across two round trips. The toolbar and shell arrive with the page;
+        the rows follow from a lazy island, with the skeleton component standing in.
+        Reload and watch the striped placeholder appear first &mdash; on the first request the
+        query does not run at all.
+    </p>
 
-        <div class="tab-content" id="testTabsContent">
-            <!-- Employees Tab -->
-            <div class="tab-pane fade show active" id="employees" role="tabpanel">
-                <h3 class="mb-3"><i class="fas fa-users me-2"></i>Employee Management Test</h3>
-                <p class="text-muted mb-4">Testing with 10,000 employees including relationships, JSON columns, and complex filters</p>
-                
-                @livewire('test-table-component', ['testType' => 'employees'])
-            </div>
+    <div class="tb-panel">
+        @livewire('aftable', [
+            'model'     => TestTimesheet::class,
+            'tableId'   => 'bench-defer',
+            'records'   => 10,
+            'deferData' => true,
+            'columns'   => [
+                ['key' => 'work_date',     'label' => 'Date'],
+                ['key' => 'employee_name', 'label' => 'Employee', 'relation' => 'employee:first_name'],
+                ['key' => 'hours',         'label' => 'Hours'],
+                ['key' => 'status',        'label' => 'Status'],
+            ],
+            'filters' => [
+                'status' => ['type' => 'distinct'],
+            ],
+            'sortBy'        => 'work_date',
+            'sortDirection' => 'desc',
+        ], key('bench-defer'))
+    </div>
+</section>
 
-            <!-- Projects Tab -->
-            <div class="tab-pane fade" id="projects" role="tabpanel">
-                <h3 class="mb-3"><i class="fas fa-project-diagram me-2"></i>Project Management Test</h3>
-                <p class="text-muted mb-4">Testing with 2,000 projects including many-to-many relationships and JSON milestones</p>
-                
-                @livewire('test-table-component', ['testType' => 'projects'])
-            </div>
+{{-- ── 9. edge cases ────────────────────────────────────────────────── --}}
+<section class="tb-section" id="edges">
+    <header>
+        <h2>9 &middot; Edge cases</h2>
+        <p class="tb-lede">
+            The states that usually go untested: an empty result set, a table with every optional
+            control switched off, and a query-constrained table whose base filter must survive
+            search, sort and export.
+        </p>
+    </header>
 
-            <!-- Tasks Tab -->
-            <div class="tab-pane fade" id="tasks" role="tabpanel">
-                <h3 class="mb-3"><i class="fas fa-tasks me-2"></i>Task Management Test</h3>
-                <p class="text-muted mb-4">Testing with 15,000 tasks including nested relationships and date ranges</p>
-                
-                @livewire('test-table-component', ['testType' => 'tasks'])
-            </div>
+    <ul class="tb-checks">
+        <li class="tb-check">empty state</li>
+        <li class="tb-check">no toolbar</li>
+        <li class="tb-check">base query constraint</li>
+        <li class="tb-check">hidden column</li>
+        <li class="tb-check">assets=false</li>
+    </ul>
 
-            <!-- Timesheets Tab -->
-            <div class="tab-pane fade" id="timesheets" role="tabpanel">
-                <h3 class="mb-3"><i class="fas fa-clock me-2"></i>Timesheet Tracking Test</h3>
-                <p class="text-muted mb-4">Testing with 50,000 timesheet records - performance stress test</p>
-                
-                @livewire('test-table-component', ['testType' => 'timesheets'])
-            </div>
-
-            <!-- Foreach / Static Data Demo Tab -->
-            <div class="tab-pane fade" id="foreach_demo" role="tabpanel">
-                <h3 class="mb-3"><i class="fas fa-list me-2"></i>Foreach / Static Data Demo</h3>
-                <p class="text-muted mb-4">Demonstrates passing a plain PHP array/Collection to AFTable — no Eloquent model required. Includes live PHP calculations in <code>raw</code> columns and <code>vars</code> accessible inside templates.</p>
-
-                <div class="alert alert-info mb-4">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>How it works:</strong> Pass <code>data: $collection</code> instead of <code>model:</code>. Search, sort, filter, pagination, and column visibility all work on in-memory data. Use <code>raw</code> columns for PHP expressions like <code>@{{ $row->price * $row->quantity }}</code>. Extra variables are passed via <code>vars:</code> and accessible as <code>$vars['currency']</code> inside <code>raw</code> templates.
-                </div>
-
-                @livewire('test-table-component', ['testType' => 'foreach_demo'])
-            </div>
-
-            <!-- Custom Template Tab -->
-            <div class="tab-pane fade" id="custom_template" role="tabpanel">
-                <h3 class="mb-3"><i class="fas fa-code me-2"></i>Custom Template Test</h3>
-                <p class="text-muted mb-4">Demonstrates the <code>&#64;aftable / &#64;endaftable</code> paired directives that let you pass a fully custom <code>&lt;table&gt;</code> element with your own CSS classes.</p>
-
-                <div class="alert alert-info mb-4">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>How it works:</strong> Wrap the table config inside <code>&#64;aftable([...])</code> and <code>&#64;endaftable</code>. The HTML between the directives becomes the outer <code>&lt;table&gt;</code> markup — you control classes, ID, and inline styles. All sort/search/pagination still render inside it.
-                    <br><br>
-                    <strong>Example code:</strong>
-                    <pre class="mt-2 mb-0 p-2 bg-light rounded small"><code>&#64;aftable(['model' => App\Models\User::class, 'columns' => [...]])
-    &lt;table class="table table-hover table-sm border my-custom-theme"&gt;
-        &lt;thead class="table-dark"&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/thead&gt;
-        &lt;tbody&gt;&lt;/tbody&gt;
-    &lt;/table&gt;
-&#64;endaftable</code></pre>
-                </div>
-
-                @livewire('test-table-component', ['testType' => 'custom_template'])
-            </div>
-
-            <!-- Print Demo Tab -->
-            <div class="tab-pane fade" id="print_demo" role="tabpanel">
-                <h3 class="mb-3"><i class="fas fa-print me-2"></i>Print Demo</h3>
-                <p class="text-muted mb-4">Demonstrates the isolated print window system. Click the <strong>Print</strong> button in the toolbar to open a clean pop-up window containing only the table — no surrounding layout.</p>
-
-                <div class="alert alert-success mb-4">
-                    <i class="fas fa-check-circle me-2"></i>
-                    <strong>printConfig options:</strong>
-                    <code>title</code>, <code>header</code> (custom HTML), <code>footer</code>, <code>fontSize</code> (pt), <code>orientation</code> (portrait/landscape), <code>paperSize</code> (A4/Letter/…), <code>showDate</code>, <code>showPageNum</code>, <code>tableClass</code>.
-                    <br><br>
-                    This demo uses <strong>landscape A4</strong>, <strong>11pt</strong> font, a company header note, and shows the date + page number.
-                </div>
-
-                <div class="alert alert-warning mb-3">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Make sure <strong>pop-ups are allowed</strong> for this page in your browser — the isolated print window opens in a new pop-up.
-                </div>
-
-                @livewire('test-table-component', ['testType' => 'print_demo'])
-            </div>
-
-            <!-- Performance Tab -->
-            <div class="tab-pane fade" id="performance" role="tabpanel">
-                <h3 class="mb-3"><i class="fas fa-tachometer-alt me-2"></i>Performance Analysis</h3>
-                <p class="text-muted mb-4">Run comprehensive performance tests to validate optimizations</p>
-                
-                <div class="alert alert-warning mb-4">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Performance Tests:</strong> Click the button below to run all performance tests via command line.
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <i class="fas fa-bolt me-2"></i>Query Caching Test
-                            </div>
-                            <div class="card-body">
-                                <p>Tests query result caching with hash-based invalidation</p>
-                                <ul class="small">
-                                    <li>Initial render query count</li>
-                                    <li>Cache hit verification (0 queries)</li>
-                                    <li>Cache invalidation on search</li>
-                                    <li>Manual cache clearing</li>
-                                </ul>
-                                <span class="badge bg-success">Expected: 70-80% reduction</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-header bg-success text-white">
-                                <i class="fas fa-database me-2"></i>Distinct Values Test
-                            </div>
-                            <div class="card-body">
-                                <p>Tests distinct values preloading and caching</p>
-                                <ul class="small">
-                                    <li>Preload on mount verification</li>
-                                    <li>Single query per filter</li>
-                                    <li>Multiple calls return cache</li>
-                                    <li>Persistence check</li>
-                                </ul>
-                                <span class="badge bg-success">Expected: 90% reduction</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-header bg-warning text-dark">
-                                <i class="fas fa-link me-2"></i>N+1 Prevention Test
-                            </div>
-                            <div class="card-body">
-                                <p>Tests eager loading and N+1 query detection</p>
-                                <ul class="small">
-                                    <li>Relation detection accuracy</li>
-                                    <li>Eager loading verification</li>
-                                    <li>Iteration query count</li>
-                                    <li>N+1 risk score calculation</li>
-                                </ul>
-                                <span class="badge bg-success">Expected: 95% reduction</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-header bg-info text-white">
-                                <i class="fas fa-filter me-2"></i>Filter Consolidation Test
-                            </div>
-                            <div class="card-body">
-                                <p>Tests duplicate filter detection and consolidation</p>
-                                <ul class="small">
-                                    <li>Filter configuration validation</li>
-                                    <li>Query structure analysis</li>
-                                    <li>Duplicate WHERE detection</li>
-                                    <li>Efficiency percentage</li>
-                                </ul>
-                                <span class="badge bg-success">Expected: 50% reduction</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="text-center mt-4">
-                    <button class="btn btn-lg btn-primary" onclick="runPerformanceTests()">
-                        <i class="fas fa-play me-2"></i>Run All Performance Tests
-                    </button>
-                </div>
-
-                <div id="testResults" class="mt-4" style="display: none;">
-                    <div class="card">
-                        <div class="card-header bg-dark text-white">
-                            <i class="fas fa-terminal me-2"></i>Test Results
-                        </div>
-                        <div class="card-body">
-                            <pre id="testOutput" class="mb-0" style="max-height: 400px; overflow-y: auto;"></pre>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="tb-panel">
+        <p class="tb-lede mb-2">Empty result set — should render the empty-state row, not a blank table.</p>
+        @livewire('aftable', [
+            'model'   => TestEmployee::class,
+            'tableId' => 'bench-empty',
+            'query'   => [['first_name', 'no-such-employee-exists']],
+            'columns' => [
+                ['key' => 'first_name', 'label' => 'Name'],
+                ['key' => 'email',      'label' => 'Email'],
+            ],
+        ], key('bench-empty'))
     </div>
 
-    <!-- Documentation Link -->
-    <div class="text-center mt-4">
-        <a href="{{ asset('vendor/artflow-studio/table/TESTING_ENVIRONMENT.md') }}" class="btn btn-outline-primary" target="_blank">
-            <i class="fas fa-book me-2"></i>View Full Documentation
-        </a>
+    <div class="tb-panel">
+        <p class="tb-lede mb-2">
+            Chrome off (<code>searchable</code>, <code>colvisBtn</code> false), a hidden column,
+            and a base <code>query</code> constraint pinned to full-time staff.
+        </p>
+        @livewire('aftable', [
+            'model'      => TestEmployee::class,
+            'tableId'    => 'bench-bare',
+            'searchable' => false,
+            'colvisBtn'  => false,
+            'records'    => 5,
+            'query'      => ['employment_type' => 'full-time'],
+            'columns' => [
+                ['key' => 'first_name',      'label' => 'Name'],
+                ['key' => 'employment_type', 'label' => 'Type'],
+                ['key' => 'email',           'label' => 'Email', 'hide' => true],
+            ],
+        ], key('bench-bare'))
     </div>
-</div>
+</section>
+
+{{-- ── 10. theming ──────────────────────────────────────────────────── --}}
+<section class="tb-section" id="theming">
+    <header>
+        <h2>10 &middot; Theming <span class="tb-count">{{ implode(' / ', \ArtflowStudio\Table\Support\Theme::available()) }}</span></h2>
+        <p class="tb-lede">
+            The package used to hard-code Bootstrap classes into its markup, so a Tailwind app — or
+            any app with its own design system — had no way out short of republishing the view.
+            Every part of the table is now a named <em>slot</em>, and slots resolve through a theme.
+            See <code>docs/THEMING.md</code>.
+        </p>
+    </header>
+
+    <ul class="tb-checks">
+        <li class="tb-check">preset: bootstrap</li>
+        <li class="tb-check">preset: none</li>
+        <li class="tb-check">per-slot override</li>
+        <li class="tb-check">app-wide default</li>
+        <li class="tb-check">custom preset</li>
+    </ul>
+
+    <div class="tb-panel">
+        <p class="tb-lede mb-2">
+            <code>'classes' =&gt; [...]</code> — override only the slots you care about. Here the
+            table, header cells and rows are restyled; everything else keeps the preset.
+        </p>
+
+        @livewire('aftable', [
+            'model'   => TestEmployee::class,
+            'tableId' => 'bench-theme-custom',
+            'records' => 5,
+            'classes' => [
+                'table' => 'table table-sm align-middle bench-striped',
+                'th'    => 'bench-th',
+                'tr'    => 'bench-tr',
+                'responsive' => 'bench-scroll',
+            ],
+            'columns' => [
+                ['key' => 'first_name', 'label' => 'Name'],
+                ['key' => 'position',   'label' => 'Position'],
+                ['key' => 'salary',     'label' => 'Salary'],
+            ],
+        ], key('bench-theme-custom'))
+    </div>
+
+    <div class="tb-panel">
+        <p class="tb-lede mb-2">
+            <code>'theme' =&gt; 'none'</code> — the package emits <strong>no</strong> opinionated
+            classes at all, only structural <code>aft-*</code> hooks for your own stylesheet.
+            The CSS below this table is the entire styling.
+        </p>
+
+        @livewire('aftable', [
+            'model'   => TestEmployee::class,
+            'tableId' => 'bench-theme-none',
+            'theme'   => 'none',
+            'records' => 5,
+            'searchable' => false,
+            'colvisBtn'  => false,
+            'columns' => [
+                ['key' => 'first_name', 'label' => 'Name'],
+                ['key' => 'position',   'label' => 'Position'],
+                ['key' => 'salary',     'label' => 'Salary'],
+            ],
+        ], key('bench-theme-none'))
+
+        <pre class="mt-3"><code>{{ '.aft-table { width:100%; border-collapse:collapse }
+.aft-th    { text-align:left; font-weight:600; padding:.5rem }
+.aft-td    { padding:.5rem; border-top:1px solid var(--line) }' }}</code></pre>
+    </div>
+</section>
+
+{{-- ── 11. security ─────────────────────────────────────────────────── --}}
+<section class="tb-section" id="security">
+    <header>
+        <h2>11 &middot; Security posture</h2>
+        <p class="tb-lede">
+            Livewire exposes every public method as an action a visitor can invoke with arbitrary
+            arguments — this component has {{ $publicMethodCount }} of them. The action guard closes
+            that to a declared list at the one point every client call passes through.
+        </p>
+    </header>
+
+    <div class="tb-panel">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Control</th><th>State</th><th>Effect</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Action guard</td>
+                    <td>{!! $guardOn
+                        ? '<span class="is-ok">on</span>'
+                        : '<span class="is-bad">off</span>' !!}</td>
+                    <td>{{ $allowedActions }} of {{ $publicMethodCount }} public methods are client-callable</td>
+                </tr>
+                <tr>
+                    <td>Raw template execution</td>
+                    <td><span class="is-ok">protected</span></td>
+                    <td><code>renderRawHtml()</code> cannot be invoked from the browser</td>
+                </tr>
+                <tr>
+                    <td>Compiled template cache</td>
+                    <td><span class="is-ok">storage/</span></td>
+                    <td>written atomically inside the app, not the shared OS temp dir</td>
+                </tr>
+                <tr>
+                    <td>Filter column allow-list</td>
+                    <td><span class="is-ok">enforced</span></td>
+                    <td>a crafted query string cannot filter on an undeclared column</td>
+                </tr>
+                <tr>
+                    <td>Column qualification</td>
+                    <td><span class="is-ok">enforced</span></td>
+                    <td>joins cannot produce ambiguous-column errors or leak across tables</td>
+                </tr>
+                <tr>
+                    <td>Demo routes</td>
+                    <td><span class="is-ok">non-production only</span></td>
+                    <td>this page never registers when <code>APP_ENV=production</code></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@php
+    $benchQueries = count(\Illuminate\Support\Facades\DB::getQueryLog());
+    $benchMs = round((microtime(true) - $benchStart) * 1000);
+    $benchMem = round(memory_get_peak_usage(true) / 1048576);
+@endphp
 
 @push('scripts')
 <script>
-function runPerformanceTests() {
-    const resultsDiv = document.getElementById('testResults');
-    const outputPre = document.getElementById('testOutput');
-    
-    resultsDiv.style.display = 'block';
-    outputPre.textContent = 'Running performance tests...\n\n';
-    
-    // Simulate running command (in real scenario, this would trigger an API call)
-    fetch('/aftable/test/run-performance', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        outputPre.textContent = data.output || 'Tests completed. Check terminal for detailed results.';
-    })
-    .catch(error => {
-        outputPre.textContent = 'Error running tests. Please run manually:\nphp artisan af-table:test-trait --suite=performance';
-    });
-}
+    // Fill the diagnostics strip after render, so the numbers describe the whole
+    // page rather than the point at which the strip happened to be emitted.
+    (() => {
+        const set = (id, value, cls) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = value;
+            if (cls) el.classList.add(cls);
+        };
+
+        const queries = {{ $benchQueries }};
+        const ms = {{ $benchMs }};
+
+        set('diag-queries', queries, queries > 120 ? 'is-warn' : 'is-ok');
+        set('diag-time', ms + ' ms', ms > 3000 ? 'is-warn' : 'is-ok');
+        set('diag-memory', '{{ $benchMem }} MB');
+    })();
 </script>
 @endpush
+
 @endsection

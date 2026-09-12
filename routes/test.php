@@ -1,41 +1,44 @@
 <?php
 
+use ArtflowStudio\Table\Support\SchemaIntrospector;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Artisan;
 
-// Apply web middleware for session/CSRF support
-Route::middleware(['web'])->prefix('aftable')->group(function () {
-    // Test environment home
-    Route::get('/test', function () {
-        return view('artflow-table::test.index');
-    })->name('aftable.test');
+/*
+|--------------------------------------------------------------------------
+| Demo, docs and generator routes
+|--------------------------------------------------------------------------
+|
+| TableServiceProvider only loads this file when `aftable.routes.enabled` is
+| true AND the application is not in production. The prefix and middleware
+| come from config so a host application can move or protect these pages —
+| both keys existed before 1.6.0 but were ignored here.
+|
+*/
 
-    // Documentation page — full API reference, guides, and feature explanations
-    Route::get('/docs', function () {
-        return view('artflow-table::docs');
-    })->name('aftable.docs');
+Route::middleware((array) config('aftable.routes.middleware', ['web']))
+    ->prefix((string) config('aftable.routes.prefix', 'aftable'))
+    ->group(function () {
+        Route::view('/test', 'artflow-table::test.index')->name('aftable.test');
+        Route::view('/docs', 'artflow-table::docs')->name('aftable.docs');
+        Route::view('/generator', 'artflow-table::generator')->name('aftable.generator');
 
-    // Generator page — interactive Blade code generator only
-    Route::get('/generator', function () {
-        return view('artflow-table::generator');
-    })->name('aftable.generator');
+        // Schema introspection for the generator. Gated a second time, on its
+        // own flag: the demo pages read the package's own test_* tables, but
+        // this one reads YOUR schema and hands back table, column and relation
+        // names. Off unless `aftable.generator.enabled` is explicitly true.
+        Route::get('/generator/schema', function () {
+            abort_unless(SchemaIntrospector::enabled(), 404);
 
-    // Run performance tests endpoint
-    Route::post('/test/run-performance', function () {
-        try {
-            Artisan::call('af-table:test-trait', ['--suite' => 'performance']);
-            $output = Artisan::output();
+            return response()->json(['models' => array_values(SchemaIntrospector::models())]);
+        })->name('aftable.generator.schema');
 
-            return response()->json([
-                'success' => true,
-                'output' => $output,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'output' => 'Error running tests. Please check the logs.',
-            ], 500);
-        }
-    })->name('aftable.test.run-performance');
-});
+        Route::get('/generator/schema/{model}', function (string $model) {
+            abort_unless(SchemaIntrospector::enabled(), 404);
+
+            try {
+                return response()->json(SchemaIntrospector::describe(str_replace('/', '\\', $model)));
+            } catch (InvalidArgumentException $e) {
+                return response()->json(['message' => $e->getMessage()], 404);
+            }
+        })->where('model', '.*')->name('aftable.generator.describe');
+    });

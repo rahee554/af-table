@@ -29,7 +29,7 @@ return new class extends Migration
             $table->boolean('is_verified')->default(false);
             $table->timestamps();
             $table->softDeletes();
-            
+
             $table->index('status');
             $table->index('country');
             $table->index(['status', 'is_verified']);
@@ -46,7 +46,7 @@ return new class extends Migration
             $table->unsignedBigInteger('manager_id')->nullable(); // Will add FK later
             $table->json('settings')->nullable(); // JSON column
             $table->timestamps();
-            
+
             $table->index('company_id');
             $table->index('code');
             $table->index('manager_id');
@@ -74,7 +74,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();
-            
+
             $table->index('company_id');
             $table->index('department_id');
             $table->index('email');
@@ -108,7 +108,7 @@ return new class extends Migration
             $table->integer('progress')->default(0); // 0-100
             $table->json('milestones')->nullable();
             $table->timestamps();
-            
+
             $table->index('company_id');
             $table->index('status');
             $table->index('priority');
@@ -131,7 +131,7 @@ return new class extends Migration
             $table->date('completed_at')->nullable();
             $table->json('tags')->nullable();
             $table->timestamps();
-            
+
             $table->index('project_id');
             $table->index('assigned_to');
             $table->index('status');
@@ -147,7 +147,7 @@ return new class extends Migration
             $table->decimal('hours_allocated', 8, 2)->default(0);
             $table->date('joined_at')->nullable();
             $table->timestamps();
-            
+
             $table->unique(['employee_id', 'project_id']);
             $table->index('employee_id');
             $table->index('project_id');
@@ -168,7 +168,7 @@ return new class extends Migration
             $table->json('contacts')->nullable(); // Array of contact persons
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            
+
             $table->index('company_id');
             $table->index('tier');
             $table->index('email');
@@ -189,7 +189,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->json('line_items')->nullable(); // Invoice items as JSON
             $table->timestamps();
-            
+
             $table->index('client_id');
             $table->index('project_id');
             $table->index('status');
@@ -209,7 +209,7 @@ return new class extends Migration
             $table->boolean('is_billable')->default(true);
             $table->boolean('is_approved')->default(false);
             $table->timestamps();
-            
+
             $table->index('employee_id');
             $table->index('task_id');
             $table->index('work_date');
@@ -229,7 +229,7 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->foreignId('uploaded_by')->constrained('test_employees')->onDelete('cascade');
             $table->timestamps();
-            
+
             $table->index('uploaded_by');
         });
     }

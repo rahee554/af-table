@@ -31,14 +31,24 @@
 @endassets
 @endif
 
-<div class="aftable-wrapper">
+@php
+    // Resolved theme class map. Slots are stable names ('table', 'th', 'button'…)
+    // so a host application can restyle any part without republishing this view:
+    //   @livewire('aftable', ['theme' => 'tailwind'])
+    //   @livewire('aftable', ['classes' => ['table' => 'table my-theme']])
+    // See docs/THEMING.md.
+    $ui ??= $this->themeClasses();
+    $cls = fn (string $slot, string $extra = '') => trim(($ui[$slot] ?? '').' '.$extra);
+@endphp
+
+<div class="{{ $cls('wrapper') }}">
     @if (!empty($filters))
         <div class="mb-3">
             {{-- Main Filter Row --}}
-            <div class="row g-2 mb-2 align-items-end">
-                <div class="col-12 col-sm-6 col-md-3">
-                    <label class="form-label small text-muted">Filter Column</label>
-                    <select wire:model.live="filterColumn" class="form-select form-select-sm filter-indicator {{ $filterColumn ? 'active' : '' }}">
+            <div class="{{ $cls('filters.row') }}">
+                <div class="{{ $cls('filters.col') }}">
+                    <label class="{{ $cls('label') }}">Filter Column</label>
+                    <select wire:model.live="filterColumn" class="{{ $cls('select', 'filter-indicator '.($filterColumn ? 'active' : '')) }}">
                         <option value="">Select Column</option>
                         @foreach ($filters as $filterKey => $filterConfig)
                             @php
@@ -55,9 +65,9 @@
                         $filterType = isset($filters[$filterColumn]['type']) ? $filters[$filterColumn]['type'] : 'text';
                     @endphp
                     @if (in_array($filterType, ['integer', 'number', 'date']))
-                        <div class="col-12 col-sm-6 col-md-2">
-                            <label class="form-label small text-muted">Operator</label>
-                            <select wire:model.live="filterOperator" class="form-select form-select-sm">
+                        <div class="{{ $cls('filters.col.sm') }}">
+                            <label class="{{ $cls('label') }}">Operator</label>
+                            <select wire:model.live="filterOperator" class="{{ $cls('select') }}">
                                 <option value="=">Equal (=)</option>
                                 <option value="!=">Not Equal (≠)</option>
                                 <option value="<">Less Than (<)</option>
@@ -68,7 +78,7 @@
                         </div>
                     @endif
                 @endif
-                <div class="col-12 col-sm-4 col-md-3 col-lg-2">
+                <div class="{{ $cls('filters.col.value') }}">
                     @php
                         $selectedColumn = $filterColumn ?? null;
                         $filterType =
@@ -77,9 +87,9 @@
                                 : null;
                     @endphp
                     @if ($selectedColumn)
-                        <label class="form-label small text-muted">Value</label>
+                        <label class="{{ $cls('label') }}">Value</label>
                         @if ($filterType === 'select' || $filterType === 'distinct')
-                            <select wire:model.live="filterValue" class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
+                            <select wire:model.live="filterValue" class="{{ $cls('input', 'filter-indicator '.($filterValue ? 'active' : '')) }}">
                                 <option value="">Select Value</option>
                                 @php
                                     $distinctValues = $this->getDistinctValues($selectedColumn);
@@ -100,30 +110,30 @@
                             </select>
                         @elseif($filterType === 'date')
                             <input type="date" wire:model.live.debounce.500ms="filterValue"
-                                class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
+                                class="{{ $cls('input', 'filter-indicator '.($filterValue ? 'active' : '')) }}">
                         @elseif(in_array($filterType, ['integer', 'number']))
                             <input type="number" wire:model.live.debounce.500ms="filterValue" placeholder="Enter number..."
-                                class="form-control form-control-sm filter-indicator {{ $filterValue ? 'active' : '' }}">
+                                class="{{ $cls('input', 'filter-indicator '.($filterValue ? 'active' : '')) }}">
                         @else
                             <input type="text" wire:model.live.debounce.500ms="filterValue" placeholder="Enter at least 3 characters..."
-                                class="form-control form-control-sm filter-indicator {{ $filterValue && strlen($filterValue) >= 3 ? 'active' : '' }}" minlength="3">
+                                class="{{ $cls('input', 'filter-indicator '.($filterValue && strlen($filterValue) >= 3 ? 'active' : '')) }}" minlength="3">
                         @endif
                     @else
-                        <label class="form-label small text-muted">Value</label>
-                        <input type="text" placeholder="Select a column first" class="form-control form-control-sm"
+                        <label class="{{ $cls('label') }}">Value</label>
+                        <input type="text" placeholder="Select a column first" class="{{ $cls('input') }}"
                             disabled>
                     @endif
                 </div>
-                <div class="col-auto">
+                <div class="{{ $cls('filters.col.auto') }}">
                     <button type="button"
                         wire:click="$set('filterColumn', null); $set('filterValue', null); $set('filterOperator', '=')"
-                        class="btn btn-sm btn-outline-secondary" title="Clear filters">
-                        <i class="fas fa-times"></i> Clear
+                        class="{{ $cls('button') }}" title="Clear filters">
+                        <x-artflow-table::icon name="times" /> Clear
                     </button>
                 </div>
-                <div class="col-auto">
-                    <button type="button" wire:click="addFilterInstance" class="btn btn-sm btn-outline-primary" title="Add another filter">
-                        <i class="fas fa-plus"></i>
+                <div class="{{ $cls('filters.col.auto') }}">
+                    <button type="button" wire:click="addFilterInstance" class="{{ $cls('button.primary') }}" title="Add another filter">
+                        <x-artflow-table::icon name="plus" />
                     </button>
                 </div>
             </div>
@@ -131,11 +141,11 @@
             {{-- Additional Filter Instances --}}
             @if (!empty($filterInstances))
                 @foreach ($filterInstances as $index => $filterInstance)
-                    <div class="row g-2 mb-2 align-items-end border-start border-3 border-primary ps-3" style="margin-left: 10px;">
-                        <div class="col-12 col-sm-6 col-md-3">
-                            <label class="form-label small text-muted">Filter Column</label>
+                    <div class="{{ $cls('filters.instance') }}">
+                        <div class="{{ $cls('filters.col') }}">
+                            <label class="{{ $cls('label') }}">Filter Column</label>
                             <select wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'column', $event.target.value)" 
-                                    class="form-select form-select-sm filter-indicator {{ $filterInstance['column'] ? 'active' : '' }}">
+                                    class="{{ $cls('select', 'filter-indicator '.($filterInstance['column'] ? 'active' : '')) }}">
                                 <option value="">Select Column</option>
                                 @foreach ($filters as $filterKey => $filterConfig)
                                     @php
@@ -154,10 +164,10 @@
                                 $instanceFilterType = isset($filters[$filterInstance['column']]['type']) ? $filters[$filterInstance['column']]['type'] : 'text';
                             @endphp
                             @if (in_array($instanceFilterType, ['integer', 'number', 'date']))
-                                <div class="col-12 col-sm-6 col-md-2">
-                                    <label class="form-label small text-muted">Operator</label>
-                                    <select wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'operator', $event.target.value)" 
-                                            class="form-select form-select-sm">
+                                <div class="{{ $cls('filters.col.sm') }}">
+                                    <label class="{{ $cls('label') }}">Operator</label>
+                                    <select wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'operator', $event.target.value)"
+                                            class="{{ $cls('select') }}">
                                         <option value="=" {{ $filterInstance['operator'] === '=' ? 'selected' : '' }}>Equal (=)</option>
                                         <option value="!=" {{ $filterInstance['operator'] === '!=' ? 'selected' : '' }}>Not Equal (≠)</option>
                                         <option value="<" {{ $filterInstance['operator'] === '<' ? 'selected' : '' }}>Less Than (<)</option>
@@ -168,12 +178,12 @@
                                 </div>
                             @endif
                         @endif
-                        <div class="col-12 col-sm-4 col-md-3 col-lg-2">
+                        <div class="{{ $cls('filters.col.value') }}">
                             @if ($filterInstance['column'])
-                                <label class="form-label small text-muted">Value</label>
+                                <label class="{{ $cls('label') }}">Value</label>
                                 @if ($instanceFilterType === 'select' || $instanceFilterType === 'distinct')
                                     <select wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'value', $event.target.value)" 
-                                            class="form-control form-control-sm filter-indicator {{ $filterInstance['value'] ? 'active' : '' }}">
+                                            class="{{ $cls('input', 'filter-indicator '.($filterInstance['value'] ? 'active' : '')) }}">
                                         <option value="">Select Value</option>
                                         @php
                                             $distinctValues = $this->getDistinctValues($filterInstance['column']);
@@ -198,32 +208,32 @@
                                     <input type="date" 
                                            wire:change="updateFilterInstance('{{ $filterInstance['id'] }}', 'value', $event.target.value)"
                                            value="{{ $filterInstance['value'] }}"
-                                           class="form-control form-control-sm filter-indicator {{ $filterInstance['value'] ? 'active' : '' }}">
+                                           class="{{ $cls('input', 'filter-indicator '.($filterInstance['value'] ? 'active' : '')) }}">
                                 @elseif(in_array($instanceFilterType, ['integer', 'number']))
                                     <input type="number" 
                                            wire:input.debounce.500ms="updateFilterInstance('{{ $filterInstance['id'] }}', 'value', $event.target.value)"
                                            value="{{ $filterInstance['value'] }}"
                                            placeholder="Enter number..."
-                                           class="form-control form-control-sm filter-indicator {{ $filterInstance['value'] ? 'active' : '' }}">
+                                           class="{{ $cls('input', 'filter-indicator '.($filterInstance['value'] ? 'active' : '')) }}">
                                 @else
                                     <input type="text" 
                                            wire:input.debounce.500ms="updateFilterInstance('{{ $filterInstance['id'] }}', 'value', $event.target.value)"
                                            value="{{ $filterInstance['value'] }}"
                                            placeholder="Enter at least 3 characters..."
-                                           class="form-control form-control-sm filter-indicator {{ $filterInstance['value'] && strlen($filterInstance['value']) >= 3 ? 'active' : '' }}" 
+                                           class="{{ $cls('input', 'filter-indicator '.($filterInstance['value'] && strlen($filterInstance['value']) >= 3 ? 'active' : '')) }}" 
                                            minlength="3">
                                 @endif
                             @else
-                                <label class="form-label small text-muted">Value</label>
-                                <input type="text" placeholder="Select a column first" class="form-control form-control-sm" disabled>
+                                <label class="{{ $cls('label') }}">Value</label>
+                                <input type="text" placeholder="Select a column first" class="{{ $cls('input') }}" disabled>
                             @endif
                         </div>
-                        <div class="col-auto">
+                        <div class="{{ $cls('filters.col.auto') }}">
                             <button type="button" 
                                     wire:click="removeFilterInstance('{{ $filterInstance['id'] }}')" 
-                                    class="btn btn-sm btn-outline-danger" 
+                                    class="{{ $cls('button.danger') }}"
                                     title="Remove this filter">
-                                <i class="fas fa-trash"></i>
+                                <x-artflow-table::icon name="trash" />
                             </button>
                         </div>
                     </div>
@@ -232,22 +242,22 @@
                     <div class="col-12">
                         <button type="button" 
                                 wire:click="clearAllFilterInstances" 
-                                class="btn btn-sm btn-outline-warning" 
+                                class="{{ $cls('button.warning') }}"
                                 title="Clear all additional filters">
-                            <i class="fas fa-broom"></i> Clear All Additional Filters
+                            <x-artflow-table::icon name="broom" /> Clear All Additional Filters
                         </button>
                     </div>
                 </div>
             @endif
         </div>
     @endif
-    <div class="row mb-2">
+    <div class="{{ $cls('toolbar') }}">
         <div class="col">
             <div class="w-100px">
               @if ($searchable)
                 <div class="position-relative w-md-250px me-2">
                     <input type="text" wire:model.live.debounce.500ms="search" placeholder="Search (min 3 chars)..."
-                        class="form-control form-control-sm border-0 p-2 pe-4" minlength="3">
+                        class="{{ $cls('search') }}" minlength="3">
 
                     @if (!empty($search))
                         <span class="position-absolute top-50 end-0 translate-middle-y me-2 cursor-pointer text-muted"
@@ -261,16 +271,16 @@
         </div>
 
 
-        <div class="col d-flex justify-content-end">
+        <div class="{{ $cls('toolbar.end') }}">
           
 
             @if ($colvisBtn == true)
-                <div class="dropdown me-2" id="columnVisibilityDropdownWrapper">
-                    <button class="btn btn-outline btn-sm dropdown-toggle" type="button" id="columnVisibilityDropdown"
+                <div class="{{ $cls('dropdown') }}" id="columnVisibilityDropdownWrapper">
+                    <button class="{{ $cls('dropdown.toggle') }}" type="button" id="columnVisibilityDropdown"
                         data-bs-toggle="dropdown" aria-expanded="false">
                         Column Visibility
                     </button>
-                    <ul class="dropdown-menu" aria-labelledby="columnVisibilityDropdown">
+                    <ul class="{{ $cls('dropdown.menu') }}" aria-labelledby="columnVisibilityDropdown">
                         @foreach ($columns as $columnKey => $column)
                             @php
                                 // Determine current visibility state
@@ -298,55 +308,88 @@
             @endif
             
             @if ($exportable)
-                <div class="dropdown me-2">
-                    <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" id="exportDropdown"
+                <div class="{{ $cls('dropdown') }}">
+                    <button class="{{ $cls('dropdown.toggle') }}" type="button" id="exportDropdown"
                         data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-download"></i> Export
+                        <x-artflow-table::icon name="download" /> Export
                     </button>
-                    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                    @php $exportFormats = $this->availableExportFormats(); @endphp
+                    <ul class="{{ $cls('dropdown.menu') }}" aria-labelledby="exportDropdown">
                         <li>
-                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('csv')">
-                                <i class="fas fa-file-csv"></i> Export as CSV
+                            <a class="{{ $cls('dropdown.item') }}" href="#" wire:click.prevent="handleExport('csv')">
+                                <x-artflow-table::icon name="file" /> Export as CSV
                             </a>
                         </li>
-                        <li>
-                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('xlsx')">
-                                <i class="fas fa-file-excel"></i> Export as Excel
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#" wire:click.prevent="handleExport('pdf')">
-                                <i class="fas fa-file-pdf"></i> Export as PDF
-                            </a>
-                        </li>
+                        {{-- Excel and PDF need optional packages; only advertise
+                             them when the host app actually has one installed. --}}
+                        @if ($exportFormats['xlsx'])
+                            <li>
+                                <a class="{{ $cls('dropdown.item') }}" href="#" wire:click.prevent="handleExport('xlsx')">
+                                    <x-artflow-table::icon name="file" /> Export as Excel
+                                </a>
+                            </li>
+                        @endif
+                        @if ($exportFormats['pdf'])
+                            <li>
+                                <a class="{{ $cls('dropdown.item') }}" href="#" wire:click.prevent="handleExport('pdf')">
+                                    <x-artflow-table::icon name="file" /> Export as PDF
+                                </a>
+                            </li>
+                        @endif
                     </ul>
                 </div>
             @endif
             
             @if ($refreshBtn == true)
-                <button wire:click="refreshTable" class="btn btn-sm btn-light mb-2">
-                    <i class="fas fa-refresh"></i>
+                <button wire:click="refreshTable" class="{{ $cls('button') }}">
+                    <x-artflow-table::icon name="refresh" />
                 </button>
             @endif
             
             @if ($printable)
                 <button onclick="aftablePrint('{{ $tableId ?? 'myTable' }}', @json($printConfig))"
-                    class="btn btn-sm btn-secondary">
-                    <i class="fas fa-print"></i> Print
+                    class="{{ $cls('button') }}">
+                    <x-artflow-table::icon name="print" /> Print
                 </button>
             @endif
         </div>
     </div>
 
     {{-- Single island containing table + pagination footer: when records/sort/page changes inside, the whole island re-renders with fresh data --}}
-    @island(name: 'aftable-data', always: true)
+    {{--
+        Data island.
+
+        `always: true` re-renders it on every request, so changing the page size
+        or the sort refreshes the table and its pagination footer together.
+
+        `lazy: $deferData` defers the FIRST data query until the island scrolls
+        into view, showing the skeleton below in the meantime, while the toolbar
+        above renders straight away. Off by default — a single above-the-fold
+        table is better served rendered.
+
+        Note the property is `deferData`, not `lazy`: `lazy` is a reserved
+        Livewire mount parameter that defers the whole component.
+    --}}
+    @island(name: 'aftable-data', always: true, lazy: $deferData)
+        @placeholder
+            <x-artflow-table::skeleton-table
+                :rows="min($records ?? 10, 8)"
+                :cols="max(count(array_filter($visibleColumns ?: [true])), 3)" />
+        @endplaceholder
+
         @php
-            // Island renders bypass render() and don't get the $data view variable;
-            // fall back to the #[Computed] property so data is always available.
+            // Island renders bypass render() and don't get the view variables;
+            // fall back to the component so both are always available.
             $data ??= $this->tableData;
+
+            // An island renders as its own compiled view, so neither the parent
+            // scope's variables nor its closures survive the boundary - both
+            // have to be re-established here.
+            $ui = $ui ?? $this->themeClasses();
+            $cls = fn (string $slot, string $extra = '') => trim(($ui[$slot] ?? '').' '.$extra);
         @endphp
 
-    <div class="table-responsive rounded aftable-table-wrap {{ (isset($data) && count($data) < 5) ? 'h-500px' : '' }}"
+    <div class="{{ $cls('responsive') }}"
          wire:loading.class="aftable-table-loading"
          wire:loading.attr="aria-busy"
     >
@@ -354,7 +397,7 @@
             // Allow @aftable/@endaftable to pass a custom <table> tag with user's theme classes.
             // We extract its attributes and apply them to our table element, keeping all
             // thead/tbody rendering intact. Falls back to the default Bootstrap table.
-            $customTableOpen = '<table class="table table-bordered p-2" id="' . ($tableId ?? 'myTable') . '">';
+            $customTableOpen = '<table class="'.e($cls('table')).'" id="' . ($tableId ?? 'myTable') . '">';
             if (! empty($customTemplate)) {
                 if (preg_match('/<table([^>]*)>/i', $customTemplate, $_m)) {
                     $_attrs = trim($_m[1] ?? '');
@@ -367,19 +410,19 @@
             }
         @endphp
         {!! $customTableOpen !!}
-            <thead>
+            <thead class="{{ $cls('thead') }}">
                 <tr>
                     @if ($checkbox)
-                        <th class="fw-bold bg-light">
+                        <th class="{{ $cls('th') }}">
                             <div class="form-check">
-                                <input class="form-check-input" wire:model.live="selectAll" type="checkbox"
+                                <input class="{{ $cls('checkbox') }}" wire:model.live="selectAll" type="checkbox"
                                     data-kt-check-target="#{{ $tableId ?? 'myTable' }} .form-check-input" />
                             </div>
                         </th>
                     @endif
 
                     @if (!isset($index) || $index)
-                        <th class="fw-bold bg-light" wire:click.preserve-scroll="toggleSort('updated_at')" style="cursor:pointer;">
+                        <th class="{{ $cls('th') }}" wire:click.preserve-scroll="toggleSort('updated_at')" style="cursor:pointer;">
                             <span class="d-inline-flex align-items-center">
                                 #
                                 @if ($sortBy == 'updated_at')
@@ -411,7 +454,7 @@
                                     $nestingLevel = substr_count($relation, '.') + substr_count($attribute, '.');
                                 }
                             @endphp
-                            <th class="fw-bold bg-light position-relative {{ $column['th_class'] ?? $column['class'] ?? '' }}"
+                            <th class="{{ $cls('th', $column['th_class'] ?? $column['class'] ?? '') }}"
                                 @if($isSortable)
                                     wire:click.preserve-scroll="toggleSort('{{ $column['key'] }}')" style="cursor:pointer;"
                                 @endif
@@ -435,18 +478,18 @@
                     @endforeach
 
                     @if (!empty($actions))
-                        <th class="fw-bold bg-light">Actions</th>
+                        <th class="{{ $cls('th') }}">Actions</th>
                     @endif
                 </tr>
             </thead>
-            <tbody id="datatable-tbody">
+            <tbody id="datatable-tbody" class="{{ $cls('tbody') }}">
                 @if (!isset($data) || count($data) === 0)
                     <x-artflow-table::empty-state />
                 @else
                     @foreach ($data as $row)
-                        <tr wire:key="row-{{ $row->id ?? $loop->index }}">
+                        <tr wire:key="row-{{ $row->id ?? $loop->index }}" class="{{ $cls('tr') }}">
                             @if ($checkbox)
-                                <td><input type="checkbox" wire:model.live="selectedRows" value="{{ $row->id }}" class="form-check-input"></td>
+                                <td><input type="checkbox" wire:model.live="selectedRows" value="{{ $row->id }}" class="{{ $cls('checkbox') }}"></td>
                             @endif
 
                             @if (!isset($index) || $index)
@@ -475,7 +518,7 @@
                                     $isVisible = isset($visibleColumns[$columnKey]) ? (bool)$visibleColumns[$columnKey] : !($column['hide'] ?? false);
                                 @endphp
                                 @if ($isVisible)
-                                    <td class="{{ $column['td_class'] ?? $column['class'] ?? '' }}">
+                                    <td class="{{ $cls('td', $column['td_class'] ?? $column['class'] ?? '') }}">
                                         @if (isset($column['json']))
                                             {{-- Handle JSON column with json - this takes priority over other column types --}}
                                             @php
@@ -558,7 +601,31 @@
                                             {{ $value ?? '' }}
                                         @elseif (isset($column['key']))
                                             {{-- Handle regular database columns --}}
-                                            {{ $row->{$column['key']} ?? '' }}
+                                            @php
+                                                // A plain column can still hold a non-scalar: an
+                                                // array/collection cast, a Carbon date, an enum.
+                                                // Echoing those straight into {{ }} throws
+                                                // "htmlspecialchars(): Argument #1 must be of type
+                                                // string, array given" and kills the whole render.
+                                                $cell = $row->{$column['key']} ?? null;
+
+                                                if (is_bool($cell)) {
+                                                    $cell = $cell ? 'Yes' : 'No';
+                                                } elseif ($cell instanceof \DateTimeInterface) {
+                                                    $cell = $cell->format($column['format'] ?? 'Y-m-d H:i');
+                                                } elseif ($cell instanceof \BackedEnum) {
+                                                    $cell = $cell->value;
+                                                } elseif ($cell instanceof \UnitEnum) {
+                                                    $cell = $cell->name;
+                                                } elseif (is_array($cell) || $cell instanceof \JsonSerializable) {
+                                                    $cell = json_encode($cell);
+                                                } elseif (is_object($cell)) {
+                                                    $cell = method_exists($cell, '__toString')
+                                                        ? (string) $cell
+                                                        : json_encode($cell);
+                                                }
+                                            @endphp
+                                            {{ $cell ?? '' }}
                                         @else
                                             {{-- Fallback for columns without key, function, or relation --}}
                                             N/A
@@ -644,19 +711,34 @@
         {{-- Pagination footer: inside the same island so records change re-renders both table and pagination together --}}
         <div>
             @if(isset($data))
-                {{ $data->links('artflow-table::livewire.pagination') }}
+                @php
+                    // The pagination view is a theme slot, so a host application
+                    // can hand us its own paginator markup:
+                    //   'classes' => ['pagination' => 'vendor.pagination.bootstrap-5']
+                    // Any Laravel paginator view works, including the built-in
+                    // 'pagination::tailwind' and 'pagination::bootstrap-5'.
+                    $paginationView = $ui['pagination'] ?? 'artflow-table::livewire.pagination';
+                @endphp
+                {{ $data->links($paginationView) }}
             @endif
-            @if(isset($data) && $data->total() > 10)
-                <div class="w-100px">
-                    <select wire:model.live="records" id="records" class="form-select form-select-sm">
-                        <option value="10">10</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="500">500</option>
-                        <option value="1000">1000</option>
-                    </select>
-                </div>
-            @endif
+            {{-- Always available. This used to be hidden behind total() > 10,
+                 so a table with exactly ten rows had no page-size control at
+                 all. See AUDIT.md BUG-14. --}}
+            @php
+                $perPageOptions = config('aftable.query.per_page_options', [10, 25, 50, 100, 500]);
+            @endphp
+            <div class="d-flex align-items-center gap-2">
+                <label for="records-{{ $tableId ?? 'myTable' }}" class="form-label small text-muted mb-0">
+                    Rows
+                </label>
+                <select wire:model.live="records"
+                        id="records-{{ $tableId ?? 'myTable' }}"
+                        class="{{ $cls('select', 'w-auto') }}">
+                    @foreach ($perPageOptions as $option)
+                        <option value="{{ $option }}">{{ $option }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
     @endisland
 </div>
@@ -761,28 +843,39 @@ function aftablePrint(tableId, cfg) {
 @endassets
 
 @script
-    // Re-trigger table fade animation after every Livewire update
-    window.addEventListener('livewire:update', function () {
-        const tbody = document.querySelector('#myTable tbody');
+    // Livewire 4 dispatches no such browser event as the one this block used to
+    // listen for, so neither the fade nor the dropdown behaviour below ever ran.
+    // The supported hook is `commit`, whose respond() callback fires after the
+    // DOM has been patched. See AUDIT.md BUG-15.
+    const root = $wire.$el;
+
+    const afterUpdate = () => {
+        const tbody = root.querySelector('table tbody');
         if (tbody) {
             tbody.classList.remove('table-fade');
-            setTimeout(() => { tbody.classList.add('table-fade'); }, 10);
+            // Force a reflow so re-adding the class restarts the animation.
+            void tbody.offsetWidth;
+            tbody.classList.add('table-fade');
         }
 
-        // Keep the column visibility dropdown open after toggling a checkbox
-        const dropdownToggle = document.getElementById('columnVisibilityDropdown');
-        const dropdownMenu = dropdownToggle?.nextElementSibling;
+        // Keep the column-visibility dropdown open after toggling a checkbox.
         if (window._keepColumnDropdownOpen) {
-            dropdownMenu?.classList.add('show');
-            dropdownToggle?.setAttribute('aria-expanded', 'true');
+            const toggle = root.querySelector('#columnVisibilityDropdown');
+            toggle?.nextElementSibling?.classList.add('show');
+            toggle?.setAttribute('aria-expanded', 'true');
             window._keepColumnDropdownOpen = false;
         }
+    };
+
+    Livewire.hook('commit', ({ component, respond }) => {
+        if (component.id !== $wire.id) return;
+        respond(afterUpdate);
     });
 
-    // Flag set so the dropdown stays open when a visibility checkbox is clicked
-    document.getElementById('columnVisibilityDropdownWrapper')?.addEventListener('click', function (e) {
-        if (e.target && e.target.matches('.form-check-input')) {
-            window._keepColumnDropdownOpen = true;
-        }
-    });
+    root.querySelector('#columnVisibilityDropdownWrapper')
+        ?.addEventListener('click', (e) => {
+            if (e.target?.matches('.form-check-input')) {
+                window._keepColumnDropdownOpen = true;
+            }
+        });
 @endscript

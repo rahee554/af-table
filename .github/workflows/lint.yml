@@ -1,0 +1,49 @@
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pint:
+    runs-on: ubuntu-latest
+    name: code style
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - run: composer global require laravel/pint --no-interaction
+
+      - name: Check formatting
+        run: ~/.composer/vendor/bin/pint --test
+
+  deprecations:
+    runs-on: ubuntu-latest
+    name: PHP 8.4 deprecations
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - run: composer install --prefer-dist --no-interaction --no-progress
+
+      # The package must load clean under E_ALL. An implicitly-nullable
+      # parameter is a hard failure, not a warning we scroll past.
+      - name: Load every class with E_ALL
+        run: |
+          php -d error_reporting=E_ALL -r '
+            require "vendor/autoload.php";
+            new ReflectionClass("ArtflowStudio\Table\Http\Livewire\AftableComponent");
+            echo "loaded clean\n";
+          ' 2>&1 | tee /tmp/out.txt
+          ! grep -q "Deprecated" /tmp/out.txt

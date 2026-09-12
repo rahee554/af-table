@@ -2,15 +2,11 @@
 
 namespace ArtflowStudio\Table;
 
-use ArtflowStudio\Table\Commands\AFTableTestCommand;
 use ArtflowStudio\Table\Console\Commands\ClearPhantomColumnsCommand;
-use ArtflowStudio\Table\Console\Commands\ImprovedTestTraitCommand;
+use ArtflowStudio\Table\Console\Commands\MakeTableCommand;
 use ArtflowStudio\Table\Console\Commands\MigrateCommand;
-use ArtflowStudio\Table\Console\Commands\TestTraitCommand;
 use ArtflowStudio\Table\Http\Livewire\AftableComponent;
-use ArtflowStudio\Table\Http\Livewire\Datatable;
-use ArtflowStudio\Table\Http\Livewire\DatatableTrait;
-use ArtflowStudio\Table\Http\Livewire\TestTableComponent;
+use ArtflowStudio\Table\Support\GuardsActions;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Blaze\Blaze;
@@ -20,20 +16,27 @@ class TableServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // Register Livewire components
-        Livewire::component('aftable-simple', Datatable::class);
         Livewire::component('aftable', AftableComponent::class);
-        Livewire::component('aftable-legacy', DatatableTrait::class); // kept as backup alias
-        Livewire::component('test-table-component', TestTableComponent::class);
+
+        // Back-compat aliases. `aftable-simple` and `aftable-legacy` used to be
+        // two separate forks of this component, each with its own copy of the
+        // relation / JSON / sorting / filtering logic - so every fix had to be
+        // made three times, and in practice only ever landed in one. They now
+        // resolve to the maintained component: existing markup keeps working and
+        // silently gains every fix the forks never received.
+        //
+        // Deprecated since 1.6.0. Prefer `aftable`.
+        Livewire::component('aftable-simple', AftableComponent::class);
+        Livewire::component('aftable-legacy', AftableComponent::class);
 
         // Simple shorthand directives — equivalent to @livewire('aftable', [...])
         // Usage: @AFtable(['model' => App\Models\User::class, 'columns' => [...]])
         Blade::directive('AFtable', function ($expression) {
-            return "<?php echo \Livewire\Livewire::mount('aftable', {$expression})->html(); ?>";
+            return "<?php echo \Livewire\Livewire::mount('aftable', {$expression}); ?>";
         });
 
         Blade::directive('AFtableTrait', function ($expression) {
-            return "<?php echo \Livewire\Livewire::mount('aftable', {$expression})->html(); ?>";
+            return "<?php echo \Livewire\Livewire::mount('aftable', {$expression}); ?>";
         });
 
         // Paired directive — lets you wrap the table in a custom HTML skeleton.
@@ -63,7 +66,7 @@ class TableServiceProvider extends ServiceProvider
     if ($__aftableTpl !== '') {
         $__aftableParams['customTemplate'] = $__aftableTpl;
     }
-    echo \Livewire\Livewire::mount('aftable', $__aftableParams)->html();
+    echo \Livewire\Livewire::mount('aftable', $__aftableParams);
     unset($__aftableParams, $__aftableTpl);
 ?>
 PHP;
@@ -72,29 +75,58 @@ PHP;
         // Load package views
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'artflow-table');
 
-        // Load test routes
-        $this->loadRoutesFrom(__DIR__.'/../routes/test.php');
+        // Register migrations with the framework so `php artisan migrate`,
+        // `migrate:rollback` and `migrate:status` all see them. Previously
+        // MigrateCommand re-implemented migration discovery by hand.
+        // See AUDIT.md BUG-17.
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
+        // Demo routes (/aftable/test, /aftable/docs, /aftable/generator).
+        // These query the package's `test_*` tables and expose a code
+        // generator, so they are config-gated and never registered in
+        // production. Previously they loaded on every boot — including on
+        // production deployments, where /aftable/test 500s because the demo
+        // tables do not exist. See AUDIT.md STRUCT-09.
+        if ($this->demoRoutesEnabled()) {
+            $this->loadRoutesFrom(__DIR__.'/../routes/test.php');
+        }
 
         // Publishable assets
+        // NOTE: publishes the SAME directory that loadViewsFrom() reads. This
+        // used to point at src/resources/views — a stale duplicate tree — so
+        // `vendor:publish --tag=views` handed users unmaintained templates.
+        // See AUDIT.md BUG-27.
         $this->publishes([
-            __DIR__.'/resources/views' => resource_path('views/vendor/artflow-table'),
+            __DIR__.'/../resources/views' => resource_path('views/vendor/artflow-table'),
         ], 'views');
 
         $this->publishes([
             __DIR__.'/../resources/assets' => public_path('vendor/artflow-studio/table/assets'),
         ], 'assets');
 
+        $this->publishes([
+            __DIR__.'/../config/aftable.php' => config_path('aftable.php'),
+        ], 'aftable-config');
+
         // Blaze optimization — speeds up anonymous Blade components in the package.
         // Only activated when livewire/blaze is installed in the host application.
         $this->configureBlazeOptimization();
 
+        // Restrict which component methods a browser may invoke. Livewire treats
+        // every public method as an action, and this component has 400+ of them.
+        // See AUDIT.md SEC-05 and Support/GuardsActions.
+        Livewire::componentHook(GuardsActions::class);
+
         // Register Artisan commands
         if ($this->app->runningInConsole()) {
+            // The three `af-table:test*` commands were removed in 1.6.0. They
+            // exercised the legacy forks, asserted mostly via method_exists(),
+            // and 8 of one command's 13 suites were stubs that reported PASS
+            // without running anything. `composer test` replaces them with a
+            // real PHPUnit suite.
             $this->commands([
-                AFTableTestCommand::class,
-                TestTraitCommand::class,
-                ImprovedTestTraitCommand::class,
                 ClearPhantomColumnsCommand::class,
+                MakeTableCommand::class,
                 MigrateCommand::class,
             ]);
         }
@@ -102,7 +134,22 @@ PHP;
 
     public function register(): void
     {
-        //
+        $this->mergeConfigFrom(__DIR__.'/../config/aftable.php', 'aftable');
+    }
+
+    /**
+     * Should the demo/docs/generator routes be registered?
+     *
+     * Off in production regardless of config: these pages read demo tables and
+     * expose a code generator, neither of which belongs on a public host.
+     */
+    protected function demoRoutesEnabled(): bool
+    {
+        if (! (bool) config('aftable.routes.enabled', true)) {
+            return false;
+        }
+
+        return ! $this->app->environment('production');
     }
 
     /**
@@ -111,14 +158,30 @@ PHP;
      */
     protected function configureBlazeOptimization(): void
     {
-        if (! class_exists(Blaze::class)) {
-            return;
-        }
+        // `Blaze` is a FACADE: class_exists() on it is true the moment
+        // livewire/blaze is installed, which says nothing about whether
+        // BlazeServiceProvider has bound the `blaze` container entry yet. When
+        // this provider booted first the app died with
+        // `ReflectionException: Class "blaze" does not exist`.
+        // Defer to booted() so provider order stops mattering, and check the
+        // binding rather than the facade class. See AUDIT.md BUG-01.
+        $this->app->booted(function () {
+            if (! $this->app->bound('blaze')) {
+                return;
+            }
 
-        $componentsPath = __DIR__.'/../resources/views/components';
+            $componentsPath = __DIR__.'/../resources/views/components';
 
-        if (is_dir($componentsPath)) {
-            Blaze::optimize()->in($componentsPath);
-        }
+            if (! is_dir($componentsPath)) {
+                return;
+            }
+
+            try {
+                Blaze::optimize()->in($componentsPath);
+            } catch (\Throwable $e) {
+                // Blaze is an optimisation, never a hard requirement.
+                report($e);
+            }
+        });
     }
 }
