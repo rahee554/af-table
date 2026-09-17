@@ -1213,32 +1213,16 @@ class AftableComponent extends Component
         // Qualify so a relation-sort join cannot make this ambiguous.
         $column = $this->qualifyColumn($column);
 
-        switch ($operator) {
-            case '=':
-                $query->where($column, $value);
-                break;
-            case '!=':
-                $query->where($column, '!=', $value);
-                break;
-            case '>':
-                $query->where($column, '>', $value);
-                break;
-            case '>=':
-                $query->where($column, '>=', $value);
-                break;
-            case '<':
-                $query->where($column, '<', $value);
-                break;
-            case '<=':
-                $query->where($column, '<=', $value);
-                break;
-            case 'like':
-                $this->whereContains($query, $column, (string) $value);
-                break;
-            default:
-                $query->where($column, $value);
-                break;
+        if ($operator === 'like') {
+            $this->whereContains($query, $column, (string) $value);
+
+            return;
         }
+
+        $query->where($column, match ($operator) {
+            '!=', '>', '>=', '<', '<=' => $operator,
+            default => '=',
+        }, $value);
     }
 
     /**
