@@ -14,13 +14,9 @@ use ArtflowStudio\Table\Support\SchemaCache;
  * (validateAction/getActionConfig/userCanPerformAction/...) and assorted
  * dead helpers that lived alongside these were removed — none had a live
  * caller once HandlesActions::executeAction()/performAction(), their only
- * callers, were removed in audit finding 3.
- *
- * NOTE: validateJsonPath() is also dead (its only caller,
- * SortsRows::applySortByJson(), is dead too), but is kept here until that
- * caller is removed in audit finding 8 — deleting it earlier leaves a
- * dangling $this-> call that UndefinedMethodGuardTest correctly flags, even
- * though the call is unreachable.
+ * callers, were removed in audit finding 3. validateJsonPath() was removed
+ * for the same reason once SortsRows::applySortByJson(), its only caller,
+ * was removed in audit finding 8.
  */
 trait ValidatesInput
 {
@@ -58,19 +54,6 @@ trait ValidatesInput
             // "is it a column the developer declared?".
             return array_key_exists($column, $this->columns ?? []);
         }
-    }
-
-    /**
-     * Validate JSON path format
-     */
-    protected function validateJsonPath($jsonPath): bool
-    {
-        if (! is_string($jsonPath)) {
-            return false;
-        }
-
-        // Should be alphanumeric with dots for nesting
-        return preg_match('/^[a-zA-Z_][a-zA-Z0-9_.]*$/', $jsonPath) === 1;
     }
 
     /**

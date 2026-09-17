@@ -80,26 +80,6 @@ trait SortsRows
     }
 
     /**
-     * Apply sort by JSON column
-     */
-    protected function applySortByJson(Builder $query, array $columnConfig, string $direction)
-    {
-        if (! isset($columnConfig['key']) || ! isset($columnConfig['json'])) {
-            return;
-        }
-
-        $jsonColumn = $columnConfig['key'];
-        $jsonPath = $columnConfig['json'];
-
-        if (! $this->validateJsonPath($jsonPath)) {
-            return;
-        }
-
-        // Use JSON_EXTRACT for MySQL
-        $query->orderByRaw("JSON_EXTRACT({$jsonColumn}, '$.{$jsonPath}') {$direction}");
-    }
-
-    /**
      * Apply sort by relation
      * Now handles nested relations like 'student.user:name' properly
      */
@@ -186,30 +166,6 @@ trait SortsRows
     }
 
     /**
-     * Get sort icon class
-     */
-    public function getSortIcon($column): string
-    {
-        if ($this->sortColumn !== $column) {
-            return 'fas fa-sort'; // Neutral sort icon
-        }
-
-        return $this->sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
-    }
-
-    /**
-     * Get sort state
-     */
-    public function getSortState(): array
-    {
-        return [
-            'column' => $this->sortColumn,
-            'direction' => $this->sortDirection,
-            'sortable_columns' => array_keys($this->getSortableColumns()),
-        ];
-    }
-
-    /**
      * Get sortable columns
      */
     public function getSortableColumns(): array
@@ -280,27 +236,6 @@ trait SortsRows
     public function isColumnSorted($column): bool
     {
         return $this->sortColumn === $column;
-    }
-
-    /**
-     * Check if a column is currently sorted
-     * Alias for isColumnSorted from HasSorting trait
-     * Useful for displaying sort indicators in templates
-     */
-    public function isSorted(string $column): bool
-    {
-        // Delegate to HasSorting::isColumnSorted if available
-        if (method_exists($this, 'isColumnSorted')) {
-            return $this->isColumnSorted($column);
-        }
-
-        return $this->sortColumn === $column ?? false;
-    }
-
-    /** Qualify an ORDER BY column when the component knows how. */
-    protected function qualifySortColumn(string $column): string
-    {
-        return method_exists($this, 'qualifyColumn') ? $this->qualifyColumn($column) : $column;
     }
 
     /**
