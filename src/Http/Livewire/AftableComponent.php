@@ -4,7 +4,6 @@ namespace ArtflowStudio\Table\Http\Livewire;
 
 use ArtflowStudio\Table\Concerns\BuildsQueries;
 use ArtflowStudio\Table\Concerns\CachesResults;
-use ArtflowStudio\Table\Concerns\DispatchesEvents;
 use ArtflowStudio\Table\Concerns\ExportsData;
 use ArtflowStudio\Table\Concerns\HandlesActions;
 use ArtflowStudio\Table\Concerns\ManagesColumns;
@@ -52,7 +51,6 @@ class AftableComponent extends Component
      */
     use BuildsQueries;
     use CachesResults;
-    use DispatchesEvents;
     use ExportsData;
     use HandlesActions;
     use ManagesColumns;
@@ -857,8 +855,6 @@ class AftableComponent extends Component
             return $this->getStaticPaginatedData();
         }
 
-        $this->triggerBeforeQuery(null);
-
         try {
             $query = $this->buildUnifiedQuery();
 
@@ -969,8 +965,6 @@ class AftableComponent extends Component
             $this->invalidateQueryCache();
         }
 
-        $this->triggerSearchEvent($value, $oldValue);
-
         if ($this->enableSessionPersistence) {
             $this->saveSearchToSession($value);
         }
@@ -981,11 +975,7 @@ class AftableComponent extends Component
      */
     public function updatedFilters($value, $key)
     {
-        $columnKey = str_replace('filters.', '', $key);
-        $oldValue = $this->filters[$columnKey] ?? null;
-
         $this->resetPage();
-        $this->triggerFilterEvent($columnKey, $value, $oldValue);
 
         if ($this->enableSessionPersistence) {
             $this->saveFiltersToSession();
@@ -1013,9 +1003,6 @@ class AftableComponent extends Component
      */
     public function sortBy($column)
     {
-        $oldColumn = $this->sortColumn;
-        $oldDirection = $this->sortDirection;
-
         if ($this->sortColumn === $column) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
@@ -1028,19 +1015,10 @@ class AftableComponent extends Component
 
         $this->resetPage();
         $this->invalidateQueryCache();
-        $this->triggerSortEvent($this->sortColumn, $this->sortDirection, $oldColumn, $oldDirection);
 
         if ($this->enableSessionPersistence) {
             $this->saveSortingToSession();
         }
-    }
-
-    /** Previous page size, captured before Livewire overwrites $perPage. */
-    protected ?int $previousPerPage = null;
-
-    public function updatingPerPage($value): void
-    {
-        $this->previousPerPage = (int) $this->perPage;
     }
 
     /**
@@ -1048,11 +1026,8 @@ class AftableComponent extends Component
      */
     public function updatedPerPage($value)
     {
-        $oldValue = $this->previousPerPage ?? $value;
         $this->perPage = $value;
         $this->resetPage();
-
-        $this->triggerPaginationEvent(1, $value, $this->getPage(), $oldValue);
 
         if ($this->enableSessionPersistence) {
             $this->savePerPageToSession($value);

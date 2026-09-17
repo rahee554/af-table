@@ -240,12 +240,8 @@ trait SearchesRows
      */
     public function setSearch($searchTerm)
     {
-        $oldSearch = $this->search;
         $this->search = $this->sanitizeSearch($searchTerm);
         $this->resetPage();
-
-        // Trigger search event
-        $this->triggerSearchEvent($this->search, $oldSearch);
 
         // Auto-save if enabled
         if ($this->enableSessionPersistence ?? true) {
