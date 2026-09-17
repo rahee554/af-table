@@ -22,37 +22,6 @@ trait SearchesRows
      */
     private const LIKE_ESCAPE = '=';
 
-    protected $searchHistory = [];
-
-    protected $searchCache = [];
-
-    protected $lastSearchQuery = null;
-
-    /**
-     * Add advanced filter
-     * From HasAdvancedFiltering
-     */
-    public function addAdvancedFilter($column, $operator, $value)
-    {
-        if (! isset($this->advancedFilters)) {
-            $this->advancedFilters = [];
-        }
-
-        $this->advancedFilters[$column] = [
-            'operator' => $operator,
-            'value' => $value,
-            'created_at' => now()->toISOString(),
-        ];
-
-        $this->updateActiveFilterCount();
-        $this->resetPage();
-
-        // Auto-save state
-        if ($this->enableSessionPersistence ?? true) {
-            $this->saveFilterPreferences();
-        }
-    }
-
     /**
      * Neutralise LIKE metacharacters in a user-supplied term.
      *
@@ -167,9 +136,6 @@ trait SearchesRows
             return $query;
         }
 
-        // Store for debugging
-        $this->lastSearchQuery = $searchTerm;
-
         return $query->where(function ($subQuery) use ($searchTerm) {
             $this->applyColumnSearch($subQuery, $searchTerm);
             $this->applyRelationSearch($subQuery, $searchTerm);
@@ -201,40 +167,6 @@ trait SearchesRows
     }
 
     /**
-     * Clear specific advanced filter
-     * From HasAdvancedFiltering
-     */
-    public function clearAdvancedFilter($column)
-    {
-        if (isset($this->advancedFilters[$column])) {
-            unset($this->advancedFilters[$column]);
-            $this->updateActiveFilterCount();
-            $this->resetPage();
-
-            // Auto-save state
-            if ($this->enableSessionPersistence ?? true) {
-                $this->saveFilterPreferences();
-            }
-        }
-    }
-
-    /**
-     * Clear all advanced filters
-     * From HasAdvancedFiltering
-     */
-    public function clearAllAdvancedFilters()
-    {
-        $this->advancedFilters = [];
-        $this->activeFilterCount = 0;
-        $this->resetPage();
-
-        // Auto-save state
-        if ($this->enableSessionPersistence ?? true) {
-            $this->saveFilterPreferences();
-        }
-    }
-
-    /**
      * Set search value programmatically
      * From HasSearch
      */
@@ -247,15 +179,5 @@ trait SearchesRows
         if ($this->enableSessionPersistence ?? true) {
             $this->saveSearchToSession($this->search);
         }
-    }
-
-    /**
-     * Update active filter count
-     */
-    protected function updateActiveFilterCount()
-    {
-        $this->activeFilterCount = count(array_filter($this->advancedFilters ?? [], function ($filter) {
-            return ! empty($filter['value']);
-        }));
     }
 }

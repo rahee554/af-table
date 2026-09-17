@@ -49,7 +49,6 @@ class GuardsActions extends ComponentHook
         // filtering
         'addFilterInstance', 'removeFilterInstance', 'updateFilterInstance',
         'clearAllFilterInstances', 'clearAllFilters', 'clearFilters',
-        'addAdvancedFilter', 'clearAdvancedFilter', 'clearAllAdvancedFilters',
         'applyDateRange',
 
         // search
