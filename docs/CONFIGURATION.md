@@ -190,7 +190,6 @@ target route — do that in the controller or policy.
 | `prefix` | `aftable` | Key namespace |
 | `ttl.default` | `300` | Seconds |
 | `ttl.distinct_values` | `600` | Filter dropdown values |
-| `ttl.column_metadata` | `1800` | |
 | `ttl.schema` | `3600` | Column listings |
 | `redis.autodetect` | `true` | Probe for a working Redis |
 | `redis.probe_ttl` | `60` | How long a probe result is trusted |
@@ -204,9 +203,7 @@ client library loadable, and a live round-trip must succeed. See
 
 | Key | Default | Description |
 |---|---|---|
-| `search_min_chars` | `3` | Characters before search hits the database |
 | `max_distinct_values` | `1000` | Cap on a distinct filter's dropdown |
-| `per_page` | `10` | Default page size |
 | `per_page_options` | `[10,25,50,100,500]` | Page-size dropdown |
 
 ### theme
@@ -237,11 +234,8 @@ See [SECURITY.md](SECURITY.md).
 
 Never registered when `APP_ENV=production`, whatever `enabled` says.
 
-### raw_templates
-
-| Key | Default | Description |
-|---|---|---|
-| `path` | `storage/framework/cache/aftable` | Compiled `raw` templates |
+Compiled `raw` column templates are always cached under
+`storage_path('framework/cache/aftable')` — this is not configurable.
 
 ### generator
 

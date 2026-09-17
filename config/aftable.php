@@ -34,7 +34,6 @@ return [
         'ttl' => [
             'default' => 300,
             'distinct_values' => 600,
-            'column_metadata' => 1800,
             'schema' => 3600,
         ],
 
@@ -55,30 +54,11 @@ return [
     */
 
     'query' => [
-        // Minimum characters before the global search hits the database.
-        'search_min_chars' => 3,
-
         // Hard ceiling on rows returned for a distinct-value filter dropdown.
         'max_distinct_values' => 1000,
 
-        // Default and selectable page sizes.
-        'per_page' => 10,
+        // Selectable page sizes.
         'per_page_options' => [10, 25, 50, 100, 500],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Raw column templates
-    |--------------------------------------------------------------------------
-    |
-    | `raw` columns are compiled Blade, cached to disk by content hash. Keep
-    | this inside the application's own storage — never the shared OS temp
-    | directory, which is world-writable on most hosts.
-    |
-    */
-
-    'raw_templates' => [
-        'path' => storage_path('framework/cache/aftable'),
     ],
 
     /*

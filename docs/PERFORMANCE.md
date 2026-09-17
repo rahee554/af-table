@@ -44,15 +44,14 @@ Measured on the bench (`/aftable/test`): 12 tables, 77,000 rows, 43 queries,
 
 ### Let the cache do its job
 
-Distinct filter values, column metadata and schema lookups are cached. Defaults
-live in `config/aftable.php`:
+Distinct filter values and schema lookups are cached. Defaults live in
+`config/aftable.php`:
 
 ```php
 'cache' => [
     'ttl' => [
         'default'         => 300,
         'distinct_values' => 600,   // filter dropdowns
-        'column_metadata' => 1800,
         'schema'          => 3600,  // column listings
     ],
 ],
