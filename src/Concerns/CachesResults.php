@@ -16,27 +16,12 @@ use Illuminate\Support\Facades\Log;
 trait CachesResults
 {
     /**
-     * Unified cache configuration combining all caching strategies
+     * Unified cache configuration. Only these two keys are ever read; the
+     * rest of the strategy (TTL per kind, tagging) lives in Support\TableCache.
      */
     protected array $unifiedCacheConfig = [
-        'default_ttl' => 300, // 5 minutes
-        'tags_enabled' => null, // Will be auto-detected
         'prefix' => 'datatable',
-        'cache_duration' => 300,
         'cache_enabled' => true,
-        'intelligent_warming' => true,
-        'selective_invalidation' => true,
-    ];
-
-    /**
-     * Cache statistics for monitoring
-     */
-    protected array $cacheStats = [
-        'hits' => 0,
-        'misses' => 0,
-        'warmed_keys' => 0,
-        'invalidations' => 0,
-        'efficiency_score' => 0,
     ];
 
     /**
@@ -81,27 +66,7 @@ trait CachesResults
 
         $fullKey = $this->getCacheKey($key);
 
-        // Hit/miss accounting used to be meaningless: `misses` incremented
-        // inside the closure and `hits` incremented from a Cache::has() call
-        // made AFTER remember(), which is always true. Flip a flag inside the
-        // closure instead - it runs only on a miss, by definition.
-        // See AUDIT.md BUG-26.
-        $missed = false;
-
-        $result = TableCache::remember(
-            $fullKey,
-            $kind,
-            function () use ($callback, &$missed) {
-                $missed = true;
-
-                return $callback();
-            },
-            $this->getCacheTags()
-        );
-
-        $this->cacheStats[$missed ? 'misses' : 'hits']++;
-
-        return $result;
+        return TableCache::remember($fullKey, $kind, $callback, $this->getCacheTags());
     }
 
     /**
@@ -115,22 +80,6 @@ trait CachesResults
     public function count(object $model, string $relationName): int
     {
         return $this->getRelationCount($model, $relationName);
-    }
-
-    /**
-     * Determine cache duration based on data volatility
-     */
-    public function determineCacheDuration(string $type = 'default'): int
-    {
-        $durations = [
-            'query_results' => TableCache::ttl('default'),
-            'distinct_values' => TableCache::ttl('distinct_values'),
-            'static_data' => TableCache::ttl('schema'),
-            'user_preferences' => TableCache::ttl('column_metadata'),
-            'default' => TableCache::ttl('default'),
-        ];
-
-        return $durations[$type] ?? $durations['default'];
     }
 
     /**
@@ -174,7 +123,7 @@ trait CachesResults
     protected function getCachedDistinctValues(string $columnKey): array
     {
         $cacheKey = $this->generateDistinctValuesCacheKey($columnKey);
-        $cacheDuration = $this->determineCacheDuration('distinct_values');
+        $cacheDuration = TableCache::ttl('distinct_values');
 
         return $this->cacheRemember($cacheKey, $cacheDuration, function () use ($columnKey) {
             if (isset($this->columns[$columnKey]['relation'])) {
