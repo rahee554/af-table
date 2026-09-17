@@ -16,17 +16,6 @@ use Illuminate\Support\Facades\Log;
 trait BuildsQueries
 {
     /**
-     * Memory optimization configuration
-     */
-    protected array $optimizationConfig = [
-        'memory_threshold' => 40894464, // 39MB
-        'max_batch_size' => 500,
-        'enable_collection_optimization' => true,
-        'enable_memory_management' => true,
-        'enable_relationship_optimization' => true,
-    ];
-
-    /**
      * Apply custom query constraints.
      */
     protected function applyCustomQueryConstraints(Builder $query): void
@@ -53,30 +42,6 @@ trait BuildsQueries
             } catch (\Exception $e) {
                 Log::error('Custom query constraint error: '.$e->getMessage());
                 throw $e;
-            }
-        }
-    }
-
-    /**
-     * Apply filters to query
-     * Moved from DatatableTrait.php line 1675
-     */
-    protected function applyFilters(Builder $query)
-    {
-        if ($this->filterColumn && $this->filterValue !== null && $this->filterValue !== '') {
-            // Get the filter type for the current filter column
-            $filterType = isset($this->filters[$this->filterColumn]['type'])
-                ? $this->filters[$this->filterColumn]['type']
-                : 'text';
-
-            // For text filters, only apply if 3+ characters or empty
-            if ($filterType === 'text') {
-                if (empty($this->filterValue) || strlen(trim($this->filterValue)) >= 3) {
-                    $this->applyColumnFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
-                }
-            } else {
-                // For non-text filters, always apply
-                $this->applyColumnFilter($query, $this->filterColumn, $this->filterOperator, $this->filterValue);
             }
         }
     }
@@ -152,21 +117,6 @@ trait BuildsQueries
     }
 
     /**
-     * Apply JSON filter
-     */
-    protected function applyJsonFilter(Builder $query, string $jsonColumn, ?string $jsonPath, string $operator, $value)
-    {
-        $path = $jsonPath ?? 'data';
-        $fullPath = $jsonColumn.'->'.$path;
-
-        if ($operator === 'like' || $operator === 'LIKE') {
-            $this->whereContains($query, $fullPath, (string) $value);
-        } else {
-            $query->where($fullPath, $operator, $value);
-        }
-    }
-
-    /**
      * Apply optimized sorting to query
      * Moved from DatatableTrait.php line 1937
      */
@@ -201,18 +151,6 @@ trait BuildsQueries
         } else {
             // Fallback to ID sorting for consistency
             $query->orderBy('id', $direction);
-        }
-    }
-
-    /**
-     * Apply regular column filter
-     */
-    protected function applyRegularFilter(Builder $query, string $column, string $operator, $value)
-    {
-        if ($operator === 'like' || $operator === 'LIKE') {
-            $this->whereContains($query, $column, (string) $value);
-        } else {
-            $query->where($column, $operator, $value);
         }
     }
 
@@ -454,82 +392,7 @@ trait BuildsQueries
         }
     }
 
-    /**
-     * Get optimized with clauses
-     */
-    public function getOptimizedWith(): array
-    {
-        if (! isset($this->columns)) {
-            return [];
-        }
-
-        $relations = [];
-        foreach ($this->columns as $column) {
-            if (isset($column['relation'])) {
-                $relationParts = explode(':', $column['relation']);
-                $relations[] = $relationParts[0];
-            }
-        }
-
-        return array_unique($relations);
-    }
-
     abstract protected function isColumnSearchable($column): bool;
 
-    /**
-     * Optimize eager loading for relationships
-     */
-    public function optimizeEagerLoading(array $relations = []): array
-    {
-        if (empty($relations)) {
-            // Get relations from columns configuration if not provided
-            $relations = $this->getOptimizedWith();
-        }
-
-        return $this->optimizedFilter($relations, function ($relation) {
-            return ! empty($relation) && is_string($relation);
-        });
-    }
-
-    /**
-     * Memory-optimized filter operation
-     */
-    public function optimizedFilter(array $items, ?callable $callback = null): array
-    {
-        if ($callback === null) {
-            return array_filter($items);
-        }
-
-        $result = [];
-        foreach ($items as $key => $item) {
-            if ($callback($item, $key)) {
-                $result[$key] = $item;
-            }
-        }
-
-        return $result;
-    }
-
-    /**
-     * Memory-optimized mapWithKeys operation
-     */
-    public function optimizedMapWithKeys(array $items, callable $callback): array
-    {
-        $result = [];
-        foreach ($items as $key => $item) {
-            $mapped = $callback($item, $key);
-            if (is_array($mapped) && count($mapped) === 1) {
-                $mappedKey = array_keys($mapped)[0];
-                $result[$mappedKey] = $mapped[$mappedKey];
-            }
-        }
-
-        return $result;
-    }
-
     abstract protected function sanitizeSearch($search): string;
-
-    /**
-     * Abstract methods that must be implemented in the main class or other traits
-     */
 }

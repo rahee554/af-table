@@ -199,7 +199,7 @@ trait CachesResults
             // CRITICAL FIX: Do NOT apply filters when getting distinct values
             // The dropdown should show ALL available values, not just filtered ones
             $query = $this->model::query();
-            // Removed: $this->applyFilters($query);
+            // Deliberately not filtering this query — see comment above.
 
             if (isset($column['key'])) {
                 $columnName = $column['key'];
@@ -292,7 +292,7 @@ trait CachesResults
             // CRITICAL FIX: Do NOT apply filters when getting distinct values
             // The dropdown should show ALL available values, not just filtered ones
             $query = $this->model::query();
-            // Removed: $this->applyFilters($query);
+            // Deliberately not filtering this query — see comment above.
 
             // Get all records with their relations loaded
             $records = $query->with($relationPath)->get();
