@@ -1068,19 +1068,12 @@ class AftableComponent extends Component
     }
 
     /**
-     * Handle the 'refreshTable' Livewire event.
-     * Livewire 4: uses #[On] attribute instead of $listeners array.
+     * Refresh the table data — button action, and the handler for a
+     * dispatched 'refreshTable' Livewire event (Livewire 4: #[On] attribute
+     * instead of $listeners array). Invalidates the computed cache so the
+     * next render fetches fresh data.
      */
     #[On('refreshTable')]
-    public function refreshTableHandler(): void
-    {
-        $this->invalidateQueryCache();
-    }
-
-    /**
-     * Refresh the table data - button action.
-     * Invalidates the computed cache so the next render fetches fresh data.
-     */
     public function refreshTable(): void
     {
         $this->invalidateQueryCache();
@@ -1982,22 +1975,6 @@ class AftableComponent extends Component
     }
 
     /**
-     * Return the number of bulk-selected rows.
-     */
-    public function getBulkSelectedCount(): int
-    {
-        return count($this->selectedRows ?? []);
-    }
-
-    /**
-     * Return the number of action-selected rows (same set as bulk for this component).
-     */
-    public function getActionSelectedCount(): int
-    {
-        return count($this->selectedRows ?? []);
-    }
-
-    /**
      * Clear all selections.
      */
     public function clearSelection(): void
@@ -2012,7 +1989,7 @@ class AftableComponent extends Component
      */
     public function getSelectedCount(): int
     {
-        return $this->getBulkSelectedCount();
+        return count($this->selectedRows ?? []);
     }
 
     /**

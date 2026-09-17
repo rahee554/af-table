@@ -62,7 +62,7 @@ class GuardsActions extends ComponentHook
         'handleExport',
 
         // refresh
-        'refresh', 'refreshTable', 'refreshTableHandler', 'refreshComponent',
+        'refresh', 'refreshTable', 'refreshComponent',
 
         // pagination (Livewire\WithPagination)
         'gotoPage', 'nextPage', 'previousPage', 'setPage', 'resetPage',
