@@ -1605,14 +1605,6 @@ class AftableComponent extends Component
     }
 
     /**
-     * Handle bulk actions - Delegates to HasBulkActions
-     */
-    public function handleBulkAction($actionKey)
-    {
-        return $this->executeBulkAction($actionKey);
-    }
-
-    /**
      * Select all visible records - Delegates to HasBulkActions
      */
     public function selectAllVisible()

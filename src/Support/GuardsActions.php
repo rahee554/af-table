@@ -57,10 +57,7 @@ class GuardsActions extends ComponentHook
 
         // selection + bulk actions
         'selectAllVisible', 'selectAllOnPage', 'clearAllSelections', 'clearSelection',
-        'clearBulkSelection', 'clearActionSelection', 'handleBulkAction', 'executeBulkAction',
-
-        // row actions
-        'executeAction',
+        'clearBulkSelection', 'clearActionSelection',
 
         // export
         'handleExport',
