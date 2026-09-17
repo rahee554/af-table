@@ -62,11 +62,22 @@ final class Theme
         'button.action' => 'btn btn-sm btn-secondary',
 
         'dropdown' => 'dropdown me-2',
-        'dropdown.toggle' => 'btn btn-outline btn-sm dropdown-toggle',
+        // Was 'btn-outline' with no colour suffix — not a real Bootstrap
+        // class (unlike its 'button' sibling above, which correctly uses
+        // btn-outline-secondary). Bootstrap's base .btn has a transparent
+        // border/background until a variant class sets one, so this toggle
+        // rendered with no visible border or background at all: just text
+        // and a caret, indistinguishable from plain content until clicked.
+        'dropdown.toggle' => 'btn btn-outline-secondary btn-sm dropdown-toggle',
         'dropdown.menu' => 'dropdown-menu',
         'dropdown.item' => 'dropdown-item',
 
-        'responsive' => 'table-responsive rounded aftable-table-wrap',
+        // border-dark-subtle rather than plain `border`: the latter resolves
+        // to the theme's default card-border token, which is already so
+        // faint against a white card that the table looked borderless.
+        // border-dark-subtle is one step darker (ui-flow's --uf-border-strong)
+        // and is the outline that's actually visible.
+        'responsive' => 'table-responsive rounded border border-dark-subtle aftable-table-wrap',
         'table' => 'table table-bordered p-2',
         'thead' => '',
         'th' => 'fw-bold bg-light position-relative',
@@ -76,6 +87,7 @@ final class Theme
         'empty' => 'text-center align-middle py-5',
 
         'pagination' => 'artflow-table::livewire.pagination',
+        'pagination.footer' => 'pt-3 mt-1',
         'badge.muted' => 'text-muted ms-1',
     ];
 
@@ -127,6 +139,7 @@ final class Theme
         // Laravel ships a Tailwind paginator; use it rather than our
         // Bootstrap-classed one. Any view name works here.
         'pagination' => 'pagination::tailwind',
+        'pagination.footer' => 'pt-3 mt-1',
         'badge.muted' => 'text-xs text-gray-400 ml-1',
     ];
 
@@ -175,7 +188,63 @@ final class Theme
         'empty' => 'aft-empty',
         // Laravel's unstyled paginator - simple markup, no framework classes.
         'pagination' => 'pagination::simple-default',
+        'pagination.footer' => 'aft-pagination-footer',
         'badge.muted' => 'aft-muted',
+    ];
+
+    /**
+     * Artflow Studio's ui-flow admin theme. Same Bootstrap 5 foundation as
+     * {@see self::BOOTSTRAP} — ui-flow reskins Bootstrap's own selectors via
+     * CSS variables rather than inventing new class names — so only the
+     * slots ui-flow actually styles differently (soft buttons instead of
+     * outline, a borderless hover table, a `table-light` head) are declared
+     * here; the rest is a straight copy of the Bootstrap preset.
+     *
+     * @var array<string, string>
+     */
+    public const UI_FLOW = [
+        'wrapper' => 'aftable-wrapper',
+        'toolbar' => 'row mb-2',
+        'toolbar.start' => 'col',
+        'toolbar.end' => 'col d-flex justify-content-end',
+        'filters' => 'mb-3',
+        'filters.row' => 'row g-2 mb-2 align-items-end',
+        'filters.instance' => 'row g-2 mb-2 align-items-end border-start border-3 border-primary ps-3',
+        'filters.col' => 'col-12 col-sm-6 col-md-3',
+        'filters.col.sm' => 'col-12 col-sm-6 col-md-2',
+        'filters.col.value' => 'col-12 col-sm-4 col-md-3 col-lg-2',
+        'filters.col.auto' => 'col-auto',
+
+        'label' => 'form-label small text-muted',
+        'input' => 'form-control form-control-sm',
+        'select' => 'form-select form-select-sm',
+        'checkbox' => 'form-check-input',
+        'search' => 'form-control form-control-sm border-0 p-2 pe-4',
+
+        'button' => 'btn btn-sm btn-soft-secondary',
+        'button.primary' => 'btn btn-sm btn-soft-primary',
+        'button.danger' => 'btn btn-sm btn-soft-danger',
+        'button.warning' => 'btn btn-sm btn-soft-warning',
+        'button.success' => 'btn btn-sm btn-soft-success',
+        'button.action' => 'btn btn-sm btn-soft-primary',
+
+        'dropdown' => 'dropdown me-2',
+        'dropdown.toggle' => 'btn btn-soft-secondary btn-sm dropdown-toggle',
+        'dropdown.menu' => 'dropdown-menu',
+        'dropdown.item' => 'dropdown-item',
+
+        'responsive' => 'table-responsive aftable-table-wrap',
+        'table' => 'table table-hover table-borderless align-middle mb-0',
+        'thead' => 'table-light',
+        'th' => 'fw-bold position-relative',
+        'tbody' => '',
+        'tr' => '',
+        'td' => '',
+        'empty' => 'text-center align-middle py-5',
+
+        'pagination' => 'artflow-table::livewire.pagination',
+        'pagination.footer' => 'pt-3 mt-1',
+        'badge.muted' => 'text-muted ms-1',
     ];
 
     /** @var array<string, array<string, string>> Presets registered at runtime. */
@@ -201,6 +270,7 @@ final class Theme
             'bootstrap', 'bootstrap5' => self::BOOTSTRAP,
             'tailwind' => self::TAILWIND,
             'none', 'unstyled' => self::NONE,
+            'ui-flow' => self::UI_FLOW,
             default => self::$custom[$name] ?? self::BOOTSTRAP,
         };
     }
@@ -209,7 +279,7 @@ final class Theme
     public static function available(): array
     {
         return array_values(array_unique(array_merge(
-            ['bootstrap', 'tailwind', 'none'],
+            ['bootstrap', 'tailwind', 'none', 'ui-flow'],
             array_keys(self::$custom)
         )));
     }

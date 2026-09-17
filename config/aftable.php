@@ -108,8 +108,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | `preset` is the app-wide default: 'bootstrap' (the historical look),
-    | 'tailwind', 'none' (structural aft-* hooks only), or one registered with
-    | Theme::register(). `overrides` re-skins individual slots app-wide.
+    | 'tailwind', 'ui-flow' (Artflow Studio's admin theme), 'none' (structural
+    | aft-* hooks only), or one registered with Theme::register(). `overrides` re-skins individual slots app-wide.
     |
     | Per table:  @livewire('aftable', ['theme' => 'tailwind'])
     |             @livewire('aftable', ['classes' => ['table' => 'table my-look']])

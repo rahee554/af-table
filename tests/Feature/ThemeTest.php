@@ -98,6 +98,18 @@ class ThemeTest extends TestCase
         $this->assertSame('table table-bordered p-2', Theme::resolve('does-not-exist')['table']);
     }
 
+    #[Test]
+    public function the_ui_flow_preset_is_built_in(): void
+    {
+        $resolved = Theme::resolve('ui-flow');
+
+        $this->assertSame('table table-hover table-borderless align-middle mb-0', $resolved['table']);
+        $this->assertSame('btn btn-sm btn-soft-primary', $resolved['button.primary']);
+        // Slots ui-flow doesn't restyle fall back to the same value as bootstrap.
+        $this->assertSame('form-control form-control-sm', $resolved['input']);
+        $this->assertContains('ui-flow', Theme::available());
+    }
+
     // ------------------------------------------------------------ rendering
 
     #[Test]

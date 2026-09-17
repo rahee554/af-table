@@ -52,6 +52,7 @@ change; every other slot keeps the preset's value.
 |---|---|
 | `bootstrap` | Bootstrap 5 (default; the historical markup) |
 | `tailwind` | Tailwind 3/4 utilities, dark-mode aware, no build step |
+| `ui-flow` | Artflow Studio's ui-flow admin theme — same Bootstrap 5 markup, soft buttons and a borderless hover table instead of outline buttons and a bordered one |
 | `none` | No framework classes — only structural `aft-*` hooks |
 
 Presets and per-slot overrides compose: `'theme' => 'tailwind'` with

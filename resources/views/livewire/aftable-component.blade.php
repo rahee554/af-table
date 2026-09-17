@@ -280,15 +280,28 @@
                         data-bs-toggle="dropdown" aria-expanded="false">
                         Column Visibility
                     </button>
-                    <ul class="{{ $cls('dropdown.menu') }}" aria-labelledby="columnVisibilityDropdown">
+                    {{--
+                        width: max-content, not the theme's default dropdown-menu
+                        min-width: for a short column list ("Name", "Type"...) that
+                        default left acres of dead space to the right of every row.
+                        Centering each <li> independently was tried and reverted —
+                        it looks fine when every label is the same length, but
+                        column labels rarely are ("Transfer ID" vs "Date"), and
+                        centering per-row re-centers each switch under ITS OWN
+                        label's width, so the switches drift out of a straight
+                        column instead of staying aligned. Shrinking the menu to
+                        its content removes the dead space without touching each
+                        row's (already-correct) left alignment.
+                    --}}
+                    <ul class="{{ $cls('dropdown.menu') }}" style="width: max-content;" aria-labelledby="columnVisibilityDropdown">
                         @foreach ($columns as $columnKey => $column)
                             @php
                                 // Determine current visibility state
                                 $isCurrentlyVisible = isset($visibleColumns[$columnKey]) ? (bool)$visibleColumns[$columnKey] : !($column['hide'] ?? false);
                             @endphp
-                            <li class="cursor-pointer">
-                                <div class="form-check form-switch form-check-custom form-check-solid me-10">
-                                    <input class="form-check-input h-20px w-30px m-1" type="checkbox"
+                            <li class="px-3 py-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox"
                                         id="column-{{ $columnKey }}"
                                         wire:click="toggleColumnVisibility('{{ $columnKey }}')"
                                         {{ $isCurrentlyVisible ? 'checked' : '' }}>
@@ -708,8 +721,18 @@
         </table>
     </div>
 
-        {{-- Pagination footer: inside the same island so records change re-renders both table and pagination together --}}
-        <div>
+        {{--
+            Pagination footer: inside the same island so records change re-renders both
+            table and pagination together.
+
+            border-top is deliberate, not decorative: the theme's own .table zeroes the
+            LAST row's bottom border on the assumption the table sits flush against its
+            card's own edge (see ui-flow's _table.scss). A host that renders this footer
+            inside a PADDED card body (Bootstrap's .card-body, not .card-body-flush) has
+            no edge there to borrow — without this, the last row and the footer float
+            with nothing between them.
+        --}}
+        <div class="{{ $cls('pagination.footer') }}">
             @if(isset($data))
                 @php
                     // The pagination view is a theme slot, so a host application
