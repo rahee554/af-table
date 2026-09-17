@@ -1188,63 +1188,20 @@ class AftableComponent extends Component
             return;
         }
 
-        // NON-DISTINCT FILTERS: Filter through the relation
-        // Parse the relation string
-        $parsed = $this->parseRelationString($relationConfig);
+        // NON-DISTINCT FILTERS: Filter through the relation. Eloquent's
+        // whereHas() already resolves dot-separated nested relations
+        // natively — for 'a.b' it nests the whereHas calls itself and
+        // applies the callback to the innermost relation — so a single
+        // call handles both simple and nested relation strings.
+        $parsed = RelationPath::tryParse($relationConfig);
 
-        if (empty($parsed)) {
+        if (! $parsed) {
             return;
         }
 
-        $relationPath = $parsed['relationPath'];
-        $attribute = $parsed['attribute'];
-
-        // Filter through the relation for search/manual filters
-        if (strpos($relationPath, '.') !== false) {
-            // Nested relation - use nested whereHas
-            $this->applyNestedRelationFilter($query, $relationPath, $attribute, $operator, $value);
-        } else {
-            // Simple relation - use standard whereHas
-            $query->whereHas($relationPath, function ($q) use ($attribute, $operator, $value) {
-                $this->applyOperatorCondition($q, $attribute, $operator, $value);
-            });
-        }
-    }
-
-    /**
-     * Apply nested relation filter for multi-level relations
-     * e.g., 'student.user:name' => whereHas('student', function() { whereHas('user', ...) })
-     */
-    protected function applyNestedRelationFilter(Builder $query, string $relationPath, string $attribute, string $operator, $value): void
-    {
-        $parts = explode('.', $relationPath);
-
-        // Build nested whereHas calls from outside in
-        $this->buildNestedWhereHas($query, $parts, $attribute, $operator, $value);
-    }
-
-    /**
-     * Recursively build nested whereHas clauses
-     */
-    protected function buildNestedWhereHas(Builder $query, array $relationParts, string $attribute, string $operator, $value, int $depth = 0): void
-    {
-        if ($depth >= count($relationParts)) {
-            return;
-        }
-
-        $currentRelation = $relationParts[$depth];
-
-        if ($depth === count($relationParts) - 1) {
-            // Last relation - apply the filter
-            $query->whereHas($currentRelation, function ($q) use ($attribute, $operator, $value) {
-                $this->applyOperatorCondition($q, $attribute, $operator, $value);
-            });
-        } else {
-            // Intermediate relation - nest another whereHas
-            $query->whereHas($currentRelation, function ($q) use ($relationParts, $attribute, $operator, $value, $depth) {
-                $this->buildNestedWhereHas($q, $relationParts, $attribute, $operator, $value, $depth + 1);
-            });
-        }
+        $query->whereHas($parsed->path, function ($q) use ($parsed, $operator, $value) {
+            $this->applyOperatorCondition($q, $parsed->attribute, $operator, $value);
+        });
     }
 
     /**
@@ -1979,37 +1936,6 @@ class AftableComponent extends Component
         }
 
         return $jsonColumns;
-    }
-
-    /**
-     * Parse a relation string into components
-     * Handles nested relations like 'student.user:name' => ['student', 'student.user'], 'name'
-     * Required for proper relation handling in sorting, filtering, and searching
-     */
-    protected function parseRelationString(string $relationString): array
-    {
-        if (strpos($relationString, ':') === false) {
-            // Invalid format, return empty
-            return [];
-        }
-
-        [$relationPath, $attribute] = explode(':', $relationString, 2);
-
-        // Build progressive paths for nested relations
-        $relations = [];
-        $parts = explode('.', $relationPath);
-        $path = '';
-
-        foreach ($parts as $part) {
-            $path = $path ? "{$path}.{$part}" : $part;
-            $relations[] = $path;
-        }
-
-        return [
-            'relations' => $relations,
-            'relationPath' => $relationPath,
-            'attribute' => $attribute,
-        ];
     }
 
     // *----------- TRAIT CONFLICT RESOLUTION -----------*//
