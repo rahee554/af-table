@@ -105,6 +105,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Test mode
+    |--------------------------------------------------------------------------
+    |
+    | Loads the package's `test_*` demo tables (migrations) and the demo
+    | routes. OFF by default: a host application should not get ten extra
+    | tables or public demo pages. The package's own test suite turns it on.
+    |
+    */
+
+    'test_mode' => env('AFTABLE_TEST_MODE', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Demo routes
     |--------------------------------------------------------------------------
     |

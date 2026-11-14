@@ -41,6 +41,9 @@ abstract class TestCase extends Orchestra
             'foreign_key_constraints' => true,
         ]);
 
+        // The package's own tests need its demo tables and routes.
+        $app['config']->set('aftable.test_mode', true);
+
         $app['config']->set('cache.default', 'array');
         $app['config']->set('session.driver', 'array');
         $app['config']->set('view.paths', [

@@ -117,7 +117,10 @@ class ThemeTest extends TestCase
     {
         $this->table(['classes' => ['table' => 'my-grid', 'th' => 'my-head']])
             ->assertSeeHtml('class="my-grid"')
-            ->assertSeeHtml('class="my-head"');
+            // Not an exact `class="my-head"` match: sortable headers append
+            // `aftable-th--sortable` alongside whatever the 'th' slot resolves
+            // to, the same way a column's own th_class already does.
+            ->assertSeeHtml('my-head');
     }
 
     #[Test]
@@ -127,7 +130,7 @@ class ThemeTest extends TestCase
 
         $this->assertStringContainsString('aft-table', $html);
 
-        foreach (['table-bordered', 'form-control', 'btn btn-sm', 'fw-bold bg-light'] as $bootstrapism) {
+        foreach (['table-bordered', 'form-control', 'btn btn-sm', 'fw-bold bg-body-secondary'] as $bootstrapism) {
             $this->assertStringNotContainsString(
                 $bootstrapism,
                 $html,
@@ -160,7 +163,7 @@ class ThemeTest extends TestCase
             Theme::resolve('bootstrap')['pagination']
         );
         $this->assertSame('pagination::tailwind', Theme::resolve('tailwind')['pagination']);
-        $this->assertSame('pagination::simple-default', Theme::resolve('none')['pagination']);
+        $this->assertSame('artflow-table::livewire.pagination-none', Theme::resolve('none')['pagination']);
     }
 
     #[Test]

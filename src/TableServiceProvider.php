@@ -75,20 +75,19 @@ PHP;
         // Load package views
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'artflow-table');
 
-        // Register migrations with the framework so `php artisan migrate`,
-        // `migrate:rollback` and `migrate:status` all see them. Previously
-        // MigrateCommand re-implemented migration discovery by hand.
-        // See AUDIT.md BUG-17.
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        // The package's `test_*` demo tables and the demo/docs/generator routes
+        // (/aftable/test, /aftable/docs, /aftable/generator) exist only when
+        // `aftable.test_mode` is on. A host app never gets the tables or the
+        // routes unless it opts in. Test mode is off by default and the package
+        // test suite switches it on. The demo routes are additionally off in
+        // production and when `aftable.routes.enabled` is false. See AUDIT.md
+        // BUG-17 and STRUCT-09.
+        if ($this->testMode()) {
+            $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
-        // Demo routes (/aftable/test, /aftable/docs, /aftable/generator).
-        // These query the package's `test_*` tables and expose a code
-        // generator, so they are config-gated and never registered in
-        // production. Previously they loaded on every boot — including on
-        // production deployments, where /aftable/test 500s because the demo
-        // tables do not exist. See AUDIT.md STRUCT-09.
-        if ($this->demoRoutesEnabled()) {
-            $this->loadRoutesFrom(__DIR__.'/../routes/test.php');
+            if ($this->demoRoutesEnabled()) {
+                $this->loadRoutesFrom(__DIR__.'/../routes/test.php');
+            }
         }
 
         // Publishable assets
@@ -99,10 +98,6 @@ PHP;
         $this->publishes([
             __DIR__.'/../resources/views' => resource_path('views/vendor/artflow-table'),
         ], 'views');
-
-        $this->publishes([
-            __DIR__.'/../resources/assets' => public_path('vendor/artflow-studio/table/assets'),
-        ], 'assets');
 
         $this->publishes([
             __DIR__.'/../config/aftable.php' => config_path('aftable.php'),
@@ -143,6 +138,11 @@ PHP;
      * Off in production regardless of config: these pages read demo tables and
      * expose a code generator, neither of which belongs on a public host.
      */
+    protected function testMode(): bool
+    {
+        return (bool) config('aftable.test_mode', false);
+    }
+
     protected function demoRoutesEnabled(): bool
     {
         if (! (bool) config('aftable.routes.enabled', true)) {

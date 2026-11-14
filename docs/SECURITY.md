@@ -9,12 +9,12 @@ page records what the package does about each, and what it expects from you.
 ## The action surface
 
 **Livewire treats every public method on a component as an action any visitor
-can invoke with arbitrary arguments.** `AftableComponent` composes 27 traits and
+can invoke with arbitrary arguments.** `AftableComponent` composes ~11 traits and
 exposes 400+ public methods, almost all internal helpers that are public only so
 a sibling trait can reach them.
 
 The package therefore ships an **action allow-list**. Every client-initiated
-call passes through `Support\GuardsActions`, which permits the ~49 deliberate UI
+call passes through `Support\GuardsActions`, which permits the 42 deliberate UI
 actions and refuses everything else with a 403.
 
 ```php

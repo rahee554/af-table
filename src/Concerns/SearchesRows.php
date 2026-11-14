@@ -137,10 +137,36 @@ trait SearchesRows
         }
 
         return $query->where(function ($subQuery) use ($searchTerm) {
-            $this->applyColumnSearch($subQuery, $searchTerm);
-            $this->applyRelationSearch($subQuery, $searchTerm);
-            $this->applyJsonSearch($subQuery, $searchTerm);
+            foreach ($this->searchVariants($searchTerm) as $variant) {
+                $this->applyColumnSearch($subQuery, $variant);
+                $this->applyRelationSearch($subQuery, $variant);
+                $this->applyJsonSearch($subQuery, $variant);
+            }
         });
+    }
+
+    /**
+     * The forms of a search term worth looking for. A phone number is typed with spaces, dashes,
+     * brackets or a plus, and often in local form (`0313-9089173`) while it is stored as bare
+     * digits with a country code (`923139089173`); so for a phone-like term the digits-only form,
+     * and that form without its leading zero, are searched as well. Anything else is searched as typed.
+     *
+     * @return list<string>
+     */
+    protected function searchVariants(string $term): array
+    {
+        $variants = [$term];
+
+        if (preg_match('/^[+(]?\d[\d\s\-()]{2,}$/', $term) === 1) {
+            $digits = preg_replace('/\D+/', '', $term);
+            $variants[] = $digits;
+
+            if (str_starts_with($digits, '0')) {
+                $variants[] = ltrim($digits, '0');
+            }
+        }
+
+        return array_values(array_unique(array_filter($variants, fn (string $variant) => strlen($variant) >= 3)));
     }
 
     /**

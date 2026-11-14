@@ -57,7 +57,7 @@ live query count, render time and cache backend at the top.
 | **Export** | CSV always; Excel and PDF when the optional packages are installed |
 | **Print** | isolated pop-up, configurable paper size and orientation |
 | **Static mode** | feed it a Collection — zero queries |
-| **Theming** | Bootstrap, Tailwind, or none at all |
+| **Theming** | Bootstrap, Tailwind, ui-flow, or none at all |
 | **Caching** | auto-detects Redis, degrades gracefully without it |
 
 ---
@@ -117,7 +117,7 @@ No configuration required. Details in
 ## Security
 
 Livewire exposes every public method as an action a visitor can invoke, so the
-package ships an **action allow-list**: only the 49 deliberate UI actions are
+package ships an **action allow-list**: only the 42 deliberate UI actions are
 callable, everything else is refused with a 403. Filter and sort columns are validated against your declared configuration,
 so a hand-edited query string cannot reach a column you never exposed.
 

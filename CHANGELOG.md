@@ -6,6 +6,47 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.6.1] — unreleased
+
+### Fixed — security
+
+- **The browser could rewrite what a table reads.** `model`, `columns`, `filters`,
+  `query`, `actions`, `tableId`, `theme`, `classes`, `extraVars`, `customTemplate`,
+  `staticRows` and `isStaticMode` were ordinary public properties, and Livewire lets
+  the browser overwrite any public property that is not `#[Locked]`. A signed-in
+  visitor could point a table at another model, drop the `query` scope the host had
+  applied, or add columns the host never exposed. They are now locked
+  (`ConfigurationLockTest`). Server-side changes are unaffected.
+
+### Fixed
+
+- **`perPage` was ignored.** The page-size dropdown binds `records`, and `records` always
+  won over `perPage` (default 10 for both), so `'perPage' => 25` did nothing.
+- **A relation column's `format` was ignored for dates.** The cell was cast to a string
+  before the format was applied, printing `2019-04-27 00:00:00`; a relation date now uses
+  the column's `format` like a plain column.
+- **Searching a phone number failed unless typed exactly as stored.** `0313-9089173`, `0313 9089173` and `+92 313 9089173` now find `923139089173`: a phone-like term is also searched as bare digits, and without its leading zero.
+- **`'sortable' => false` was ignored on plain columns** (the header still drew sort
+  arrows). The "(Not Sortable)" tag is now shown only for nested relations and JSON
+  columns that did not say so themselves.
+
+### Added
+
+- **Filter bar (`quickFilters`).** The search box, a labelled dropdown per filter and a
+  clear button in one row — the layout the LMS enrollments page had built by hand —
+  instead of the generic "pick a column, then a value" filter. Options are declared,
+  locked server-side and can filter on a column or on the existence of a relation.
+  New mount parameters `quickFilters`, `searchLabel`, `searchPlaceholder`; new theme
+  slots `quickbar`, `quickbar.search`, `quickbar.col`, `quickbar.clear`, `input.group`,
+  `input.group.text`; new allowed action `clearQuickFilters`.
+- **Model scopes in `query`.** `'query' => ['scope:forInstitute' => 3]` calls the named
+  scope on the model (`scopeForInstitute`). Unlike a closure — which Livewire cannot
+  carry between requests, so a closure `query` was lost after the first render — it
+  survives the whole request cycle. A name the model does not define as a scope is
+  refused.
+
+---
+
 ## [1.6.0] — unreleased
 
 The first release after a full audit of 1.5.6. **61 defects fixed**, four of
@@ -129,7 +170,12 @@ the query even when the data island would only emit its placeholder (BUG-43) ·
 `$loop` referenced inside an `@for` in the skeleton component (BUG-44) · relation sort +
 search producing `ambiguous column name` (BUG-39) · compiled templates written
 to the world-writable OS temp directory (SEC-02) · client-callable HTTP helpers
-(SEC-06).
+(SEC-06) · the `BOOTSTRAP` preset's header cells and the loading skeleton used
+`bg-light`, a literal Bootstrap colour Bootstrap itself never remaps for dark
+mode — every header rendered near-white on any dark theme, ui-flow included,
+regardless of the surrounding page. Both now use `bg-body-secondary`, one of
+Bootstrap 5.3's theme-relative surface utilities, matching what the `UI_FLOW`
+preset already did by leaving the header bare (BUG-53).
 
 ### Added
 

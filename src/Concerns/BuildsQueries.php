@@ -23,7 +23,17 @@ trait BuildsQueries
         if (is_array($this->query)) {
             // Apply array-based constraints
             foreach ($this->query as $key => $value) {
-                if (is_string($key)) {
+                if (is_string($key) && str_starts_with($key, 'scope:')) {
+                    // A named scope on the model: ['scope:forInstitute' => 3] or ['scope:between' => [1, 5]].
+                    // Serialisable (unlike a closure), so it survives Livewire's request cycle.
+                    $scope = substr($key, 6);
+
+                    if (! $query->getModel()->hasNamedScope($scope)) {
+                        throw new \InvalidArgumentException("[{$scope}] is not a scope on ".$query->getModel()::class.'.');
+                    }
+
+                    $query->{$scope}(...(array) $value);
+                } elseif (is_string($key)) {
                     // Handle key-value pairs: ['status' => 'active']
                     $query->where($key, $value);
                 } elseif (is_array($value) && count($value) >= 2) {

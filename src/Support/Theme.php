@@ -37,9 +37,15 @@ final class Theme
      */
     public const BOOTSTRAP = [
         'wrapper' => 'aftable-wrapper',
-        'toolbar' => 'row mb-2',
-        'toolbar.start' => 'col',
-        'toolbar.end' => 'col d-flex justify-content-end',
+        'toolbar' => 'd-flex flex-wrap align-items-center gap-2 mb-2',
+        'toolbar.search' => 'position-relative w-md-250px me-2',
+        'toolbar.end' => 'ms-auto d-flex align-items-center gap-2',
+        'quickbar' => 'row g-3 align-items-end mb-3',
+        'quickbar.search' => 'col-12 col-lg-4',
+        'quickbar.col' => 'col-sm-6 col-lg',
+        'quickbar.clear' => 'col-auto ms-auto',
+        'input.group' => 'input-group',
+        'input.group.text' => 'input-group-text',
         'filters' => 'mb-3',
         'filters.row' => 'row g-2 mb-2 align-items-end',
         'filters.instance' => 'row g-2 mb-2 align-items-end border-start border-3 border-primary ps-3',
@@ -52,7 +58,7 @@ final class Theme
         'input' => 'form-control form-control-sm',
         'select' => 'form-select form-select-sm',
         'checkbox' => 'form-check-input',
-        'search' => 'form-control form-control-sm border-0 p-2 pe-4',
+        'search' => 'form-control form-control-sm border-0 p-2 ps-5 pe-4',
 
         'button' => 'btn btn-sm btn-outline-secondary',
         'button.primary' => 'btn btn-sm btn-outline-primary',
@@ -80,7 +86,20 @@ final class Theme
         'responsive' => 'table-responsive rounded border border-dark-subtle aftable-table-wrap',
         'table' => 'table table-bordered p-2',
         'thead' => '',
-        'th' => 'fw-bold bg-light position-relative',
+        // `small` restores the shrunk header text a global `#myTable th{font-size:.875rem}`
+        // rule used to provide package-wide. Plain Bootstrap gives a <th> no font-size
+        // reduction of its own — without this a header renders at the same size as the
+        // body text below it.
+        //
+        // bg-body-secondary, NOT bg-light: `.bg-light` reads `--bs-light-rgb`, a LITERAL
+        // Bootstrap colour that stays near-white in Bootstrap's own native dark mode too —
+        // by design, Bootstrap never remaps it, the same way it never remaps `--bs-dark-rgb`.
+        // A table header has to be theme-RELATIVE, not literally light, so it needs one of
+        // the utilities Bootstrap 5.3 added for exactly this (`--bs-secondary-bg`, which DOES
+        // flip under `[data-bs-theme=dark]`) — otherwise every dark theme, ui-flow included,
+        // gets a jarring white header band on an otherwise dark table.
+        'th' => 'fw-bold bg-body-secondary small position-relative',
+        'th.sortable' => 'aftable-th--sortable',
         'tbody' => '',
         'tr' => '',
         'td' => '',
@@ -99,8 +118,14 @@ final class Theme
     public const TAILWIND = [
         'wrapper' => 'aftable-wrapper space-y-3',
         'toolbar' => 'flex flex-wrap items-center gap-3',
-        'toolbar.start' => 'flex-1 min-w-0',
+        'toolbar.search' => 'relative w-full max-w-xs',
         'toolbar.end' => 'flex items-center gap-2 ml-auto',
+        'quickbar' => 'grid grid-cols-1 items-end gap-3 md:grid-cols-12 mb-3',
+        'quickbar.search' => 'md:col-span-5',
+        'quickbar.col' => 'md:col-span-3',
+        'quickbar.clear' => 'md:col-span-1 md:ml-auto',
+        'input.group' => 'flex items-stretch',
+        'input.group.text' => 'inline-flex items-center px-2 border border-r-0 rounded-l',
         'filters' => 'space-y-2',
         'filters.row' => 'flex flex-wrap items-end gap-2',
         'filters.instance' => 'flex flex-wrap items-end gap-2 border-l-2 border-blue-500 pl-3',
@@ -131,6 +156,7 @@ final class Theme
         'table' => 'min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm',
         'thead' => 'bg-gray-50 dark:bg-gray-800',
         'th' => 'px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap',
+        'th.sortable' => 'cursor-pointer select-none',
         'tbody' => 'divide-y divide-gray-100 dark:divide-gray-800',
         'tr' => 'hover:bg-gray-50 dark:hover:bg-gray-800/50',
         'td' => 'px-3 py-2 align-middle',
@@ -154,8 +180,14 @@ final class Theme
     public const NONE = [
         'wrapper' => 'aftable-wrapper',
         'toolbar' => 'aft-toolbar',
-        'toolbar.start' => 'aft-toolbar-start',
+        'toolbar.search' => 'aft-toolbar-search',
         'toolbar.end' => 'aft-toolbar-end',
+        'quickbar' => 'aft-quickbar',
+        'quickbar.search' => 'aft-quickbar-search',
+        'quickbar.col' => 'aft-quickbar-col',
+        'quickbar.clear' => 'aft-quickbar-clear',
+        'input.group' => 'aft-input-group',
+        'input.group.text' => 'aft-input-group-text',
         'filters' => 'aft-filters',
         'filters.row' => 'aft-filters-row',
         'filters.instance' => 'aft-filters-instance',
@@ -182,12 +214,17 @@ final class Theme
         'table' => 'aft-table',
         'thead' => 'aft-thead',
         'th' => 'aft-th',
+        'th.sortable' => 'aft-th-sortable',
         'tbody' => 'aft-tbody',
         'tr' => 'aft-tr',
         'td' => 'aft-td',
         'empty' => 'aft-empty',
-        // Laravel's unstyled paginator - simple markup, no framework classes.
-        'pagination' => 'pagination::simple-default',
+        // Laravel ships no framework-agnostic pagination view of its own —
+        // every built-in is Bootstrap- or Tailwind-branded, which 'none'
+        // promises not to emit. `pagination::simple-default` (previously
+        // named here) does not exist in any shipped Laravel version and
+        // 500s the instant a 'none'-themed table actually paginates.
+        'pagination' => 'artflow-table::livewire.pagination-none',
         'pagination.footer' => 'aft-pagination-footer',
         'badge.muted' => 'aft-muted',
     ];
@@ -204,9 +241,15 @@ final class Theme
      */
     public const UI_FLOW = [
         'wrapper' => 'aftable-wrapper',
-        'toolbar' => 'row mb-2',
-        'toolbar.start' => 'col',
-        'toolbar.end' => 'col d-flex justify-content-end',
+        'toolbar' => 'toolbar',
+        'toolbar.search' => 'toolbar-search',
+        'toolbar.end' => 'ms-auto d-flex align-items-center gap-2',
+        'quickbar' => 'row g-3 align-items-end mb-3',
+        'quickbar.search' => 'col-12 col-lg-4',
+        'quickbar.col' => 'col-sm-6 col-lg',
+        'quickbar.clear' => 'col-auto ms-auto',
+        'input.group' => 'input-group',
+        'input.group.text' => 'input-group-text',
         'filters' => 'mb-3',
         'filters.row' => 'row g-2 mb-2 align-items-end',
         'filters.instance' => 'row g-2 mb-2 align-items-end border-start border-3 border-primary ps-3',
@@ -219,7 +262,7 @@ final class Theme
         'input' => 'form-control form-control-sm',
         'select' => 'form-select form-select-sm',
         'checkbox' => 'form-check-input',
-        'search' => 'form-control form-control-sm border-0 p-2 pe-4',
+        'search' => 'form-control form-control-sm border-0 p-2 ps-5 pe-4',
 
         'button' => 'btn btn-sm btn-soft-secondary',
         'button.primary' => 'btn btn-sm btn-soft-primary',
@@ -235,8 +278,14 @@ final class Theme
 
         'responsive' => 'table-responsive aftable-table-wrap',
         'table' => 'table table-hover table-borderless align-middle mb-0',
-        'thead' => 'table-light',
-        'th' => 'fw-bold position-relative',
+        // ui-flow's own `.table>thead th` rule already sets font-weight,
+        // size, colour and background for a header cell — `table-light`
+        // and `fw-bold` would only re-declare (and, for weight, fight) what
+        // it already applies. ui-flow's own real markup ships a bare
+        // <thead> for exactly this reason.
+        'thead' => '',
+        'th' => 'position-relative',
+        'th.sortable' => 'sortable',
         'tbody' => '',
         'tr' => '',
         'td' => '',

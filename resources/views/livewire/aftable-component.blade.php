@@ -1,32 +1,70 @@
-@push('styles')
-    @once
-    <style>
-        .aftable-table-loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s ease; }
-    </style>
-    @endonce
-@endpush
+{{--
+    Package assets (CSS + JS). Set assets=false on the @livewire call to
+    disable when your theme covers these.
 
-{{-- Package assets (CSS + JS). Set assets=false on the @livewire call to disable when your theme covers these. --}}
+    Everything the table's own theme (bootstrap/tailwind/ui-flow/a custom
+    preset) already renders correctly — table borders, row hover, header
+    background — is deliberately NOT re-declared here. This used to hard-code
+    Bootstrap-3-era hex colours (#f8f9fa, #dee2e6, #495057, ...) on top of
+    whatever theme was active, which is why a `ui-flow`-themed table never
+    looked like the rest of a ui-flow app: these rules were fighting it. What
+    remains below is only the handful of things no theme provides on its own —
+    animations, and small structural hooks scoped to their own aftable-*
+    class so they can never leak onto an unrelated .dropdown-menu/.table
+    elsewhere on the host page the way the old unscoped `.dropdown-menu`/
+    `.table-responsive` rules did.
+--}}
 @if($assets)
 @assets
 <style>
-/* ── AF Table Package styles ─────────────────────────────────────── */
+.aftable-table-loading { opacity: .5; pointer-events: none; transition: opacity .15s ease; }
 .aftable-skeleton .placeholder { animation: aft-pulse 1.4s ease-in-out infinite; }
 @keyframes aft-pulse { 0%,100%{ opacity:.35 } 50%{ opacity:.7 } }
-.table-responsive { border-radius:.375rem; }
-#myTable { margin-bottom:0; background:#fff; }
-#myTable th { background:#f8f9fa !important; border-top:1px solid #dee2e6; font-weight:600;
-              font-size:.875rem; color:#495057; white-space:nowrap; }
-#myTable th[style*="cursor:pointer"] { user-select:none; transition:background-color .15s ease-in-out; }
-#myTable th[style*="cursor:pointer"]:hover { background:#e9ecef !important; }
-#myTable th span { display:inline-flex; align-items:center; gap:.25rem; }
-#myTable tbody tr { transition:background-color .15s ease-in-out; }
-#myTable tbody tr:hover { background:#f8f9fa; }
-.filter-indicator.active { border-color:#0d6efd !important; background:rgba(13,110,253,.05); }
-.table-fade { animation:aft-table-fade .18s ease; }
+.aftable-table-wrap { border-radius: .375rem; }
+.aftable-th--sortable { cursor: pointer; user-select: none; }
+.aftable-th--sortable:hover { background-color: var(--uf-surface-hover, rgba(0,0,0,.035)); }
+.aftable-th--sortable .aftable-icon { opacity: .5; }
+.aftable-th--sortable[aria-sort="ascending"] .aftable-icon,
+.aftable-th--sortable[aria-sort="descending"] .aftable-icon { opacity: 1; }
+/* ui-flow's own .sortable rule does the identical rotate for [aria-sort=descending];
+   this covers every other theme, which has no such rule of its own. Both compute
+   the same transform, so there is nothing to reconcile where both apply. */
+[aria-sort="descending"] svg { transform: rotate(180deg); }
+.aftable-toolbar-search { position: relative; }
+/* Targets the svg itself, not a wrapper element: under ui-flow the <i
+   data-lucide> this icon starts as gets REPLACED by Lucide's own <svg>, so a
+   rule scoped to a wrapper class stops matching the instant that swap runs. */
+.aftable-toolbar-search svg { position: absolute; inset-inline-start: .625rem; top: 50%;
+    transform: translateY(-50%); width: 15px; height: 15px;
+    pointer-events: none; color: var(--uf-text-subtle, #6c757d); }
+.aftable-toolbar-search input { padding-inline-start: 2rem; }
+.aftable-dropdown-menu { max-height: 400px; overflow-y: auto; }
+.aftable-dropdown-menu .form-check {
+    /* padding-block/-inline-end only — never padding-inline-start (or the
+       `padding` shorthand, which sets it too): a switch's own .form-switch
+       rule reserves that side via a padding it deliberately matches against
+       its input's negative pull-back margin (padding-inline-start: 2.5rem
+       paired with margin-inline-start: -2.5rem). A same-specificity rule
+       here that also sets padding-inline-start can win the cascade purely
+       on load order and shrink that reservation — the negative margin still
+       pulls the full 2.5rem regardless, so the switch overshoots past
+       wherever the smaller padding actually put the wrapper's edge. */
+    padding-block: .5rem; padding-inline-end: 1rem; margin: 0; border-bottom: 1px solid rgba(0,0,0,.06);
+    /* ui-flow's own .form-check is flex + flex-wrap: wrap (built for a
+       checkbox with a longer description beneath it) — nowrap keeps a
+       one-line "switch  label" row from dropping the switch onto its own
+       line the moment the menu is narrower than input+label combined. */
+    flex-wrap: nowrap;
+}
+.aftable-dropdown-menu .form-check:last-child { border-bottom: none; }
+.aftable-dropdown-menu .form-check-label {
+    /* ui-flow's own .form-check-label sizes at the BODY font size — sized
+       for a form field's label, not a compact dropdown-menu row. */
+    font-size: var(--uf-text-sm, .8125rem);
+}
+.filter-indicator.active { border-color: var(--uf-accent-600, #0d6efd) !important; background: var(--uf-accent-soft, rgba(13,110,253,.05)); }
+.table-fade { animation: aft-table-fade .18s ease; }
 @keyframes aft-table-fade { from{ opacity:.5; transform:translateY(2px) } to{ opacity:1; transform:none } }
-.dropdown-menu { max-height:400px; overflow-y:auto; }
-.dropdown-menu .form-check { padding:.5rem 1rem; margin:0; border-bottom:1px solid #f1f3f4; }
 </style>
 @endassets
 @endif
@@ -251,34 +289,80 @@
             @endif
         </div>
     @endif
-    <div class="{{ $cls('toolbar') }}">
-        <div class="col">
-            <div class="w-100px">
-              @if ($searchable)
-                <div class="position-relative w-md-250px me-2">
-                    <input type="text" wire:model.live.debounce.500ms="search" placeholder="Search (min 3 chars)..."
-                        class="{{ $cls('search') }}" minlength="3">
-
-                    @if (!empty($search))
-                        <span class="position-absolute top-50 end-0 translate-middle-y me-2 cursor-pointer text-muted"
-                            style="z-index: 1;" wire:click="$set('search', '')">
-                            &times;
-                        </span>
-                    @endif
+    @if (!empty($quickFilters))
+        {{--
+            Filter bar: the search box, one labelled dropdown per quick filter and a
+            clear button in a single row. Replaces the toolbar's own search box (below)
+            so there is never a second one. Filters and their options are locked
+            server-side (see AftableComponent::$quickFilters); a request that names
+            anything else is ignored.
+        --}}
+        <div class="{{ $cls('quickbar') }}">
+            @if ($searchable)
+                <div class="{{ $cls('quickbar.search') }}">
+                    <label class="{{ $cls('label') }}" for="{{ $this->getId() }}-search">{{ $searchLabel }}</label>
+                    <div class="{{ $cls('input.group') }}">
+                        <span class="{{ $cls('input.group.text') }}"><x-artflow-table::icon name="search" lucide="search" /></span>
+                        <input id="{{ $this->getId() }}-search" type="search" wire:model.live.debounce.300ms="search"
+                            class="{{ $cls('input') }}" placeholder="{{ $searchPlaceholder !== '' ? $searchPlaceholder : 'Type at least 3 characters' }}" autocomplete="off">
+                    </div>
                 </div>
             @endif
+
+            @foreach ($quickFilters as $quickKey => $quickFilter)
+                <div class="{{ $cls('quickbar.col') }}" wire:key="quick-{{ $quickKey }}">
+                    <label class="{{ $cls('label') }}" for="{{ $this->getId() }}-quick-{{ $quickKey }}">{{ $quickFilter['label'] }}</label>
+                    <select id="{{ $this->getId() }}-quick-{{ $quickKey }}" wire:model.live="quick.{{ $quickKey }}"
+                        class="{{ $cls('select', 'filter-indicator '.(($quick[$quickKey] ?? '') !== '' ? 'active' : '')) }}">
+                        <option value="">{{ $quickFilter['placeholder'] }}</option>
+                        @foreach ($quickFilter['options'] as $optionValue => $optionLabel)
+                            <option value="{{ $optionValue }}">{{ $optionLabel }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endforeach
+
+            <div class="{{ $cls('quickbar.clear') }}">
+                <button type="button" wire:click="clearQuickFilters" class="{{ $cls('button') }}" @disabled(! $this->hasActiveQuickFilters())
+                    aria-label="Clear filters" title="Clear filters">
+                    <x-artflow-table::icon name="refresh" lucide="rotate-ccw" />
+                </button>
             </div>
         </div>
+    @endif
 
+    @php
+        // With quickFilters set, the search box moves into the quickbar above
+        // (see the @if(!empty($quickFilters)) block) and never renders here.
+        // If none of colvis/export/refresh/print are enabled either, this
+        // toolbar has nothing to show — but its padding + border-bottom still
+        // rendered unconditionally, leaving a bare line floating above the
+        // table with nothing on it.
+        $showToolbar = ($searchable && empty($quickFilters)) || $colvisBtn || $exportable || $refreshBtn || $printable;
+    @endphp
+    @if ($showToolbar)
+    <div class="{{ $cls('toolbar') }}">
+        @if ($searchable && empty($quickFilters))
+            <div class="{{ $cls('toolbar.search', 'aftable-toolbar-search') }}">
+                <x-artflow-table::icon name="search" lucide="search" />
+                <input type="text" wire:model.live.debounce.500ms="search" placeholder="Search (min 3 chars)..."
+                    class="{{ $cls('search') }}" minlength="3">
+
+                @if (!empty($search))
+                    <span class="position-absolute top-50 end-0 translate-middle-y me-2 cursor-pointer text-muted"
+                        style="z-index: 1;" wire:click="$set('search', '')">
+                        &times;
+                    </span>
+                @endif
+            </div>
+        @endif
 
         <div class="{{ $cls('toolbar.end') }}">
-          
-
             @if ($colvisBtn == true)
                 <div class="{{ $cls('dropdown') }}" id="columnVisibilityDropdownWrapper">
                     <button class="{{ $cls('dropdown.toggle') }}" type="button" id="columnVisibilityDropdown"
                         data-bs-toggle="dropdown" aria-expanded="false">
-                        Column Visibility
+                        <x-artflow-table::icon name="columns" lucide="columns-3" /> <span>Column Visibility</span>
                     </button>
                     {{--
                         width: max-content, not the theme's default dropdown-menu
@@ -293,7 +377,7 @@
                         its content removes the dead space without touching each
                         row's (already-correct) left alignment.
                     --}}
-                    <ul class="{{ $cls('dropdown.menu') }}" style="width: max-content;" aria-labelledby="columnVisibilityDropdown">
+                    <ul class="{{ $cls('dropdown.menu', 'aftable-dropdown-menu') }}" style="width: max-content;" aria-labelledby="columnVisibilityDropdown">
                         @foreach ($columns as $columnKey => $column)
                             @php
                                 // Determine current visibility state
@@ -327,7 +411,7 @@
                         <x-artflow-table::icon name="download" /> Export
                     </button>
                     @php $exportFormats = $this->availableExportFormats(); @endphp
-                    <ul class="{{ $cls('dropdown.menu') }}" aria-labelledby="exportDropdown">
+                    <ul class="{{ $cls('dropdown.menu', 'aftable-dropdown-menu') }}" aria-labelledby="exportDropdown">
                         <li>
                             <a class="{{ $cls('dropdown.item') }}" href="#" wire:click.prevent="handleExport('csv')">
                                 <x-artflow-table::icon name="file" /> Export as CSV
@@ -367,6 +451,7 @@
             @endif
         </div>
     </div>
+    @endif
 
     {{-- Single island containing table + pagination footer: when records/sort/page changes inside, the whole island re-renders with fresh data --}}
     {{--
@@ -435,11 +520,16 @@
                     @endif
 
                     @if (!isset($index) || $index)
-                        <th class="{{ $cls('th') }}" wire:click.preserve-scroll="toggleSort('updated_at')" style="cursor:pointer;">
+                        @php $indexSorted = $sortBy == 'updated_at'; @endphp
+                        <th class="{{ $cls('th', $cls('th.sortable')) }}"
+                            wire:click.preserve-scroll="toggleSort('updated_at')"
+                            aria-sort="{{ $indexSorted ? ($sortDirection == 'asc' ? 'ascending' : 'descending') : 'none' }}">
                             <span class="d-inline-flex align-items-center">
                                 #
-                                @if ($sortBy == 'updated_at')
-                                    <span class="ms-1" style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
+                                @if ($indexSorted)
+                                    <x-artflow-table::icon name="chevron-up" lucide="chevron-up" class="ms-1" />
+                                @else
+                                    <x-artflow-table::icon name="chevrons-up-down" lucide="chevrons-up-down" class="ms-1" />
                                 @endif
                             </span>
                         </th>
@@ -458,7 +548,8 @@
                                 // JSON columns are never sortable (computed values)
                                 $isJsonColumn = isset($column['json']);
                                 // Function columns are never sortable, regular columns with keys are sortable unless nested or JSON
-                                $isSortable = !isset($column['function']) && isset($column['key']) && !$isNestedRelation && !$isJsonColumn;
+                                $declaredUnsortable = ($column['sortable'] ?? null) === false;
+                                $isSortable = !isset($column['function']) && isset($column['key']) && !$isNestedRelation && !$isJsonColumn && !$declaredUnsortable;
                                 
                                 // Count nesting levels for relation complexity
                                 $nestingLevel = 0;
@@ -467,22 +558,27 @@
                                     $nestingLevel = substr_count($relation, '.') + substr_count($attribute, '.');
                                 }
                             @endphp
-                            <th class="{{ $cls('th', $column['th_class'] ?? $column['class'] ?? '') }}"
+                            @php $columnSorted = $isSortable && $sortBy == $column['key']; @endphp
+                            <th class="{{ $cls('th', ($column['th_class'] ?? $column['class'] ?? '').($isSortable ? ' '.$cls('th.sortable') : '')) }}"
                                 @if($isSortable)
-                                    wire:click.preserve-scroll="toggleSort('{{ $column['key'] }}')" style="cursor:pointer;"
+                                    wire:click.preserve-scroll="toggleSort('{{ $column['key'] }}')"
+                                    aria-sort="{{ $columnSorted ? ($sortDirection == 'asc' ? 'ascending' : 'descending') : 'none' }}"
                                 @endif
                             >
                                 <span class="d-inline-flex align-items-center">
                                     {{ $column['label'] ?? ucfirst(str_replace('_', ' ', $columnKey)) }}
                                     {{-- <small class="text-muted ms-1">({{ $columnKey }})</small> --}}
-                                    @if ($isSortable && $sortBy == $column['key'])
-                                        <span class="ms-1"
-                                            style="font-size:1em; line-height:1;">{{ $sortDirection == 'asc' ? '↑' : '↓' }}</span>
+                                    @if ($isSortable)
+                                        @if ($columnSorted)
+                                            <x-artflow-table::icon name="chevron-up" lucide="chevron-up" class="ms-1" />
+                                        @else
+                                            <x-artflow-table::icon name="chevrons-up-down" lucide="chevrons-up-down" class="ms-1" />
+                                        @endif
                                     @endif
-                                    @if($isNestedRelation)
+                                    @if($isNestedRelation && ! $declaredUnsortable)
                                         <small class="text-muted ms-1" title="Nested relations are not sortable for performance and stability reasons">(Not Sortable)</small>
                                     @endif
-                                    @if($isJsonColumn)
+                                    @if($isJsonColumn && ! $declaredUnsortable)
                                         <small class="text-muted ms-1" title="JSON columns are not sortable (computed values)">(Not Sortable)</small>
                                     @endif
                                 </span>
@@ -603,7 +699,9 @@
                                                 }
                                                 
                                                 // Format value for display
-                                                if (is_object($value) && method_exists($value, '__toString')) {
+                                                if ($value instanceof \DateTimeInterface) {
+                                                    $value = $value->format($column['format'] ?? 'Y-m-d H:i');
+                                                } elseif (is_object($value) && method_exists($value, '__toString')) {
                                                     $value = (string) $value;
                                                 } elseif (is_array($value)) {
                                                     $value = json_encode($value);
@@ -689,19 +787,24 @@
                                                         @endif
                                                         <button type="submit" class="{{ $class }}">
                                                             @if($icon)
-                                                                <i class="{{ $icon }}"></i>
+                                                                {{-- class= keeps a literal icon-font class (fa-*, ri-*, bi-*)
+                                                                     working exactly as before; data-lucide= is a harmless
+                                                                     no-op unless $icon is also a real Lucide name, in which
+                                                                     case the host's own lucide.createIcons() call (already
+                                                                     run over this component's re-rendered DOM) revives it. --}}
+                                                                <i class="{{ $icon }}" data-lucide="{{ $icon }}"></i>
                                                             @endif
                                                             {{ $label }}
                                                         </button>
                                                     </form>
                                                 @else
                                                     {{-- Link-based action for GET --}}
-                                                    <a href="{{ $url }}" 
+                                                    <a href="{{ $url }}"
                                                        class="{{ $class }}"
                                                        @if($confirm) onclick="return confirm('{{ $confirm }}')" @endif
                                                        wire:navigate>
                                                         @if($icon)
-                                                            <i class="{{ $icon }}"></i>
+                                                            <i class="{{ $icon }}" data-lucide="{{ $icon }}"></i>
                                                         @endif
                                                         {{ $label }}
                                                     </a>
@@ -888,6 +991,14 @@ function aftablePrint(tableId, cfg) {
             toggle?.setAttribute('aria-expanded', 'true');
             window._keepColumnDropdownOpen = false;
         }
+
+        // Livewire morphs this component's DOM in place rather than replacing
+        // it, so a ui-flow host's own icon/tooltip initialisers never see the
+        // patched markup on their own — there is no DOM event for an in-place
+        // morph, only this commit hook. refresh() is a safe no-op on any
+        // other theme (window.ArtflowAdmin is undefined there) and a correct
+        // no-op even under ui-flow when nothing it manages actually changed.
+        window.ArtflowAdmin?.refresh();
     };
 
     Livewire.hook('commit', ({ component, respond }) => {

@@ -28,6 +28,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -62,20 +63,25 @@ class AftableComponent extends Component
     use WithPagination;
 
     // *----------- Properties -----------*//
+    #[Locked]
     public $model;
 
+    #[Locked]
     public $columns = [];
 
     public $visibleColumns = [];
 
     // *----------- Static / Foreach Mode -----------*//
     /** Raw rows for foreach/array data mode (max ~500 rows recommended for Livewire serialization) */
+    #[Locked]
     public array $staticRows = [];
 
     /** Whether we are operating on static data instead of an Eloquent model */
+    #[Locked]
     public bool $isStaticMode = false;
 
     /** Extra variables made available inside every `raw` column template via $varName or $vars['varName'] */
+    #[Locked]
     public array $extraVars = [];
 
     /**
@@ -83,6 +89,7 @@ class AftableComponent extends Component
      * When set, the component renders its rows/headers INTO this template instead
      * of the default Bootstrap table markup.
      */
+    #[Locked]
     public ?string $customTemplate = null;
 
     public $checkbox = false;
@@ -99,6 +106,7 @@ class AftableComponent extends Component
 
     public $selectAll = false;
 
+    #[Locked]
     public $filters = [];
 
     public $filterColumn = null;
@@ -127,8 +135,10 @@ class AftableComponent extends Component
 
     public $index = false;
 
+    #[Locked]
     public $tableId = null;
 
+    #[Locked]
     public $query = null;
 
     public $colvisBtn = true;
@@ -139,6 +149,7 @@ class AftableComponent extends Component
 
     public array $routeFallbacks = [];
 
+    #[Locked]
     public $actions = [];
 
     // Performance optimization properties
@@ -188,6 +199,7 @@ class AftableComponent extends Component
      * Named theme preset: 'bootstrap' (default), 'tailwind', 'none', or one
      * registered with Theme::register(). null uses `aftable.theme.preset`.
      */
+    #[Locked]
     public ?string $theme = null;
 
     /**
@@ -197,7 +209,44 @@ class AftableComponent extends Component
      *
      * @var array<string, string>
      */
+    #[Locked]
     public array $classes = [];
+
+    /**
+     * Quick filters: one labelled dropdown per entry, drawn in a filter bar
+     * together with the search box (search, dropdowns and a clear button in a
+     * single row) instead of the generic "pick a column, then a value" filter.
+     *
+     *   'quickFilters' => [
+     *       'status'    => ['label' => 'Status', 'options' => [0 => 'Pending', 1 => 'Active']],
+     *       'course_id' => ['label' => 'Course', 'options' => Course::pluck('title', 'id')->all()],
+     *       'type'      => ['label' => 'Type', 'options' => ['special' => 'Special', 'regular' => 'Regular'],
+     *                       'exists'  => ['special' => 'profile.specialProfile', 'regular' => '!profile.specialProfile']],
+     *   ]
+     *
+     * `column` (default: the key) is the model column compared with `=`; `exists`
+     * maps an option to a relation that must exist (or, prefixed with `!`, must
+     * not). Locked: the browser can pick an option, never redefine the filter.
+     *
+     * @var array<string, array{label: string, options: array<int|string, string>, column: string, placeholder: string, exists: array<string, string>}>
+     */
+    #[Locked]
+    public array $quickFilters = [];
+
+    /**
+     * The option chosen in each quick filter, keyed like $quickFilters.
+     *
+     * @var array<string, int|string|null>
+     */
+    public array $quick = [];
+
+    /** Label above the search box in the filter bar. */
+    #[Locked]
+    public string $searchLabel = 'Search';
+
+    /** Placeholder inside the search box in the filter bar. */
+    #[Locked]
+    public string $searchPlaceholder = '';
 
     /**
      * Defer the first data query until the rows scroll into view.
@@ -487,12 +536,21 @@ class AftableComponent extends Component
      * Component Initialization - Core Livewire method
      * PERFORMANCE FIX: Pre-load distinct values on mount
      */
-    public function mount($model = null, $columns = [], $filters = [], $actions = [], $index = false, $tableId = null, $query = null, $countAggregations = [], $sortBy = null, $sortDirection = null, $sort = null, $data = null, $vars = [], $customTemplate = null, $theme = null, $classes = [], $deferData = false)
+    public function mount($model = null, $columns = [], $filters = [], $actions = [], $index = false, $tableId = null, $query = null, $countAggregations = [], $sortBy = null, $sortDirection = null, $sort = null, $data = null, $vars = [], $customTemplate = null, $theme = null, $classes = [], $deferData = false, $quickFilters = [], $searchLabel = null, $searchPlaceholder = null)
     {
+        // `perPage` and `records` are the same setting (the template's page-size dropdown binds
+        // `records`); a host that passed `perPage` used to be ignored because `records` always won.
+        if ((int) $this->records === 10 && (int) $this->perPage !== 10) {
+            $this->records = (int) $this->perPage;
+        }
+
         // ---- Presentation ----
         $this->theme = is_string($theme) && $theme !== '' ? $theme : null;
         $this->classes = is_array($classes) ? array_filter($classes, 'is_string') : [];
         $this->deferData = (bool) $deferData;
+        $this->quickFilters = $this->normalizeQuickFilters($quickFilters);
+        $this->searchLabel = is_string($searchLabel) && $searchLabel !== '' ? $searchLabel : 'Search';
+        $this->searchPlaceholder = is_string($searchPlaceholder) ? $searchPlaceholder : '';
 
         // ---- Static / foreach mode detection ----
         $this->extraVars = is_array($vars) ? $vars : [];
@@ -809,6 +867,9 @@ class AftableComponent extends Component
             }
         }
 
+        // Quick filters (the dropdowns beside the search box)
+        $this->applyQuickFilters($query);
+
         // Additional filters from filterInstances
         if (! empty($this->filterInstances)) {
             $this->applyMultipleFilters($query);
@@ -979,6 +1040,93 @@ class AftableComponent extends Component
 
         if ($this->enableSessionPersistence) {
             $this->saveFiltersToSession();
+        }
+    }
+
+    /**
+     * A quick filter changed: back to page 1 with fresh results.
+     */
+    public function updatedQuick(): void
+    {
+        $this->resetPage();
+        $this->invalidateQueryCache();
+    }
+
+    /**
+     * Reset the quick filters and the search box, leaving sorting and columns alone.
+     */
+    public function clearQuickFilters(): void
+    {
+        $this->quick = [];
+        $this->search = '';
+
+        $this->resetPage();
+        $this->invalidateQueryCache();
+    }
+
+    /**
+     * True when the search box or any quick filter holds a value (drives the clear button).
+     */
+    public function hasActiveQuickFilters(): bool
+    {
+        return trim((string) $this->search) !== ''
+            || collect($this->quick)->filter(fn ($value) => is_scalar($value) && (string) $value !== '')->isNotEmpty();
+    }
+
+    /**
+     * @param  mixed  $definitions  the `quickFilters` mount parameter
+     * @return array<string, array{label: string, options: array<int|string, string>, column: string, placeholder: string, exists: array<string, string>}>
+     */
+    protected function normalizeQuickFilters(mixed $definitions): array
+    {
+        $normalized = [];
+
+        foreach ((array) $definitions as $key => $definition) {
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+
+            $definition = is_array($definition) ? $definition : [];
+            $options = $definition['options'] ?? [];
+
+            $normalized[$key] = [
+                'label' => (string) ($definition['label'] ?? ucfirst(str_replace('_', ' ', $key))),
+                'options' => collect($options instanceof \Closure ? $options() : $options)->map(fn ($label) => (string) $label)->all(),
+                'column' => (string) ($definition['column'] ?? $key),
+                'placeholder' => (string) ($definition['placeholder'] ?? 'All'),
+                'exists' => array_map('strval', (array) ($definition['exists'] ?? [])),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Apply every quick filter that holds one of its own declared options; any
+     * other value (a hand-edited request) is ignored.
+     */
+    protected function applyQuickFilters(Builder $query): void
+    {
+        foreach ($this->quickFilters as $key => $definition) {
+            $value = $this->quick[$key] ?? '';
+
+            if (! is_scalar($value) || (string) $value === '' || ! array_key_exists($value, $definition['options'])) {
+                continue;
+            }
+
+            $value = (string) $value;
+
+            if (isset($definition['exists'][$value])) {
+                $relation = $definition['exists'][$value];
+
+                str_starts_with($relation, '!')
+                    ? $query->whereDoesntHave(substr($relation, 1))
+                    : $query->whereHas($relation);
+
+                continue;
+            }
+
+            $this->applyOperatorCondition($query, $definition['column'], '=', $value);
         }
     }
 
@@ -1714,6 +1862,7 @@ class AftableComponent extends Component
         $this->filterOperator = '=';
         $this->filterValue = null;
         $this->filterInstances = [];
+        $this->quick = [];
         $this->dateColumn = null;
         $this->startDate = null;
         $this->endDate = null;
@@ -2290,8 +2439,13 @@ class AftableComponent extends Component
         // produces bare "echo e(...);" code which PHP's file include treats as
         // HTML text and outputs literally.
 
-        // Merge component-level extraVars so templates can access keys directly
-        $data = array_merge(['row' => $row, 'vars' => $this->extraVars], $this->extraVars);
+        // Merge component-level extraVars so templates can access keys directly.
+        // `__env` goes last so a rogue extraVar can never clobber it — Blade
+        // component tags (<x-.../>), @include, @each and @slot all compile
+        // down to `$__env->...` calls, and without it in scope every one of
+        // them fails with "Undefined variable $__env" the moment a raw
+        // template reaches for anything beyond @if/{{ }}.
+        $data = array_merge(['row' => $row, 'vars' => $this->extraVars], $this->extraVars, ['__env' => app('view')]);
 
         try {
             // Resolve (or create) a temp PHP file containing the compiled Blade.

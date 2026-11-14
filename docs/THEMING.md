@@ -126,7 +126,7 @@ ask for.
 | Slot | Element |
 |---|---|
 | `wrapper` | outermost `<div>` |
-| `toolbar`, `toolbar.start`, `toolbar.end` | the search / buttons row |
+| `toolbar`, `toolbar.search`, `toolbar.end` | the search / buttons row |
 | `filters`, `filters.row`, `filters.instance` | filter area and each stacked filter |
 | `filters.col`, `filters.col.sm`, `filters.col.value`, `filters.col.auto` | filter grid cells |
 | `label` | every `<label>` |
@@ -136,9 +136,11 @@ ask for.
 | `dropdown`, `dropdown.toggle`, `dropdown.menu`, `dropdown.item` | column-visibility and export menus |
 | `responsive` | the horizontal scroll container |
 | `table`, `thead`, `tbody`, `th`, `tr`, `td` | the table itself |
+| `th.sortable` | a sortable column's `<th>` — applied in addition to `th`, not instead of it |
 | `empty` | the "no data" cell |
 | `badge.muted` | the small "(Not Sortable)" hints |
 | `pagination` | **view name**, not a class — see below |
+| `pagination.footer` | wrapper around the pagination links |
 
 ### Per-column classes still work
 
@@ -159,6 +161,29 @@ are appended to it:
 
 It receives a standard `LengthAwarePaginator`, so Laravel's own
 `pagination::tailwind` works too.
+
+---
+
+## Icons
+
+Sort chevrons, the column-visibility icon and the search icon come from a
+dependency-free inline-SVG component (`x-artflow-table::icon`) — nothing 404s
+even if the host application never loads an icon library.
+
+Under the `ui-flow` preset specifically, the same icon also progressively
+upgrades to a real Lucide icon: passing a `lucide` name renders the inline SVG
+inside an `<i data-lucide="...">` wrapper, and a ui-flow host's own
+`createIcons()` call — wired to `window.ArtflowAdmin.refresh()`, run after
+every Livewire commit — swaps that wrapper for its own Lucide `<svg>`. Every
+other theme never calls `ArtflowAdmin.refresh()`, so the `<i>` keeps its
+inline SVG child and renders exactly as if `lucide` had never been passed —
+never a blank icon either way.
+
+`width`/`height` are set directly on the `<i data-lucide>` wrapper itself, not
+only on the inline SVG nested inside it. `createIcons()` copies attributes
+from the element it is replacing, so without size on the wrapper a
+ui-flow-rendered icon silently falls back to Lucide's own default (24px)
+instead of the size actually requested.
 
 ---
 

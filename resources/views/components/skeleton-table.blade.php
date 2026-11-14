@@ -25,7 +25,12 @@
                          to reference it and threw "Undefined variable "
                          the first time the component was actually rendered. --}}
                     @for ($i = 0; $i < $cols; $i++)
-                        <th class="bg-light">
+                        {{-- bg-body-secondary, not bg-light — see Theme.php's BOOTSTRAP
+                             preset comment; the real table's header uses the same
+                             adaptive class, so the skeleton would otherwise flash a
+                             near-white header on a dark theme for the instant before
+                             the real table replaces it. --}}
+                        <th class="bg-body-secondary">
                             <span class="placeholder-glow d-block">
                                 <span class="placeholder col-{{ $i === 0 ? 1 : ($i === $cols - 1 ? 3 : 6) }} rounded"></span>
                             </span>

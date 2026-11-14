@@ -125,6 +125,32 @@ Pass shared values through `vars`:
 
 Use `@{{ }}`, not `{{ }}` — see [CONFIGURATION.md](CONFIGURATION.md#columns).
 
+### Full Blade inside a raw column
+
+A `raw` template is not limited to `@if`/`@else`/`{{ }}`/`@php` — it compiles
+through Blade's own `compileString()`, so a Blade component tag, `@include`,
+`@each` and `@slot` all work too:
+
+```php
+['key' => 'status', 'label' => 'Status', 'raw' =>
+    '<x-app::status-badge :status="$row->status" />'],
+```
+
+`$__env` — the Blade view factory that every component tag, `@include`,
+`@each` and `@slot` compile down to — is injected into the template's render
+scope alongside `$row` and `$vars`, so this renders exactly as it would inside
+an ordinary `.blade.php` file.
+
+**A sharp edge if you document this in your own Blade comments:** Blade finds
+component tags with a regex over the raw file text, not by respecting comment
+boundaries — a `<x-.../>` written inside an HTML `<!-- -->` or a Blade
+`{{-- --}}` comment is still a candidate match. Blade's own comment-closing
+regex is also non-greedy, so if that comment's text happens to contain a
+literal `{{--` or `--}}` (easy to do while explaining this exact rule), the
+comment can close early and expose whatever follows it as real markup. Keep an
+example raw template with a component tag out of a `{{-- --}}` block, or keep
+that block free of literal `{{--`/`--}}` text.
+
 ---
 
 ## Scoping what the table can see

@@ -92,9 +92,9 @@ class ComponentBehaviourGuardTest extends TestCase
 
         $this->assertNotNull($salaryHeader, 'Could not locate the salary <th> in the rendered output.');
         $this->assertMatchesRegularExpression(
-            '/↑|↓/u',
+            '/aria-sort="(ascending|descending)"/',
             $salaryHeader,
-            'The salary header should carry the sort arrow after toggleSort(\'salary\').'
+            'The salary header should carry an aria-sort of ascending/descending after toggleSort(\'salary\').'
         );
     }
 

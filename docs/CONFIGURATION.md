@@ -29,7 +29,7 @@ php artisan vendor:publish --tag=aftable-config
 | `filters` | array | `[]` | Filter definitions — see below |
 | `actions` | array | `[]` | Row actions — see below |
 | `countAggregations` | array | `[]` | `['relation' => null]` adds a `{relation}_count` value |
-| `query` | array \| Closure | `null` | Base constraints applied to every page |
+| `query` | array | `null` | Base constraints applied to every page: `['status' => 'active']`, `[['total', '>', 100]]`, or a model scope, `['scope:forInstitute' => 3]`. A closure works on the first render only — Livewire cannot carry one between requests — so prefer a scope. Locked against the browser. |
 | `tableId` | string | model class | Identity for the DOM id and session keys |
 
 ### Behaviour
@@ -49,6 +49,42 @@ php artisan vendor:publish --tag=aftable-config
 | `dateColumn` | string | `null` | Column the date-range filter applies to |
 | `vars` | array | `[]` | Extra variables available inside `raw` templates |
 | `deferData` | bool | `false` | Render the shell immediately and load rows from a lazy island — see [PERFORMANCE.md](PERFORMANCE.md#defer-the-rows-on-heavy-pages) |
+
+### Filter bar (quick filters)
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `quickFilters` | array | `[]` | One labelled dropdown per entry, drawn with the search box in a single row |
+| `searchLabel` | string | `Search` | Label above the search box in the filter bar |
+| `searchPlaceholder` | string | *(hint)* | Placeholder inside the search box in the filter bar |
+
+```php
+'quickFilters' => [
+    'status'    => ['label' => 'Status', 'options' => [0 => 'Pending', 1 => 'Active', 5 => 'Completed']],
+    'course_id' => ['label' => 'Course', 'options' => Course::pluck('title', 'id')->all()],
+
+    // an option that means "this relation exists" (prefix the relation with ! for "does not exist")
+    'type' => [
+        'label'   => 'Type',
+        'options' => ['special' => 'Special', 'regular' => 'Regular'],
+        'exists'  => ['special' => 'profile.specialProfile', 'regular' => '!profile.specialProfile'],
+    ],
+],
+'searchLabel' => 'Search students',
+```
+
+| Key | Description |
+|---|---|
+| `label` | Text above the dropdown. Defaults to the humanised key. |
+| `options` | `value => label` array (or a closure returning one). Only these values are accepted. |
+| `column` | Column compared with `=`. Defaults to the key. |
+| `exists` | `option => relation`: keep rows where the relation exists, or (`!relation`) does not. |
+| `placeholder` | Text of the empty option. Defaults to `All`. |
+
+The bar replaces the toolbar's own search box (there is never a second one) and
+ends with a clear button that resets the dropdowns and the search. The
+definitions are `#[Locked]`: a request can pick one of the declared options and
+nothing else, so a hand-edited value never reaches the query.
 
 ### Presentation
 
@@ -110,6 +146,12 @@ disambiguated automatically (`preferences`, then `preferences_language`).
 Use `@{{ }}` inside `raw` templates. Plain `{{ }}` is compiled by the *parent*
 Blade file before the component ever sees the string. Both work; `@{{ }}` is the
 unambiguous one.
+
+A `raw` template compiles as full Blade, not just `@if`/`{{ }}` — a Blade
+component tag (`<x-.../>`), `@include`, `@each` and `@slot` all work too. See
+[RECIPES.md](RECIPES.md#full-blade-inside-a-raw-column) for an example and a
+comment-syntax gotcha worth knowing before you paste one into your own Blade
+comments.
 
 ---
 

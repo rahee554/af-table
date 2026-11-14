@@ -46,6 +46,11 @@ class TestEmployee extends Model
         return $this->first_name.' '.$this->last_name;
     }
 
+    public function scopeEngineers($query)
+    {
+        return $query->where('position', 'Engineer');
+    }
+
     public function company()
     {
         return $this->belongsTo(TestCompany::class, 'company_id');

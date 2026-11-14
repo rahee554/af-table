@@ -49,7 +49,7 @@ class GuardsActions extends ComponentHook
         // filtering
         'addFilterInstance', 'removeFilterInstance', 'updateFilterInstance',
         'clearAllFilterInstances', 'clearAllFilters', 'clearFilters',
-        'applyDateRange',
+        'applyDateRange', 'clearQuickFilters',
 
         // search
         'clearSearch', 'clearSearchInput', 'setSearch',
@@ -94,6 +94,29 @@ class GuardsActions extends ComponentHook
     ];
 
     /**
+     * Not a Livewire action at all — a JavaScript interop artifact. The
+     * `$wire` object Livewire's JS hands out is a Proxy whose `get` trap
+     * returns a bound server-call function for *any* property name it does
+     * not itself define. `JSON.stringify()` always probes an object for a
+     * `toJSON` method before serialising it — Alpine's reactivity,
+     * `$persist`, devtools, and any app/tooling code that logs a `$wire`
+     * reference (e.g. Laravel Boost's browser-log console interceptor) all
+     * do this without intending to invoke anything. The Proxy answers "yes,
+     * I have one" and calls it, turning an incidental stringify into a real
+     * server request for a method literally named `toJSON`, which no
+     * component defines.
+     *
+     * Unlike LIVEWIRE_INTERNAL, letting this one reach Livewire's real
+     * dispatcher is wrong even when permitted: no component defines
+     * `toJSON`, so it falls through to `MethodNotFoundException` (a 500)
+     * instead of the guard's 403. It is intercepted and no-opped here,
+     * before dispatch, so it is invisible either way.
+     *
+     * @var list<string>
+     */
+    private const NOOP = ['toJSON'];
+
+    /**
      * Livewire's per-call hook. Implement call(), not callCall(): the latter is
      * the base class dispatcher and returning from it breaks the finish chain.
      */
@@ -103,11 +126,19 @@ class GuardsActions extends ComponentHook
             return null;
         }
 
+        $method = (string) $method;
+
+        if (in_array($method, self::NOOP, true)) {
+            $returnEarly(null);
+
+            return null;
+        }
+
         if (! (bool) config('aftable.security.guard_actions', true)) {
             return null;
         }
 
-        if (self::permits((string) $method)) {
+        if (self::permits($method)) {
             return null;
         }
 

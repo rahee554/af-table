@@ -5,6 +5,7 @@ namespace ArtflowStudio\Table\Tests\Feature;
 use ArtflowStudio\Table\Http\Livewire\AftableComponent;
 use ArtflowStudio\Table\Tests\Support\ColumnSets;
 use ArtflowStudio\Table\Tests\TestCase;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -46,12 +47,17 @@ class UndefinedMethodGuardTest extends TestCase
     }
 
     #[Test]
-    #[TestDox('BUG-09 (fixed): updating a filters.* model fatals — saveFiltersToSession() is undefined')]
+    #[TestDox('BUG-09 (fixed): the filters.* update hook works — and the definitions are now locked against the browser')]
     public function updating_a_filter_model_does_not_fatal(): void
     {
-        $this->table(['filters' => ColumnSets::filters()])
-            ->set('filters.position', 'Engineer')
-            ->assertOk();
+        $component = $this->table(['filters' => ColumnSets::filters()]);
+
+        // The hook that used to fatal (saveFiltersToSession() undefined) still runs when the server calls it ...
+        $component->instance()->updatedFilters('Engineer', 'position');
+
+        // ... but the browser may no longer rewrite the filter definitions (see ConfigurationLockTest).
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+        $component->set('filters.position', 'Engineer');
     }
 
     #[Test]

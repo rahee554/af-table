@@ -31,6 +31,11 @@ class BootOrderTest extends Orchestra
         ];
     }
 
+    protected function defineEnvironment($app): void
+    {
+        $app['config']->set('aftable.test_mode', true);
+    }
+
     #[Test]
     public function the_application_boots_with_the_table_provider_registered_before_blaze(): void
     {
